@@ -34,13 +34,13 @@ struct triangle
 
 /*************************General maths and integer functions*****************************/
 
-inline int incp(int i, int p, int N)    //increment i with p for periodic boundary
+inline int incp(int i, int p, unsigned int N)    //increment i with p for periodic boundary
 {
     if(i+p<0) return (N+i+p);
     else return ((i+p)%N);
 }
 
-inline int incw(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+inline int incw(int i, int p, unsigned int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {
     if(i+p<0) return (-(i+p+1));
     if(i+p>N-1) return (2*N-(i+p+1));
@@ -53,7 +53,6 @@ inline int sign(int i)
     else return i/abs(i);
 }
 
-
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot();
@@ -62,18 +61,18 @@ double init_from_surface_file(void);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *x, double *y, double *z, double *phi, int *missed);
+void initial_cond(double *x, double *y, double *z, double *phi, unsigned int *missed);
 
-void phi_calc(double *x, double *y, double *z, int *missed, double *phi);
+void phi_calc(double *x, double *y, double *z, unsigned int *missed, double *phi);
 
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v, double *ucv, int *missed);
+void uv_initialise(double *phi, double *u, double *v, double *ucv, unsigned int *missed);
 void crossgrad_calc(double *u, double *v, double *ucv);
 void uv_update(double *u, double *v);
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi(double *x, double *y, double*z, int *missed, double *phi);
+void print_B_phi(double *x, double *y, double*z, unsigned int *missed, double *phi);
 void print_uv(double *u, double *v, double *ucv, double t);
-int phi_file_read(double *phi, int *missed);
+int phi_file_read(double *phi, unsigned int *missed);
 int uvfile_read(double *u,double *v);
