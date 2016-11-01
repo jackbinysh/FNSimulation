@@ -98,7 +98,9 @@ int main (int argc, char *argv[])
     {
         feout << i << ' ' << i << ' ' << (i+1) << " fixed\n";
     }
-    feout << npts << ' ' << npts << ' ' << 1 << " fixed\n";
+    feout << npts << ' ' << npts << ' ' << 1 << " fixed\n\n\n\n\n";
+    
+    feout << "read \n\n//Good command to use\n gogo1 := { K 30; u; g 10; K 30; u; g 10; r; u; g 10; u; }\n";
     
     feout.close();
     
