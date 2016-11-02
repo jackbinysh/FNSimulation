@@ -15,6 +15,7 @@
 #include <fstream>
 #include <math.h>
 #include <vector>
+#include <time.h>
 
 using namespace std;
 
