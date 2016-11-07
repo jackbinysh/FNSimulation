@@ -77,3 +77,4 @@ void print_B_phi(double *x, double *y, double*z, unsigned int *missed, double *p
 void print_uv(double *u, double *v, double *ucv, double t);
 int phi_file_read(double *phi, unsigned int *missed);
 int uvfile_read(double *u,double *v);
+void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic, unsigned int option, string knot_filename, string B_filename);
