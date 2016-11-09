@@ -84,9 +84,9 @@ int main (int argc, char *argv[])
             npts++;
             ss << buff;
             ss >> xpos >> ypos >> zpos;
-            feout << npts << ' ' << xpos << ' ' << ypos << ' ' << zpos << " fixed\n";
+            feout << fixed << npts  << ' ' << xpos << ' ' << ypos << ' ' << zpos << " fixed\n";
             if(npts>1) mmout << ',';
-            mmout << '{' << xpos << ',' << ypos << ',' << zpos << "}";
+            mmout << fixed << '{' << xpos << ',' << ypos << ',' << zpos << "}";
         }
     }
     
@@ -100,7 +100,7 @@ int main (int argc, char *argv[])
     }
     feout << npts << ' ' << npts << ' ' << 1 << " fixed\n\n\n\n\n";
     
-    feout << "read \n\n//Good command to use\n gogo1 := { K 30; u; g 10; K 30; u; g 10; r; u; g 10; u; }\n";
+    feout << "read \n\n//Good command to use\n  gogo1 := { r; u 2; V 50; u 2; r; V 50; u 2; g 10; r; V 50; u 2; V 50; }\n";
     
     feout.close();
     
