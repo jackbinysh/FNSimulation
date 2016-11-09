@@ -234,3 +234,6 @@ gogo := { r; u; r; g 2; u 2; g 2; t 0.08; u 2; g 5; u 2; }
 
 // run command
 go100 := { g 100; u 3; t 0.03; u 3 }
+
+gogo1 := { r; u 2; V 50; u 2; r; V 50; u 2; g 10; r; V 50; u 2; V 50; }
+

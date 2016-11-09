@@ -97,4 +97,4 @@ faces
 read 
 
 //Good command to use
- gogo1 := { K 30; u; g 10; K 30; u; g 10; r; u; g 10; u; }
+ gogo1 := { K 50; r; u 2; V 50; u 2; r; V 50; u 2; g 10; r; V 50; u 2;  }

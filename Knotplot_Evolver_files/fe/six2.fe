@@ -1,5 +1,4 @@
 // Surface Evolver template for knotplot generated file six_two
-// Alexander polynomial -t^2 + 3t - 3 + 3t^(-1) - t^(-2) 
 
 vertices
 
@@ -198,4 +197,4 @@ faces
 read 
 
 //Good command to use
- gogo1 := { K 30; u; g 10; K 30; u; g 10; r; u; g 10; u; }
+gogo1 := { r; u 2; V 50; u 2; r; V 50; u 2; g 10; r; V 50; u 2; V 50; }
