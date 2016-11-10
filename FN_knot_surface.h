@@ -1,7 +1,6 @@
-
 //
 //  FN_knot_code.h
-//  
+//
 //
 //  Created by Carl Whitfield on 17/05/2016.
 //
@@ -22,6 +21,8 @@ using namespace std;
 #define FROM_PHI_FILE 0
 #define FROM_SURFACE_FILE 1
 #define FROM_UV_FILE 2
+
+const double sixth = 1.0/6.0;
 
 struct triangle
 {
@@ -62,20 +63,21 @@ double init_from_surface_file(void);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *x, double *y, double *z, double *phi, unsigned int *missed);
+void initial_cond(double *x, double *y, double *z, double *phi,  int *missed);
 
-void phi_calc(double *x, double *y, double *z, unsigned int *missed, double *phi);
+void phi_calc(double *x, double *y, double *z,  int *missed, double *phi);
 
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v, double *ucv, unsigned int *missed);
+void uv_initialise(double *phi, double *u, double *v, double *ucv,  int *missed);
 void crossgrad_calc(double *u, double *v, double *ucv);
-void uv_update(double *u, double *v, double **ku, double **kv, double *uold, double *vold);
+void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
+void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi(double *x, double *y, double*z, unsigned int *missed, double *phi);
+void print_B_phi(double *x, double *y, double*z,  int *missed, double *phi);
 void print_uv(double *u, double *v, double *ucv, double t);
-int phi_file_read(double *phi, unsigned int *missed);
+int phi_file_read(double *phi,  int *missed);
 int uvfile_read(double *u,double *v);
-void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic, unsigned int option, string knot_filename, string B_filename);
+void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);
