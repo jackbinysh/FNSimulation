@@ -63,12 +63,12 @@ double init_from_surface_file(void);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *x, double *y, double *z, double *phi,  int *missed);
+void initial_cond(double *x, double *y, double *z, double *phi);
 
-void phi_calc(double *x, double *y, double *z,  int *missed, double *phi);
+void phi_calc(double *x, double *y, double *z, double *phi);
 
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v, double *ucv,  int *missed);
+void uv_initialise(double *phi, double *u, double *v, double *ucv);
 void crossgrad_calc(double *u, double *v, double *ucv);
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
@@ -76,8 +76,8 @@ void uv_update_euler(double *u, double *v, double *D2u);
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi(double *x, double *y, double*z,  int *missed, double *phi);
+void print_B_phi(double *x, double *y, double*z, double *phi);
 void print_uv(double *u, double *v, double *ucv, double t);
-int phi_file_read(double *phi,  int *missed);
+int phi_file_read(double *phi);
 int uvfile_read(double *u,double *v);
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);
