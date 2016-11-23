@@ -39,6 +39,9 @@ struct knotpoint
     double xcoord;   //position vector x coord
     double ycoord;   //position vector y coord
     double zcoord;   //position vector z coord
+    double ax;       //grad vector x coord
+    double ay;       //grad vector y coord
+    double az;       //grad vector z coord
     double twist;    //local twist value
     double writhe;   //local writhe value
     double length;   //length of line
@@ -80,7 +83,7 @@ void phi_calc(double *x, double *y, double *z, double *phi);
 //FitzHugh Nagumo functions
 void uv_initialise(double *phi, double *u, double *v);
 void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
-void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double t);
+void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double* u,double t);
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
