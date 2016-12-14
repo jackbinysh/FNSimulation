@@ -91,11 +91,14 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
 
+// 3d geometry functions
+int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
+
 /*************************File reading and writing*****************************/
 
 void print_B_phi(double *x, double *y, double*z, double *phi);
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
-void print_knot(double *x, double *y, double *z, double t);
+void print_knot(double *x, double *y, double *z, double t, std::vector<knotpoint>& knotcurve);
 int uvfile_read(double *u,double *v);
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);
