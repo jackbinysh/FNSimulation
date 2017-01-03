@@ -1,0 +1,21 @@
+\contentsline {title}{Simulations of Knots in Excitable Media}{1}{section*.2}
+\contentsline {abstract}{Abstract}{1}{section*.1}
+\tocdepth@munge 
+\contentsline {section}{\numberline {}Contents}{1}{section*.3}
+\tocdepth@restore 
+\contentsline {section}{\numberline {I}Background}{2}{section*.4}
+\contentsline {subsection}{\numberline {A}Excitable Media and the FitzHugh-Nagumo Model}{2}{section*.5}
+\contentsline {section}{\numberline {II}Numerical Simulation Code}{2}{section*.6}
+\contentsline {subsection}{\numberline {A}Outline}{2}{section*.7}
+\contentsline {subsection}{\numberline {B}Initialisation Method I: Surface Integral}{4}{section*.8}
+\contentsline {subsection}{\numberline {C}Initialisation Method II: Line Integral}{6}{section*.9}
+\contentsline {subsection}{\numberline {D}Initialisation from file}{8}{section*.10}
+\contentsline {section}{\numberline {III}FitzHugh-Nagumo Dynamics}{8}{section*.11}
+\contentsline {subsubsection}{\numberline {1}Euler-forward update}{10}{section*.12}
+\contentsline {subsubsection}{\numberline {2}Runge-Kutta update}{10}{section*.13}
+\contentsline {subsubsection}{\numberline {3}Output}{11}{section*.14}
+\contentsline {subsection}{\numberline {A}Numerical ``Hummingbird''}{11}{section*.15}
+\contentsline {section}{\numberline {IV}Convergence and Accuracy Tests}{11}{section*.16}
+\contentsline {section}{\numberline {V}Results}{11}{section*.17}
+\contentsline {section}{\numberline {VI}Future Directions and Open Questions}{11}{section*.18}
+\contentsline {section}{\numberline {}References}{11}{section*.19}
