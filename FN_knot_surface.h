@@ -78,14 +78,22 @@ double initialise_knot();
 
 double init_from_surface_file(void);
 
+double init_from_knot_file(void);
+
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *x, double *y, double *z, double *phi);
+void initial_cond(double *x, double *y, double *z, double *phi, int *missed);
 
 void phi_calc(double *x, double *y, double *z, double *phi);
 
+void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed);
+
+void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi);
+
+int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag);
+
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v);
+void uv_initialise(double *phi, double *u, double *v, int* missed);
 void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
 void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double* u,double t);
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
@@ -97,7 +105,7 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi(double *x, double *y, double*z, double *phi);
+void print_B_phi(double *x, double *y, double*z, double *phi, int *missed);
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
 void print_knot(double *x, double *y, double *z, double t, std::vector<knotpoint>& knotcurve);
