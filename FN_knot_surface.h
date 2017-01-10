@@ -80,6 +80,8 @@ double init_from_surface_file(void);
 
 double init_from_knot_file(void);
 
+void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
+
 /*************************Functions for B and Phi calcs*****************************/
 
 void initial_cond(double *x, double *y, double *z, double *phi, int *missed);
