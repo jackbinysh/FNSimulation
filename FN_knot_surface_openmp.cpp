@@ -23,7 +23,7 @@
 /**************************************************************************************/
 #include "FN_knot_surface.h"    //contains some functions and all global variables
 #include <omp.h>
-#define RK4 0         //1 to use Runge Kutta 4th order method, 0 for euler forward method
+#define RK4 1         //1 to use Runge Kutta 4th order method, 0 for euler forward method
 //includes for the signal processing
 #include <gsl/gsl_min.h>
 #include <gsl/gsl_vector.h>
@@ -34,7 +34,7 @@ FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
 FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotplot output)
  */
 
-int option = FROM_KNOT_FILE;         //unknot default option
+int option = FROM_UV_FILE;         //unknot default option
 const bool periodic = false;                     //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -42,20 +42,20 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uvplot_in.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot20.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 201;   //No. points in x,y and z
-const int Ny = 201;
-const int Nz = 201;
-const double TTime = 0;         //total time of simulation (simulation units)
-const double skiptime = 500;       //print out every # unit of time (simulation units)
-const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
-const double dtime = 0.01;         //size of each time step
+const int Nx = 241;   //No. points in x,y and z
+const int Ny = 241;
+const int Nz = 241;
+const double TTime = 2000;         //total time of simulation (simulation units)
+const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double starttime = 20;        //Time at start of simulation (non-zero if continuing from UV file)
+const double dtime = 0.04;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
-const double size = 200;           //box size
+const double size = 5*lambda;           //box size
 const double h = size/(Nx-1);            //grid spacing
 const double oneoverhsq = 1.0/(h*h);
 const double epsilon = 0.3;                //parameters for F-N eqns
@@ -230,10 +230,10 @@ int main (void)
 					time (&rawtime);
 					timeinfo = localtime (&rawtime);
 					cout << "current time \t" << asctime(timeinfo) << "\n";
-					if(n*dtime+starttime>=50 && knotexists)
+					if(n*dtime+starttime>=20 && knotexists)
 					{
 						find_knot_properties(x,y,z,ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
-						//print_knot(x,y,z,n*dtime+starttime,knotcurve);
+						print_knot(x,y,z,n*dtime+starttime,knotcurve);
 					}
 					q++;
 				}
@@ -1046,14 +1046,15 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 			ucvys += prefactor*ucvy[pt(i,j,k)];
 			ucvzs += prefactor*ucvz[pt(i,j,k)];
 		}
+		norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
 		ucvxs = ucvxs/norm; //normalise
 		ucvys = ucvys/norm; //normalise
 		ucvzs = ucvzs/norm; //normalise
 
 		// okay we have our first guess, move forward in this direction
-		double testx = knotcurve[s-1].xcoord + 0.1*ucvxs*lambda/(32*M_PI);
-		double testy = knotcurve[s-1].ycoord + 0.1*ucvys*lambda/(32*M_PI);
-		double testz = knotcurve[s-1].zcoord + 0.1*ucvzs*lambda/(32*M_PI);
+		double testx = knotcurve[s-1].xcoord + 0.5*ucvxs*lambda/(2*M_PI);
+		double testy = knotcurve[s-1].ycoord + 0.5*ucvys*lambda/(2*M_PI);
+		double testz = knotcurve[s-1].zcoord + 0.5*ucvzs*lambda/(2*M_PI);
 
 		// now get the grad at this point
 		idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
@@ -1085,7 +1086,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 			graducvy += prefactor*(sqrt(ucvx[pt(i,incw(j,1,Ny),k)]*ucvx[pt(i,incw(j,1,Ny),k)] + ucvy[pt(i,incw(j,1,Ny),k)]*ucvy[pt(i,incw(j,1,Ny),k)] + ucvz[pt(i,incw(j,1,Ny),k)]*ucvz[pt(i,incw(j,1,Ny),k)]) - sqrt(ucvx[pt(i,incw(j,-1,Ny),k)]*ucvx[pt(i,incw(j,-1,Ny),k)] + ucvy[pt(i,incw(j,-1,Ny),k)]*ucvy[pt(i,incw(j,-1,Ny),k)] + ucvz[pt(i,incw(j,-1,Ny),k)]*ucvz[pt(i,incw(j,-1,Ny),k)]))/(2*h);
 			if(periodic) graducvz += prefactor*(sqrt(ucvx[pt(i,j,incp(k,1,Nz))]*ucvx[pt(i,j,incp(k,1,Nz))] + ucvy[pt(i,j,incp(k,1,Nz))]*ucvy[pt(i,j,incp(k,1,Nz))] + ucvz[pt(i,j,incp(k,1,Nz))]*ucvz[pt(i,j,incp(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incp(k,-1,Nz))]*ucvx[pt(i,j,incp(k,-1,Nz))] + ucvy[pt(i,j,incp(k,-1,Nz))]*ucvy[pt(i,j,incp(k,-1,Nz))] + ucvz[pt(i,j,incp(k,-1,Nz))]*ucvz[pt(i,j,incp(k,-1,Nz))]))/(2*h);
 			else graducvz += prefactor*(sqrt(ucvx[pt(i,j,incw(k,1,Nz))]*ucvx[pt(i,j,incw(k,1,Nz))] + ucvy[pt(i,j,incw(k,1,Nz))]*ucvy[pt(i,j,incw(k,1,Nz))] + ucvz[pt(i,j,incw(k,1,Nz))]*ucvz[pt(i,j,incw(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incw(k,-1,Nz))]*ucvx[pt(i,j,incw(k,-1,Nz))] + ucvy[pt(i,j,incw(k,-1,Nz))]*ucvy[pt(i,j,incw(k,-1,Nz))] + ucvz[pt(i,j,incw(k,-1,Nz))]*ucvz[pt(i,j,incw(k,-1,Nz))]))/(2*h);
-			norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+			
 		}
 		knotcurve.push_back(knotpoint());
 		fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);   //confining force perpendicular to curve direction
@@ -1107,18 +1108,19 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 		gsl_vector_set (f, 1, fy);
 		gsl_vector_set (f, 2, fz);
 
-		struct parameters* params;
-		params->x = x; params->y=y;params->y=y;
-		params->ucvx=ucvx;params->ucvy=ucvy; params->ucvz = ucvz;
-		params->v = v; params->f = f;
+		struct parameters params;
+		struct parameters* pparams = &params;
+		pparams->x = x; pparams->y=y;pparams->z=z;
+		pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
+		pparams->v = v; pparams->f = f;
 		// some initial values
-		double s = 0;
+		double minimum = lambda/(4*M_PI);
 		double a = 0;
 		double b = lambda/(2*M_PI);
-gsl_function F;
-F.function = &my_f;
-F.params = (void*) params;
-		gsl_min_fminimizer_set (minimizerstate, &F, s, a, b);
+		gsl_function F;
+		F.function = &my_f;
+		F.params = (void*) pparams;
+		gsl_min_fminimizer_set (minimizerstate, &F, minimum, a, b);
 
 		int iter=0;
 int status =0;
@@ -1127,7 +1129,7 @@ int status =0;
 			iter++;
 			status = gsl_min_fminimizer_iterate (minimizerstate);
 
-			s = gsl_min_fminimizer_x_minimum (minimizerstate);
+			minimum = gsl_min_fminimizer_x_minimum (minimizerstate);
 			a = gsl_min_fminimizer_x_lower (minimizerstate);
 			b = gsl_min_fminimizer_x_upper (minimizerstate);
 
@@ -1137,11 +1139,15 @@ int status =0;
 		while (status == GSL_CONTINUE && iter < 10);
 
 
-		gsl_vector_scale(f,s);
+		gsl_vector_scale(f,minimum);
 		gsl_vector_add(v,f);
 		knotcurve[s].xcoord = gsl_vector_get(v, 0);
 		knotcurve[s].ycoord= gsl_vector_get(v, 1);
 		knotcurve[s].zcoord= gsl_vector_get(v, 2);
+		
+		 gsl_vector_free(v);
+		gsl_vector_free(f);
+		
 		xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
 		ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
 		zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
@@ -2071,13 +2077,22 @@ double my_f(const double s, void* params)
 	double* ucvz= myparameters->ucvz;
 	gsl_vector* f= myparameters->f;
 	gsl_vector* v= myparameters->v;
+	
+	gsl_vector* tempf = gsl_vector_alloc (3);
+	gsl_vector* tempv = gsl_vector_alloc (3);
+	gsl_vector_memcpy (tempf,f);
+	gsl_vector_memcpy (tempv,v);
 
 	// s gives us how much of f to add to p
-	gsl_vector_scale(f,s);
-	gsl_vector_add(v,f);
-	double px = gsl_vector_get(v, 0);
-	double py = gsl_vector_get(v, 1);
-	double pz = gsl_vector_get(v, 2);
+	gsl_vector_scale(tempf,s);
+	gsl_vector_add(tempv,tempf);
+	double px = gsl_vector_get(tempv, 0);
+	double py = gsl_vector_get(tempv, 1);
+	double pz = gsl_vector_get(tempv, 2);
+	
+	gsl_vector_free(tempf);
+	gsl_vector_free(tempv);
+	
 	/**Find nearest gridpoint**/
 	idwn = (int) ((px/h) - 0.5 + Nx/2.0);
 	jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
@@ -2107,5 +2122,6 @@ double my_f(const double s, void* params)
 		ucvys += prefactor*ucvy[pt(i,j,k)];
 		ucvzs += prefactor*ucvz[pt(i,j,k)];
 	}
-	return  -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+	double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+	return  ans;
 }
