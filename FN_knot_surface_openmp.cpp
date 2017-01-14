@@ -1114,16 +1114,16 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 		pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
 		pparams->v = v; pparams->f = f;
 		// some initial values
-		double minimum = lambda/(4*M_PI);
-		double a = 0;
-		double b = lambda/(2*M_PI);
+		double minimum = 0;
+		double a = -lambda/(8*M_PI);
+		double b = lambda/(8*M_PI);
 		gsl_function F;
 		F.function = &my_f;
 		F.params = (void*) pparams;
 		gsl_min_fminimizer_set (minimizerstate, &F, minimum, a, b);
 
 		int iter=0;
-int status =0;
+		int status =0;
 		do
 		{
 			iter++;
@@ -1136,7 +1136,7 @@ int status =0;
 			status = gsl_min_test_interval (a, b, 0.001, 0.0);
 
 		}
-		while (status == GSL_CONTINUE && iter < 10);
+		while (status == GSL_CONTINUE && iter < 500);
 
 
 		gsl_vector_scale(f,minimum);
@@ -1145,13 +1145,13 @@ int status =0;
 		knotcurve[s].ycoord= gsl_vector_get(v, 1);
 		knotcurve[s].zcoord= gsl_vector_get(v, 2);
 		
-		 gsl_vector_free(v);
+		gsl_vector_free(v);
 		gsl_vector_free(f);
 		
 		xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
 		ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
 		zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
-		if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 32) finish = true;
+		if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 200) finish = true;
 		if(s>50000) finish = true;
 		s++;
 	}
@@ -1171,11 +1171,11 @@ int status =0;
 
 	/*******Erase some points********/
 
-	for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
-	for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
-	{
-		knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
-	}
+	//~ for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
+	//~ for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
+	//~ {
+		//~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
+	//~ }
 
 	/********************************/
 
@@ -1184,28 +1184,28 @@ int status =0;
 	/*******Vertex averaging*********/
 
 	double totlength, dl;
-	for(i=0;i<3;i++)   //repeat a couple of times because of end point
-	{
-		totlength=0;
-		for(s=0; s<NP; s++)   //Work out total length of curve
-		{
-			dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-			dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-			dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-			totlength += sqrt(dx*dx + dy*dy + dz*dz);
-		}
-		dl = totlength/NP;
-		for(s=0; s<NP; s++)    //Move points to have spacing dl
-		{
-			dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-			dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-			dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-			norm = sqrt(dx*dx + dy*dy + dz*dz);
-			knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
-			knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
-			knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
-		}
-	}
+	//~ for(i=0;i<3;i++)   //repeat a couple of times because of end point
+	//~ {
+		//~ totlength=0;
+		//~ for(s=0; s<NP; s++)   //Work out total length of curve
+		//~ {
+			//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+			//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+			//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+			//~ totlength += sqrt(dx*dx + dy*dy + dz*dz);
+		//~ }
+		//~ dl = totlength/NP;
+		//~ for(s=0; s<NP; s++)    //Move points to have spacing dl
+		//~ {
+			//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+			//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+			//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+			//~ norm = sqrt(dx*dx + dy*dy + dz*dz);
+			//~ knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
+			//~ knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
+			//~ knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
+		//~ }
+	//~ }
 
 	/********************************/
 
@@ -1300,16 +1300,13 @@ int status =0;
 		tottwist  += knotcurve[s].twist*ds;
 	}
 
-	print_knot(x,y,z,t-1, knotcurveold);
+	print_knot(x,y,z,t, knotcurve);
 
 	/***Write values to file*******/
 	ofstream wrout;
 	wrout.open("writhe.txt",ios_base::app);
 	wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
 	wrout.close();
-
-	// copy
-	knotcurveold = knotcurve;
 }
 
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold)
@@ -2075,13 +2072,11 @@ double my_f(const double s, void* params)
 	double* ucvx= myparameters->ucvx;
 	double* ucvy= myparameters->ucvy;
 	double* ucvz= myparameters->ucvz;
-	gsl_vector* f= myparameters->f;
-	gsl_vector* v= myparameters->v;
 	
 	gsl_vector* tempf = gsl_vector_alloc (3);
 	gsl_vector* tempv = gsl_vector_alloc (3);
-	gsl_vector_memcpy (tempf,f);
-	gsl_vector_memcpy (tempv,v);
+	gsl_vector_memcpy (tempf,myparameters->f);
+	gsl_vector_memcpy (tempv,myparameters->v);
 
 	// s gives us how much of f to add to p
 	gsl_vector_scale(tempf,s);
