@@ -1,0 +1,68 @@
+// Unlink.fe
+
+// Evolver data for catenoid.
+
+PARAMETER  RMAX = 1   // minimum radius for height
+
+//This angle inclines the upper ringi
+//  n = ((sintheta cos phi, sin theta sin phi, cos theta) t1 = (sin phi, cos phi, 0), t2 = (-cos theta cos phi, -cos theta sin phi, sin theta) is a general orthongal triad at angles theta, phi 
+PARAMETER THETA = 0.3
+PARAMETER PHI = 0.6
+
+boundary 1 parameters 1     //  upper ring
+//x1:  cos(THETA) * cos(p1)
+//x2:  sin(p1)
+//x3:  sin(THETA) * cos(p1) 
+x1 : -cos(p1)*sin(PHI)-sin(p1)*cos(THETA)*cos(PHI)
+x2 : cos(p1)*cos(PHI)-sin(p1)*sin(PHI)*cos(THETA)
+x3 : sin(p1)*sin(THETA)
+
+vertices   // given in terms of boundary parameter
+1    0.00  boundary 1   fixed
+2    pi/3  boundary 1   fixed
+3  2*pi/3  boundary 1   fixed
+4    pi    boundary 1   fixed
+5  4*pi/3  boundary 1   fixed
+6  5*pi/3  boundary 1   fixed
+edges
+1    1  2  boundary 1   fixed
+2    2  3  boundary 1   fixed
+3    3  4  boundary 1   fixed
+4    4  5  boundary 1   fixed
+5    5  6  boundary 1   fixed
+6    6  1  boundary 1   fixed
+faces
+1   1 2 3 4 5 6 
+
+read
+
+// Evolution to collapse and pop neck, as in Manual tutorial
+gogo := { r; u; g 120; t .05; o; g 5; }
+
+// Demonstrating saddle point due to triangulation arrangement.
+// First setting parameters to stable values.
+gogo2 := { rmax := 1; zmax := 0.55; recalc;
+           g; u; r; g 50;  // at this point have nearly a saddle point
+           g 200;   // triangulation twists around to lower energy
+         }
+
+// Faster version of the above using conjugate gradient
+gogo3 := { rmax := 1; zmax := 0.55; recalc;
+           g; u; r; U; g 25;  // at this point have nearly a saddle point
+           g 35;
+         }
+
+// High accuracy evolution, using higher-order Lagrange elements.
+gogo4 := { u; zmax := 0.55; rmax := cosh(zmax); recalc;
+           r; g 5; hessian;
+           r; g 5; hessian;
+           lagrange 2; g 5; hessian;
+           lagrange 4; g 5; hessian;
+           lagrange 6; g 5; hessian;
+           lagrange 8; g 5; hessian; 
+           true_area := 2*pi*(zmax + 0.5*sinh(2*zmax));
+           printf"Difference from true area: %g\n",total_area - true_area;
+}
+           
+           
+
