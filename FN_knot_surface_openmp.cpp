@@ -25,7 +25,7 @@
 #include <omp.h>
 #define RK4 1         //1 to use Runge Kutta 4th order method, 0 for euler forward method
 //includes for the signal processing
-#include <gsl/gsl_min.h>
+#include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
 /*Available options:
 FROM_PHI_FILE: Skip initialisation, input from previous run.
@@ -34,7 +34,7 @@ FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
 FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotplot output)
  */
 
-int option = FROM_UV_FILE;         //unknot default option
+int option = FROM_SURFACE_FILE;         //unknot default option
 const bool periodic = false;                     //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -45,12 +45,12 @@ int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename 
 string B_filename = "uv_plot20.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 241;   //No. points in x,y and z
-const int Ny = 241;
-const int Nz = 241;
+const int Nx = 301;   //No. points in x,y and z
+const int Ny = 301;
+const int Nz = 301;
 const double TTime = 2000;         //total time of simulation (simulation units)
 const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime = 20;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.04;         //size of each time step
 
 //System size parameters
@@ -105,10 +105,10 @@ int main (void)
 	print_info(Nx, Ny, Nz, dtime, h, periodic, option, knot_filename, B_filename);
 
 	// GSL initialization
-	const gsl_min_fminimizer_type *Type;
-	gsl_min_fminimizer *minimizerstate;
-	Type = gsl_min_fminimizer_brent;
-	minimizerstate = gsl_min_fminimizer_alloc (Type);
+	const gsl_multimin_fminimizer_type *Type;
+	gsl_multimin_fminimizer *minimizerstate;
+	Type = gsl_multimin_fminimizer_nmsimplex2;
+	minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
 # pragma omp parallel shared ( x, y, z ) private ( i, j, k )
 	{
 #pragma omp for
@@ -1005,7 +1005,7 @@ void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, doubl
 	else knotexists = true;
 }
 
-void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double *u, double t, gsl_min_fminimizer* minimizerstate)
+void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double *u, double t, gsl_multimin_fminimizer* minimizerstate)
 {
 	int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc,attempts;
 	int s=1;
@@ -1086,7 +1086,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 			graducvy += prefactor*(sqrt(ucvx[pt(i,incw(j,1,Ny),k)]*ucvx[pt(i,incw(j,1,Ny),k)] + ucvy[pt(i,incw(j,1,Ny),k)]*ucvy[pt(i,incw(j,1,Ny),k)] + ucvz[pt(i,incw(j,1,Ny),k)]*ucvz[pt(i,incw(j,1,Ny),k)]) - sqrt(ucvx[pt(i,incw(j,-1,Ny),k)]*ucvx[pt(i,incw(j,-1,Ny),k)] + ucvy[pt(i,incw(j,-1,Ny),k)]*ucvy[pt(i,incw(j,-1,Ny),k)] + ucvz[pt(i,incw(j,-1,Ny),k)]*ucvz[pt(i,incw(j,-1,Ny),k)]))/(2*h);
 			if(periodic) graducvz += prefactor*(sqrt(ucvx[pt(i,j,incp(k,1,Nz))]*ucvx[pt(i,j,incp(k,1,Nz))] + ucvy[pt(i,j,incp(k,1,Nz))]*ucvy[pt(i,j,incp(k,1,Nz))] + ucvz[pt(i,j,incp(k,1,Nz))]*ucvz[pt(i,j,incp(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incp(k,-1,Nz))]*ucvx[pt(i,j,incp(k,-1,Nz))] + ucvy[pt(i,j,incp(k,-1,Nz))]*ucvy[pt(i,j,incp(k,-1,Nz))] + ucvz[pt(i,j,incp(k,-1,Nz))]*ucvz[pt(i,j,incp(k,-1,Nz))]))/(2*h);
 			else graducvz += prefactor*(sqrt(ucvx[pt(i,j,incw(k,1,Nz))]*ucvx[pt(i,j,incw(k,1,Nz))] + ucvy[pt(i,j,incw(k,1,Nz))]*ucvy[pt(i,j,incw(k,1,Nz))] + ucvz[pt(i,j,incw(k,1,Nz))]*ucvz[pt(i,j,incw(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incw(k,-1,Nz))]*ucvx[pt(i,j,incw(k,-1,Nz))] + ucvy[pt(i,j,incw(k,-1,Nz))]*ucvy[pt(i,j,incw(k,-1,Nz))] + ucvz[pt(i,j,incw(k,-1,Nz))]*ucvz[pt(i,j,incw(k,-1,Nz))]))/(2*h);
-			
+
 		}
 		knotcurve.push_back(knotpoint());
 		fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);   //confining force perpendicular to curve direction
@@ -1098,56 +1098,75 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 		fz = fz/norm;
 
 		// okay we have our direction to perfrom the line minimisation in
-
+		// the point
 		gsl_vector* v = gsl_vector_alloc (3);
 		gsl_vector_set (v, 0, testx);
 		gsl_vector_set (v, 1, testy);
 		gsl_vector_set (v, 2, testz);
+		// one vector in the plane we with to minimize in
 		gsl_vector* f = gsl_vector_alloc (3);
 		gsl_vector_set (f, 0, fx);
 		gsl_vector_set (f, 1, fy);
 		gsl_vector_set (f, 2, fz);
+		// the ucv vector
+		gsl_vector* ucv = gsl_vector_alloc (3);
+		gsl_vector_set (ucv, 0, ucvxs);
+		gsl_vector_set (ucv, 1, ucvys);
+		gsl_vector_set (ucv, 2, ucvzs);
+		// take a cross product to get the other vector in the plane 
 
-		struct parameters params;
-		struct parameters* pparams = &params;
+		gsl_vector* b = gsl_vector_alloc (3);
+		cross_product(f,ucv,b); 
+		// initial conditions
+		gsl_vector* minimum = gsl_vector_alloc (2);
+		gsl_vector_set (minimum, 0, 0);
+		gsl_vector_set (minimum, 1, 0);
+		struct parameters params; struct parameters* pparams = &params;
 		pparams->x = x; pparams->y=y;pparams->z=z;
 		pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
-		pparams->v = v; pparams->f = f;
+		pparams->v = v; pparams->f = f;pparams->b=b;
 		// some initial values
-		double minimum = 0;
-		double a = -lambda/(8*M_PI);
-		double b = lambda/(8*M_PI);
-		gsl_function F;
-		F.function = &my_f;
+		gsl_multimin_function F;
+		F.n=2;
+		F.f = &my_f;
 		F.params = (void*) pparams;
-		gsl_min_fminimizer_set (minimizerstate, &F, minimum, a, b);
+		gsl_vector* stepsize = gsl_vector_alloc (2);
+		gsl_vector_set (stepsize, 0, lambda/(8*M_PI));
+		gsl_vector_set (stepsize, 1, lambda/(8*M_PI));
+		gsl_multimin_fminimizer_set (minimizerstate, &F, minimum, stepsize);
 
 		int iter=0;
 		int status =0;
+		double minimizersize=0;
 		do
 		{
 			iter++;
-			status = gsl_min_fminimizer_iterate (minimizerstate);
+			status = gsl_multimin_fminimizer_iterate(minimizerstate);
 
-			minimum = gsl_min_fminimizer_x_minimum (minimizerstate);
-			a = gsl_min_fminimizer_x_lower (minimizerstate);
-			b = gsl_min_fminimizer_x_upper (minimizerstate);
+			if (status) 
+				break;
 
-			status = gsl_min_test_interval (a, b, 0.001, 0.0);
+			minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
+			status = gsl_multimin_test_size (size, 1e-2);
 
 		}
 		while (status == GSL_CONTINUE && iter < 500);
 
 
-		gsl_vector_scale(f,minimum);
+		gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
+		gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
+		gsl_vector_add(f,b);
 		gsl_vector_add(v,f);
 		knotcurve[s].xcoord = gsl_vector_get(v, 0);
 		knotcurve[s].ycoord= gsl_vector_get(v, 1);
 		knotcurve[s].zcoord= gsl_vector_get(v, 2);
-		
+
 		gsl_vector_free(v);
 		gsl_vector_free(f);
-		
+		gsl_vector_free(b);
+		gsl_vector_free(ucv);
+		gsl_vector_free(stepsize);
+
 		xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
 		ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
 		zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
@@ -1174,7 +1193,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 	//~ for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
 	//~ for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
 	//~ {
-		//~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
+	//~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
 	//~ }
 
 	/********************************/
@@ -1186,25 +1205,25 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 	double totlength, dl;
 	//~ for(i=0;i<3;i++)   //repeat a couple of times because of end point
 	//~ {
-		//~ totlength=0;
-		//~ for(s=0; s<NP; s++)   //Work out total length of curve
-		//~ {
-			//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-			//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-			//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-			//~ totlength += sqrt(dx*dx + dy*dy + dz*dz);
-		//~ }
-		//~ dl = totlength/NP;
-		//~ for(s=0; s<NP; s++)    //Move points to have spacing dl
-		//~ {
-			//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-			//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-			//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-			//~ norm = sqrt(dx*dx + dy*dy + dz*dz);
-			//~ knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
-			//~ knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
-			//~ knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
-		//~ }
+	//~ totlength=0;
+	//~ for(s=0; s<NP; s++)   //Work out total length of curve
+	//~ {
+	//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+	//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+	//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+	//~ totlength += sqrt(dx*dx + dy*dy + dz*dz);
+	//~ }
+	//~ dl = totlength/NP;
+	//~ for(s=0; s<NP; s++)    //Move points to have spacing dl
+	//~ {
+	//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+	//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+	//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+	//~ norm = sqrt(dx*dx + dy*dy + dz*dz);
+	//~ knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
+	//~ knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
+	//~ knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
+	//~ }
 	//~ }
 
 	/********************************/
@@ -2060,7 +2079,7 @@ knotcurveold[s].spinrate = ((ax - knotcurveold[s].ax)/dtime)*((ax - knotcurveold
 first = false;
 * */
 
-double my_f(const double s, void* params)
+double my_f(const gsl_vector* minimum, void* params)
 {
 
 	int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc;
@@ -2072,22 +2091,27 @@ double my_f(const double s, void* params)
 	double* ucvx= myparameters->ucvx;
 	double* ucvy= myparameters->ucvy;
 	double* ucvz= myparameters->ucvz;
-	
+
 	gsl_vector* tempf = gsl_vector_alloc (3);
 	gsl_vector* tempv = gsl_vector_alloc (3);
+	gsl_vector* tempb = gsl_vector_alloc (3);
 	gsl_vector_memcpy (tempf,myparameters->f);
 	gsl_vector_memcpy (tempv,myparameters->v);
+	gsl_vector_memcpy (tempb,myparameters->b);
 
 	// s gives us how much of f to add to p
-	gsl_vector_scale(tempf,s);
+
+	gsl_vector_scale(tempf,gsl_vector_get (minimum, 0));
+	gsl_vector_scale(tempb,gsl_vector_get (minimum, 1));
+	gsl_vector_add(tempf,tempb);
 	gsl_vector_add(tempv,tempf);
 	double px = gsl_vector_get(tempv, 0);
 	double py = gsl_vector_get(tempv, 1);
 	double pz = gsl_vector_get(tempv, 2);
-	
 	gsl_vector_free(tempf);
 	gsl_vector_free(tempv);
-	
+	gsl_vector_free(tempb);
+
 	/**Find nearest gridpoint**/
 	idwn = (int) ((px/h) - 0.5 + Nx/2.0);
 	jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
@@ -2119,4 +2143,19 @@ double my_f(const double s, void* params)
 	}
 	double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
 	return  ans;
+}
+void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product)
+{
+	double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
+		- gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
+
+	double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
+		- gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
+
+	double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
+		- gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
+
+	gsl_vector_set(product, 0, p1);
+	gsl_vector_set(product, 1, p2);
+	gsl_vector_set(product, 2, p3);
 }
