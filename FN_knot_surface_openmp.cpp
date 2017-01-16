@@ -24,7 +24,7 @@
 #include "FN_knot_surface.h"    //contains some functions and all global variables
 #include <omp.h>
 #define RK4 1         //1 to use Runge Kutta 4th order method, 0 for euler forward method
-//includes for the signal processing
+//includes for the signal processingp
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
 /*Available options:
@@ -38,20 +38,20 @@ int option = FROM_SURFACE_FILE;         //unknot default option
 const bool periodic = false;                     //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
-string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+string knot_filename = "twoanglestitledunknot";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot20.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot25.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 301;   //No. points in x,y and z
-const int Ny = 301;
-const int Nz = 301;
+const int Nx = 321;   //No. points in x,y and z
+const int Ny = 321;
+const int Nz = 321;
 const double TTime = 2000;         //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double skiptime = 5;       //print out every # unit of time (simulation units)
 const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
-const double dtime = 0.04;         //size of each time step
+const double dtime = 0.02;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
@@ -1052,9 +1052,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 		ucvzs = ucvzs/norm; //normalise
 
 		// okay we have our first guess, move forward in this direction
-		double testx = knotcurve[s-1].xcoord + 0.5*ucvxs*lambda/(2*M_PI);
-		double testy = knotcurve[s-1].ycoord + 0.5*ucvys*lambda/(2*M_PI);
-		double testz = knotcurve[s-1].zcoord + 0.5*ucvzs*lambda/(2*M_PI);
+		double testx = knotcurve[s-1].xcoord + 0.1*ucvxs*lambda/(2*M_PI);
+		double testy = knotcurve[s-1].ycoord + 0.1*ucvys*lambda/(2*M_PI);
+		double testz = knotcurve[s-1].zcoord + 0.1*ucvzs*lambda/(2*M_PI);
 
 		// now get the grad at this point
 		idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
@@ -1170,7 +1170,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 		xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
 		ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
 		zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
-		if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 200) finish = true;
+		if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 10) finish = true;
 		if(s>50000) finish = true;
 		s++;
 	}
