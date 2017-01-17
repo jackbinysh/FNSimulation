@@ -15,7 +15,8 @@
 #include <math.h>
 #include <vector>
 #include <time.h>
-
+#include <gsl/gsl_multimin.h>
+#include <gsl/gsl_vector.h>
 using namespace std;
 
 #define FROM_PHI_FILE 0
@@ -24,6 +25,14 @@ using namespace std;
 #define FROM_KNOT_FILE 3
 
 const double sixth = 1.0/6.0;
+
+struct parameters
+{
+	gsl_vector *v,*f,*b;
+	double *x,*y,*z,*ucvx,*ucvy,*ucvz;	
+};
+
+
 
 struct triangle
 {
@@ -72,6 +81,8 @@ inline int sign(int i)
     else return i/abs(i);
 }
 
+void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
+double my_f(const gsl_vector* minimum, void* params);
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot();
@@ -97,11 +108,10 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
 //FitzHugh Nagumo functions
 void uv_initialise(double *phi, double *u, double *v, int* missed);
 void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
-void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double* u,double t);
+void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
-
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
