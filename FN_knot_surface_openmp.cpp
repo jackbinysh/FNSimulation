@@ -15,10 +15,10 @@
  dvdt = epsilon*(u + beta - gam v)
  5) The update method is Runge-Kutta fourth order (update_uv) unless RK4 is set to 0, otherwise Euler forward method is used.
  6) A parametric curve for the knot is found at each unit T
- 
- 
+
+
  The parameters epsilon, beta and gam are set to give rise to scroll waves (see Sutcliffe, Winfree, PRE 2003 and Maucher Sutcliffe PRL 2016) which eminate from a closed curve, on initialisation this curve corresponds to the boundary of the surface in the stl file.
- 
+
  See below for various options to start the code from previous outputted data.*/
 /**************************************************************************************/
 #include "FN_knot_surface.h"    //contains some functions and all global variables
@@ -91,7 +91,7 @@ int main (void)
     double *x, *y, *z, *phi, *u, *v, *ucvx, *ucvy, *ucvz;
     int i,j,k,n,l;
     int *missed;
-    
+
     x = new double [Nx];
     y = new double [Ny];
     z = new double [Nz];
@@ -103,11 +103,11 @@ int main (void)
        missed = new int [Nx*Ny*Nz];
        fill(missed,missed+Nx*Ny*Nz,0);
     }
-    
+
     // output an info file on the run
     print_info(Nx, Ny, Nz, dtime, h, periodic, option, knot_filename, B_filename);
-    
-    
+
+
 # pragma omp parallel shared ( x, y, z ) private ( i, j, k )
     {
 #pragma omp for
@@ -126,7 +126,7 @@ int main (void)
             z[k] = (k+0.5-Nz/2.0)*h;
         }
     }
-    
+
     if (option == FROM_PHI_FILE)
     {
         cout << "Reading input file...\n";
@@ -148,17 +148,17 @@ int main (void)
                 cout << "Error reading input option. Aborting...\n";
                 return 1;
             }
-            
+
             if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
             else cout << "Total no. of knot points: ";
             cout << NK << '\n';
-            
+
             //Calculate phi for initial conditions
             initial_cond(x,y,z,phi,missed);
         }
-        
+
     }
-    
+
     vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
     vector<double> ().swap(X);   //empty initial knot curve memory
     vector<double> ().swap(Y);
@@ -166,16 +166,16 @@ int main (void)
     vector<double> ().swap(dlx);
     vector<double> ().swap(dly);
     vector<double> ().swap(dlz);
-    
+
     if(option!=FROM_UV_FILE)
     {
         cout << "Calculating u and v...\n";
         uv_initialise(phi,u,v,missed);
     }
-    
+
     delete [] phi;
     if(option==FROM_KNOT_FILE) delete [] missed;
-    
+
     ucvx = new double [Nx*Ny*Nz];
     ucvy = new double [Nx*Ny*Nz];
     ucvz = new double [Nx*Ny*Nz];
@@ -187,20 +187,20 @@ int main (void)
     kvt = new double [Nx*Ny*Nz];
     uold = new double [Nx*Ny*Nz];
     vold = new double [Nx*Ny*Nz];
-    
+
 #else
     double *D2u;
-    
+
     D2u = new double [Nx*Ny*Nz];
 #endif
-    
+
     cout << "Updating u and v...\n";
-    
+
     // initilialising counters
     int p=0;
     int q=0;
     n=0;
-    
+
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
@@ -210,7 +210,7 @@ int main (void)
     wrout.open("writhe.txt");
     wrout << "Time\tWrithe\tTwist\tLength\n";
     wrout.close();
-    
+
 #if RK4
 #pragma omp parallel default(none) shared ( x, y, z, u, v, uold, vold, n,ku,kv,kut,kvt,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurve, knotcurveold, knotexists )
 #else
@@ -236,14 +236,14 @@ int main (void)
                     }
                     q++;
                 }
-                
+
                 if(n*dtime >= p*skiptime)
                 {
-                    
+
                     print_uv(x,y,z,u,v,ucvx,ucvy,ucvz,n*dtime+starttime);
                     p++;
                 }
-                
+
                 n++;
             }
 #if RK4
@@ -255,7 +255,7 @@ int main (void)
     }
     time_t now = time(NULL);
     cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
-    
+
 #if RK4
     delete [] uold;
     delete [] vold;
@@ -274,7 +274,7 @@ int main (void)
     delete [] ucvx;
     delete [] ucvy;
     delete [] ucvz;
-    
+
     return 0;
 }
 
@@ -286,14 +286,14 @@ double initialise_knot()
     {
         case FROM_SURFACE_FILE: L = init_from_surface_file();
             break;
-            
+
         case FROM_KNOT_FILE: L = init_from_knot_file();
             break;
-            
+
         default: L=0;
             break;
     }
-    
+
     return L;
 }
 
@@ -314,11 +314,11 @@ double init_from_surface_file(void)
     double minxin = 0;
     double minyin = 0;
     double minzin = 0;
-    
+
     ss.clear();
     ss.str("");
     ss << knot_filename << ".stl";
-    
+
     filename = ss.str();
     knotin.open(filename.c_str());
     if(knotin.good())
@@ -338,7 +338,7 @@ double init_from_surface_file(void)
             knotsurface.push_back(triangle());
             ss >> temp >> knotsurface[i].normal[0] >> knotsurface[i].normal[1] >> knotsurface[i].normal[2];
         }
-        
+
         if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
         knotsurface[i].centre[0] = 0;
         knotsurface[i].centre[1] = 0;
@@ -351,14 +351,14 @@ double init_from_surface_file(void)
                 ss.str("");
                 ss << buff;
                 ss >> temp >> xcoord >> ycoord >> zcoord;
-                
+
                 if(xcoord>maxxin) maxxin = xcoord;
                 if(ycoord>maxyin) maxyin = ycoord;
                 if(zcoord>maxzin) maxzin = zcoord;
                 if(xcoord<minxin) minxin = xcoord;
                 if(ycoord<minyin) minyin = ycoord;
                 if(zcoord<minzin) minzin = zcoord;
-                
+
                 knotsurface[i].xvertex[j] = xcoord;
                 knotsurface[i].yvertex[j] = ycoord;
                 knotsurface[i].zvertex[j] = zcoord;
@@ -368,20 +368,20 @@ double init_from_surface_file(void)
             }
         }
         //cout << i << " (" << knotsurface[i].centre[0] << ',' << knotsurface[i].centre[1] << ',' << knotsurface[i].centre[2] << ") , (" << knotsurface[i].normal[0] << ',' << knotsurface[i].normal[1] << ',' << knotsurface[i].normal[2] << ") \n";
-        
+
         if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
         if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-        
+
         i++;
     }
-    
+
     NK = i;
     /* Work out space scaling for knot surface */
     double scale[3];
     double midpoint[3];
     double norm;
     scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin);
-    
+
     /*Rescale points and normals to fit grid properly*/
     for(i=0;i<NK;i++)
     {
@@ -392,15 +392,15 @@ double init_from_surface_file(void)
             knotsurface[i].zvertex[j] = scale[2]*(knotsurface[i].zvertex[j] - midpoint[2]);
             knotsurface[i].centre[j] = scale[j]*(knotsurface[i].centre[j] - midpoint[j]);
         }
-        
+
         norm = sqrt(scale[1]*scale[1]*scale[2]*scale[2]*knotsurface[i].normal[0]*knotsurface[i].normal[0] +
                     scale[0]*scale[0]*scale[2]*scale[2]*knotsurface[i].normal[1]*knotsurface[i].normal[1] +
                     scale[0]*scale[0]*scale[1]*scale[1]*knotsurface[i].normal[2]*knotsurface[i].normal[2]);
-        
+
         knotsurface[i].normal[0] *= scale[1]*scale[2]/norm;
         knotsurface[i].normal[1] *= scale[0]*scale[2]/norm;
         knotsurface[i].normal[2] *= scale[0]*scale[1]/norm;
-        
+
         /*Check surface normal is correct
          p1x = knotsurface[i].xvertex[1] - knotsurface[i].xvertex[0];
          p1y = knotsurface[i].yvertex[1] - knotsurface[i].yvertex[0];
@@ -417,7 +417,7 @@ double init_from_surface_file(void)
          nz = nz/norm;
          cout << nx*knotsurface[i].normal[0] + ny*knotsurface[i].normal[1] + nz*knotsurface[i].normal[2] << '\n';
          */
-        
+
         r10 = sqrt((knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0]));
         r20 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0]));
         r21 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1]));
@@ -425,9 +425,9 @@ double init_from_surface_file(void)
         knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
         A += knotsurface[i].area;
     }
-    
+
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
-    
+
     return A;
 }
 
@@ -448,21 +448,21 @@ double init_from_knot_file(void)
     double minxin = 0;
     double minyin = 0;
     double minzin = 0;
-    
+
     NK=0;    //count total no. of points
-    
+
     for (m=1; m<=ncomp; m++)
     {
         npts=0;
-        
+
         ss.clear();
         ss.str("");
         if (ncomp==1) ss << knot_filename << ".txt";
         else ss << knot_filename << m << ".txt";
-        
+
         filename = ss.str();
         knotin.open(filename.c_str());
-    
+
         while(knotin.good())   //read in points for knot
         {
             if(getline(knotin,buff))
@@ -477,24 +477,24 @@ double init_from_knot_file(void)
             px.push_back(xt);
             py.push_back(yt);             //store points
             pz.push_back(zt);
-            
+
             if(xt > maxxin) maxxin = xt;  //find max and min points
             if(yt > maxyin) maxyin = yt;
             if(zt > maxzin) maxzin = zt;
             if(xt < minxin) minxin = xt;
             if(yt < minyin) minyin = yt;
             if(zt < minzin) minzin = zt;
-            
+
             npts++;
         }
-        
+
         knotin.close();
-        
+
         /*rescale knot*/
         double scale[3];
         double midpoint[3];
         scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin); //function for calculating scale and midpoint
-        
+
         Lh=0;
         for(t=0; t<npts; t++)
         {
@@ -525,14 +525,14 @@ double init_from_knot_file(void)
 
         NKh = ((int) (2*Lh/h));  //Number of points to define knot with ~h/2 spacing
         dl = Lh/NKh;       //Actual spacing ~h/2
-        
+
         //Start at p0
         X.push_back(px[0]);
         Y.push_back(py[0]);
         Z.push_back(pz[0]);
-        
+
         n = 0; //input pt counter
-        
+
         for(t=1;t<NKh;t++)
         {
             s = NK+t;
@@ -550,7 +550,7 @@ double init_from_knot_file(void)
             }
             //cout << X[s] << ' ' << Y[s] << ' ' << Z[s] << '\n';
         }
-        
+
         px.clear();
         py.clear();
         pz.clear();
@@ -558,11 +558,11 @@ double init_from_knot_file(void)
         nty.clear();
         ntz.clear();
         dr.clear();
-        
+
         //smooth curve
         /*double *Xnew,*Ynew,*Znew;
         double d2x,d2y,d2z;
-        
+
         for(n=0;n<10000;n++)
         {
             for(t=0;t<NKh;t++)
@@ -575,7 +575,7 @@ double init_from_knot_file(void)
                 Z[NK+t] += 0.01*d2z;
             }
         }*/
-        
+
         for(t=0;t<NKh;t++)
         {
             dlx.push_back(0.5*(X[NK+incp(t,1,NKh)] - X[NK+incp(t,-1,NKh)]));   //central diff for tangent
@@ -585,21 +585,21 @@ double init_from_knot_file(void)
         NK += NKh;
         L += Lh;    //keep track of total length and npts to define link
     }
-    
+
     ofstream oknotfile;
-    
+
     oknotfile.open("knotfile.vtk");
-    
+
     oknotfile << "# vtk DataFile Version 3.0\nKnotin\nASCII\nDATASET UNSTRUCTURED_GRID\n";
     oknotfile << "POINTS " << NK << " float\n";
-    
+
     for(t=0; t<NK; t++)
     {
         oknotfile << X[t] << ' ' << Y[t] << ' ' << Z[t] << '\n';
     }
-    
+
     oknotfile.close();
-    
+
     return L;
 }
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
@@ -646,14 +646,14 @@ void initial_cond(double *x, double *y, double *z, double *phi, int* missed)
         double *By;
         double *Bz;
         double *Bmag;
-        
+
         ignore = new int [Nx*Ny*Nz];
         ignore1 = new int [Nx*Ny*Nz];
         Bx = new double [Nx*Ny*Nz];
         By = new double [Nx*Ny*Nz];
         Bz = new double [Nx*Ny*Nz];
         Bmag = new double [Nx*Ny*Nz];
-        
+
         cout << "Calculating B field...\n";
         time_t then = time(NULL);
         B_field_calc(x,y,z,Bx, By, Bz, Bmag, ignore, ignore1, missed);
@@ -666,7 +666,7 @@ void initial_cond(double *x, double *y, double *z, double *phi, int* missed)
         cout << "Phi field calc took " << now - then << " seconds.\n";
         cout << "Printing B and phi...\n";
         print_B_phi(x, y, z, phi, missed);
-        
+
         delete [] ignore;
         delete [] ignore1;
         delete [] Bx;
@@ -690,8 +690,8 @@ void phi_calc(double *x, double *y, double *z, double *phi)
 {
     int i,j,k,n,s;
     double rx,ry,rz,r;
-    
-    
+
+
 #pragma omp parallel default(none) shared ( x, y, z, knotsurface, phi, NK ) private ( i, j, k, n, s, rx, ry, rz , r)
     {
 #pragma omp for
@@ -717,7 +717,7 @@ void phi_calc(double *x, double *y, double *z, double *phi)
             }
         }
     }
-    
+
 }
 
 void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed)
@@ -725,7 +725,7 @@ void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, doubl
     int i,j,k,n,t;
     double lx,ly,lz,lmag;
     double coresize = lambda/(2*M_PI);
-    
+
 #pragma omp parallel default(none) shared ( x, y, z, X, Y, Z, Bx, By, Bz, missed, Bmag, NK, coresize, ignore, ignore1, dlx, dly, dlz ) private ( i, j, k, n, t, lx, ly ,lz, lmag)
     {
 #pragma omp for
@@ -768,14 +768,14 @@ void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, i
     double Bxmid,Bymid,Bzmid;
     int *pi,*pj,*pk;
     int n = pt(i0,j0,k0);
-    
+
     missed[n]=0;  //matrix to store points where phi is not calculated
     phi[n]=0;
-    
+
     pi = new int [Nx+Ny+Nz];
     pj = new int [Nx+Ny+Nz];
     pk = new int [Nx+Ny+Nz];
-    
+
 //#pragma omp parallel default(none) shared ( X, Y, Z, Bx, By, Bz, phi, ignore, ignore1, missed, Bmag, pi, pj, pk) private ( i, j, k, i0, j0, k0, id, jd, kd, n, c1, c2, c3, Bxmid, Bymid, Bzmid, t, nt, ntm, pathlength )
     {
 //#pragma omp for
@@ -798,7 +798,7 @@ void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, i
                             for(c3=0;c3<2;c3++)
                             {
                                 n = pt(i[c1],j[c2],k[c3]);
-                                
+
                                 if(missed[n]==1 && ignore[n]==0)
                                 {
                                     pathlength = pathfind(i0,j0,k0,i[c1],j[c2],k[c3],pi,pj,pk,ignore,Bx,By,Bz,Bmag);  //find path to current point
@@ -849,7 +849,7 @@ void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, i
             }
         }
     }
-    
+
     delete [] pi;
     delete [] pj;
     delete [] pk;
@@ -860,16 +860,16 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
     int *track;
     double MAX,weight1,weight2;
     track = new int [Nx*Ny*Nz];
-    
+
     fill(track,track+Nx*Ny*Nz,0);
-    
+
     pi[0] = i0;    //starting point for path
     pj[0] = j0;
     pk[0] = k0;
     int di = ie - i0;
     int dj = je - j0;
     int dk = ke - k0;   //distance to go to final point
-    
+
     while (t<Nx+Ny+Nz && (abs(di)>0 || abs(dj)>0 || abs(dk)>0))  //until reaches end of path or path too long
     {
         n = pt(pi[t],pj[t],pk[t]);
@@ -944,11 +944,11 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
         dj = je - pj[t];
         dk = ke - pk[t];
     }
-    
+
     if (t==Nx+Ny+Nz) t=0; //couldn't find path
-    
+
     delete [] track;
-    
+
     return t;
 }
 
@@ -957,7 +957,7 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
 void uv_initialise(double *phi, double *u, double *v, int* missed)
 {
     int n;
-    
+
     for(n=0; n<Nx*Ny*Nz; n++)
     {
         u[n] = (2*cos(phi[n]) - 0.4);
@@ -975,7 +975,7 @@ void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, doubl
     int i,j,k,n,kup,kdwn;
     double dxu,dyu,dzu,dxv,dyv,dzv,ucvmag,ucvmax;
     knotcurve.push_back(knotpoint());
-    ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.  
+    ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
     for(i=0;i<Nx;i++)
     {
         for(j=0; j<Ny; j++)
@@ -1023,7 +1023,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
     int s=1;
     bool finish=false;
     double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, norm, fx, fy, fz, xdiff, ydiff, zdiff;
-    
+
     /*calculate local direction of grad u x grad v (the tangent to the knot curve) at point s-1, then move to point s by moving along tangent + unit confinement force*/
     while (finish==false)
     {
@@ -1111,23 +1111,23 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
         knotcurve[s+m].ycoord = knotcurve[s+m-1].ycoord + dy;
         knotcurve[s+m].zcoord = knotcurve[s+m-1].zcoord + dz;
     }
-    
+
     int NP = knotcurve.size();  //store number of points in knot curve
-    
+
     /*******Erase some points********/
-    
+
     for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
     for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
     {
         knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
     }
-    
+
     /********************************/
-    
+
     NP = knotcurve.size();  //update number of points in knot curve
-    
+
     /*******Vertex averaging*********/
-    
+
     double totlength, dl;
     for(i=0;i<3;i++)   //repeat a couple of times because of end point
     {
@@ -1151,9 +1151,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
         }
     }
-    
+
     /********************************/
-    
+
     /*****Writhe and twist integrals******/
     NP = knotcurve.size();  //store number of points in knot curve
     //if(t==50) cout << "Number of points: " << NP << '\n';
@@ -1162,7 +1162,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
     double ds = 2*M_PI/NP;
     double dxds, dyds, dzds, dxdm, dydm, dzdm, dxu, dyu, dzu, dxup, dyup, dzup, bx, by, bz, check;
     totlength = 0;
-    
+
     /******************Interpolate direction of grad u for twist calc*******/
     /**Find nearest gridpoint**/
     for(s=0; s<NP; s++)
@@ -1209,7 +1209,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
         knotcurve[s].ay = dyup/norm;
         knotcurve[s].az = dzup/norm;
     }
-    
+
     /***Do the integrals**/
     for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
     {
@@ -1244,15 +1244,15 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
         totlength += knotcurve[s].length;
         tottwist  += knotcurve[s].twist*ds;
     }
-    
+
     print_knot(x,y,z,t-1, knotcurveold);
-    
+
     /***Write values to file*******/
     ofstream wrout;
     wrout.open("writhe.txt",ios_base::app);
     wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
     wrout.close();
-    
+
     // copy
     knotcurveold = knotcurve;
 }
@@ -1261,7 +1261,7 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
 {
     int i,j,k,l,n,kup,kdwn;
     double D2u;
-    
+
 #pragma omp for
     for(i=0;i<Nx;i++)
     {
@@ -1277,7 +1277,7 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
             }
         }
     }
-    
+
     for(l=0;l<4;l++)  //u and v update for each fractional time step
     {
 #pragma omp for
@@ -1304,7 +1304,7 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
                 }
             }
         }
-        
+
         switch (l)
         {
             case 0:
@@ -1312,19 +1312,19 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
                 uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,1.0);   //add k1 to uv and add to total k
             }
                 break;
-                
+
             case 1:
             {
                 uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,2.0);   //add k2 to uv and add to total k
             }
                 break;
-                
+
             case 2:
             {
                 uv_add(u,v,uold,vold,ku,kv,kut,kvt,1.0,2.0);      //add k3 to uv and add to total k
             }
                 break;
-                
+
             case 3:
             {
 #pragma omp for
@@ -1342,7 +1342,7 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
                 }
             }
                 break;
-                
+
             default:
                 break;
         }
@@ -1352,7 +1352,7 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff)
 {
     int i,j,k,n;
-    
+
 #pragma omp for
     for(i=0;i<Nx;i++)
     {
@@ -1368,13 +1368,13 @@ void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double
             }
         }
     }
-    
+
 }
 
 void uv_update_euler(double *u, double *v, double *D2u)
 {
     int i,j,k,l,n,kup,kdwn;
-    
+
 #pragma omp for
     for(i=0;i<Nx;i++)
     {
@@ -1397,7 +1397,7 @@ void uv_update_euler(double *u, double *v, double *D2u)
             }
         }
     }
-    
+
 #pragma omp for
     for(i=0;i<Nx;i++)
     {
@@ -1421,15 +1421,15 @@ void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucv
     stringstream ss;
     ss << "uv_plot" << t << ".vtk";
     ofstream uvout (ss.str().c_str());
-    
+
     uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
     uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
     uvout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
     uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
     uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
     uvout << "SCALARS u float\nLOOKUP_TABLE default\n";
-    
-    
+
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1441,10 +1441,10 @@ void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucv
             }
         }
     }
-    
+
     uvout << "SCALARS v float\nLOOKUP_TABLE default\n";
-    
-    
+
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1456,9 +1456,9 @@ void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucv
             }
         }
     }
-    
+
     uvout << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
-    
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1470,7 +1470,7 @@ void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucv
             }
         }
     }
-    
+
     uvout.close();
 }
 
@@ -1478,9 +1478,9 @@ void print_B_phi(double *x, double *y, double*z, double *phi, int* missed)
 {
     int i,j,k,n;
     string fn = "phi.vtk";
-    
+
     ofstream Bout (fn.c_str());
-    
+
     Bout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET STRUCTURED_POINTS\n";
     Bout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
     Bout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
@@ -1498,7 +1498,7 @@ void print_B_phi(double *x, double *y, double*z, double *phi, int* missed)
             }
         }
     }
-    
+
     if(option==FROM_KNOT_FILE)
     {
         Bout << "\n\nSCALARS Missed int\nLOOKUP_TABLE default\n";
@@ -1514,22 +1514,22 @@ void print_B_phi(double *x, double *y, double*z, double *phi, int* missed)
             }
         }
     }
-    
+
     Bout.close();
 }
 
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename)
 {
     string fn = "info.txt";
-    
+
     time_t rawtime;
     struct tm * timeinfo;
-    
+
     time (&rawtime);
     timeinfo = localtime (&rawtime);
-    
+
     ofstream infoout (fn.c_str());
-    
+
     infoout << "run started at\t" << asctime(timeinfo) << "\n";
     infoout << "Number of grid points\t" << Nx << '\t' << Ny << '\t' << Nz << '\n';
     infoout << "timestep\t" << dtime << '\n';
@@ -1546,58 +1546,58 @@ void print_knot(double *x, double *y, double *z, double t, std::vector<knotpoint
     stringstream ss;
     ss << "knotplot" << t << ".vtk";
     ofstream knotout (ss.str().c_str());
-    
+
     int i;
     int n = knotcurve.size();
-    
+
     knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
     knotout << "POINTS " << n << " float\n";
-    
+
     for(i=0; i<n; i++)
     {
         knotout << knotcurve[i].xcoord << ' ' << knotcurve[i].ycoord << ' ' << knotcurve[i].zcoord << '\n';
     }
-    
+
     knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
-    
+
     for(i=0; i<n; i++)
     {
         knotout << 2 << ' ' << i << ' ' << incp(i,1,n) << '\n';
     }
-    
+
     knotout << "\n\nCELL_TYPES " << n << '\n';
-    
+
     for(i=0; i<n; i++)
     {
         knotout << "3\n";
     }
-    
+
     knotout << "\n\nPOINT_DATA " << n << "\n\n";
     knotout << "\nVECTORS A float\n";
     for(i=0; i<n; i++)
     {
         knotout << knotcurve[i].ax << ' ' << knotcurve[i].ay << ' ' << knotcurve[i].az << '\n';
     }
-    
+
     knotout << "\n\nCELL_DATA " << n << "\n\n";
     knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
     for(i=0; i<n; i++)
     {
         knotout << knotcurve[i].writhe << '\n';
     }
-    
+
     knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
     for(i=0; i<n; i++)
     {
         knotout << knotcurve[i].twist << '\n';
     }
-    
+
     knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
     for(i=0; i<n; i++)
     {
         knotout << knotcurve[i].length << '\n';
     }
-    
+
     knotout.close();
 }
 
@@ -1607,7 +1607,7 @@ int phi_file_read(double *phi)
     stringstream ss;
     ifstream fin (B_filename.c_str());
     int i,j,k,n;
-    
+
     for(i=0;i<10;i++)
     {
         if(fin.good())
@@ -1620,7 +1620,7 @@ int phi_file_read(double *phi)
             return 1;
         }
     }
-    
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1646,9 +1646,9 @@ int phi_file_read(double *phi)
             }
         }
     }
-    
+
     fin.close();
-    
+
     return 0;
 }
 
@@ -1658,7 +1658,7 @@ int uvfile_read(double *u, double *v)
     stringstream ss;
     ifstream fin (B_filename.c_str());
     int i,j,k,n;
-    
+
     for(i=0;i<10;i++)
     {
         if(fin.good())
@@ -1671,7 +1671,7 @@ int uvfile_read(double *u, double *v)
             return 1;
         }
     }
-    
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1697,7 +1697,7 @@ int uvfile_read(double *u, double *v)
             }
         }
     }
-    
+
     for(i=0;i<2;i++)
     {
         if(fin.good())
@@ -1710,7 +1710,7 @@ int uvfile_read(double *u, double *v)
             return 1;
         }
     }
-    
+
     for(k=0; k<Nz; k++)
     {
         for(j=0; j<Ny; j++)
@@ -1733,9 +1733,9 @@ int uvfile_read(double *u, double *v)
             }
         }
     }
-    
+
     fin.close();
-    
+
     return 0;
 }
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
@@ -1743,18 +1743,18 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
     double uy = SegmentEnd.ycoord - SegmentStart.ycoord ;
     double uz = SegmentEnd.zcoord - SegmentStart.zcoord ;
-    
+
     double wx= SegmentStart.xcoord - PlaneSegmentStart.xcoord ;
     double wy = SegmentStart.ycoord - PlaneSegmentStart.ycoord ;
     double wz = SegmentStart.zcoord - PlaneSegmentStart.zcoord ;
-    
+
     double nx= PlaneSegmentEnd.xcoord  - PlaneSegmentStart.xcoord ;
     double ny = PlaneSegmentEnd.ycoord  - PlaneSegmentStart.ycoord ;
     double nz = PlaneSegmentEnd.zcoord  - PlaneSegmentStart.zcoord ;
-    
+
     double D = nx*ux+ ny*uy + nz*uz;
     double N = - (nx*wx+ ny*wy + nz*wz);
-    
+
     if (fabs(D) < 0.01)
     {           // segment is parallel to plane
         if (N == 0)                      // segment lies in plane
@@ -1762,12 +1762,12 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
         else
             return 0;                    // no intersection
     }
-    
+
     double sI = N / D;
     if (sI < 0 || sI > 1)
         return 0;                        // no intersection
-    
-    
+
+
     IntersectionFraction = sI;
     IntersectionPoint[0] = SegmentStart.xcoord + sI * ux;
     IntersectionPoint[1] = SegmentStart.ycoord + sI * uy;
@@ -1804,7 +1804,7 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 /*********Naive FT doesn't work**********/
 /*double *kxp, *kyp, *kzp, *kxpi, *kypi, *kzpi;
  int kmax;
- 
+
  if(0.5*lambda/M_PI > totlength/NP)
  {
  kmax = ((int) (totlength*2*M_PI/lambda));  //Ignore oscillations of higher freq than 2pi/core diameter
@@ -1833,9 +1833,9 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
  kzpi[k] += knotcurve[s].zcoord*sin(2*M_PI*s*k/NP);
  }
  }
- 
+
  double px, py, pz;
- 
+
  for(s=0; s<NP; s++)
  {
  px = 0;
@@ -1851,9 +1851,9 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
  knotcurve[s].ycoord = py;
  knotcurve[s].zcoord = pz;
  }
- 
+
  cout << knotcurve.size() << '\n';
- 
+
  delete [] kxp;
  delete [] kyp;
  delete [] kzp;
@@ -1861,7 +1861,7 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
  delete [] kypi;
  delete [] kzpi;
  }/*
- 
+
  /********Fourier transform******/   //may not be necessary
 //~ /********Fourier transform******/
 //~ NP = knotcurve.size();  //update number of points in knot curve
@@ -1933,12 +1933,12 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 // we know we will be in roughly the same on each - thus we only need test a few segments for the desired interesection.
 /*
  static bool first = true;
- 
+
  if (!first)
  {
- 
+
  int NPold = knotcurveold.size();
- 
+
  // align the two curves. minlocation will give the offset on the new curve.
  double minlength =  (knotcurve[0].xcoord - knotcurveold[0].xcoord)*(knotcurve[0].xcoord - knotcurveold[0].xcoord) + (knotcurve[0].ycoord - knotcurveold[0].ycoord) * (knotcurve[0].ycoord - knotcurveold[0].ycoord) +  (knotcurve[0].zcoord - knotcurveold[0].zcoord) * (knotcurve[0].zcoord - knotcurveold[0].zcoord);
  double templength = -1;
@@ -1952,7 +1952,7 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
  offset = s;
  }
  }
- 
+
  bool intersection = false;
  double IntersectionFraction =-1;
  std::vector<double> IntersectionPoint(3);
@@ -1967,42 +1967,42 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
  if(intersection) break;
  stepnum++;
  stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
- 
+
  }
  // linear interpolation of twist rate
  double axinterpolated = knotcurve[(m+1)%NP].ax*IntersectionFraction + knotcurve[m%NP].ax*(1-IntersectionFraction);
  double ayinterpolated = knotcurve[(m+1)%NP].ay*IntersectionFraction + knotcurve[m%NP].ay*(1-IntersectionFraction);
  double azinterpolated = knotcurve[(m+1)%NP].az*IntersectionFraction + knotcurve[m%NP].az*(1-IntersectionFraction);
- 
+
  // remove tangential part of a
- 
+
  double ax = (axinterpolated - knotcurveold[s].ax);
  double ay = (axinterpolated - knotcurveold[s].ay);
  double az = (axinterpolated - knotcurveold[s].az);
- 
+
  double nx  =  knotcurveold[(s+1)%NPold].xcoord - knotcurveold[s%NPold].xcoord;
  double ny  =  knotcurveold[(s+1)%NPold].ycoord - knotcurveold[s%NPold].ycoord;
  double nz  =  knotcurveold[(s+1)%NPold].zcoord - knotcurveold[s%NPold].zcoord;
- 
+
  double proj = (ax*nx+ay*ny+az*nz)/(nx*nx+ny*ny+nz*nz);
- 
+
  ax = ax - proj*nx;
  ay = ay - proj*ny;
  az = ax - proj*nz;
- 
+
  norm = sqrt(ax*ax+ay*ay+az*az);
- 
+
  ax = ax/norm;
  ay = ay/norm;
  az = az/norm;
- 
+
  // work out velocity and twist rate
  knotcurveold[s].vx = (IntersectionPoint[0] - knotcurveold[s].xcoord )/ dtime;
  knotcurveold[s].vy = (IntersectionPoint[1] - knotcurveold[s].ycoord )/ dtime;
  knotcurveold[s].vz = (IntersectionPoint[2] - knotcurveold[s].zcoord )/ dtime;
- 
+
  knotcurveold[s].spinrate = ((ax - knotcurveold[s].ax)/dtime)*((ax - knotcurveold[s].ax)/dtime) + ((ay - knotcurveold[s].ay)/dtime)*((ay - knotcurveold[s].ay)/dtime) + ((az - knotcurveold[s].az)/dtime)*((az - knotcurveold[s].az)/dtime);
- 
+
  }
  }
  first = false;
