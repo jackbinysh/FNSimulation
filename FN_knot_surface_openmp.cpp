@@ -80,863 +80,863 @@ vector<double> X, Y, Z, dlx, dly,dlz;
 double area;   //initial knot area
 inline  int pt( int i,  int j,  int k)       //convert i,j,k to single index
 {
-	return (i*Ny*Nz+j*Nz+k);
+    return (i*Ny*Nz+j*Nz+k);
 }
 
 int main (void)
 {
-	double *x, *y, *z, *phi, *u, *v, *ucvx, *ucvy, *ucvz;
-	int i,j,k,n,l;
-	int *missed;
+    double *x, *y, *z, *phi, *u, *v, *ucvx, *ucvy, *ucvz;
+    int i,j,k,n,l;
+    int *missed;
 
-	x = new double [Nx];
-	y = new double [Ny];
-	z = new double [Nz];
-	phi = new double [Nx*Ny*Nz];  //scalar potential
-	u = new double [Nx*Ny*Nz];
-	v = new double [Nx*Ny*Nz];
-	if(option==FROM_KNOT_FILE)
-	{
-		missed = new int [Nx*Ny*Nz];
-		fill(missed,missed+Nx*Ny*Nz,0);
-	}
+    x = new double [Nx];
+    y = new double [Ny];
+    z = new double [Nz];
+    phi = new double [Nx*Ny*Nz];  //scalar potential
+    u = new double [Nx*Ny*Nz];
+    v = new double [Nx*Ny*Nz];
+    if(option==FROM_KNOT_FILE)
+    {
+        missed = new int [Nx*Ny*Nz];
+        fill(missed,missed+Nx*Ny*Nz,0);
+    }
 
-	// output an info file on the run
-	print_info(Nx, Ny, Nz, dtime, h, periodic, option, knot_filename, B_filename);
+    // output an info file on the run
+    print_info(Nx, Ny, Nz, dtime, h, periodic, option, knot_filename, B_filename);
 
-	// GSL initialization
-	const gsl_multimin_fminimizer_type *Type;
-	gsl_multimin_fminimizer *minimizerstate;
-	Type = gsl_multimin_fminimizer_nmsimplex2;
-	minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
+    // GSL initialization
+    const gsl_multimin_fminimizer_type *Type;
+    gsl_multimin_fminimizer *minimizerstate;
+    Type = gsl_multimin_fminimizer_nmsimplex2;
+    minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
 # pragma omp parallel shared ( x, y, z ) private ( i, j, k )
-	{
+    {
 #pragma omp for
-		for(i=0;i<Nx;i++)           //initialise grid
-		{
-			x[i] = (i+0.5-Nx/2.0)*h;
-		}
+        for(i=0;i<Nx;i++)           //initialise grid
+        {
+            x[i] = (i+0.5-Nx/2.0)*h;
+        }
 #pragma omp for
-		for(j=0;j<Ny;j++)
-		{
-			y[j] = (j+0.5-Ny/2.0)*h;
-		}
+        for(j=0;j<Ny;j++)
+        {
+            y[j] = (j+0.5-Ny/2.0)*h;
+        }
 #pragma omp for
-		for(k=0;k<Nz;k++)
-		{
-			z[k] = (k+0.5-Nz/2.0)*h;
-		}
-	}
+        for(k=0;k<Nz;k++)
+        {
+            z[k] = (k+0.5-Nz/2.0)*h;
+        }
+    }
 
-	if (option == FROM_PHI_FILE)
-	{
-		cout << "Reading input file...\n";
-		phi_file_read(phi);
-	}
-	else
-	{
-		if(option == FROM_UV_FILE)
-		{
-			cout << "Reading input file...\n";
-			if(uvfile_read(u,v)) return 1;
-		}
-		else
-		{
-			//Initialise knot
-			area = initialise_knot();
-			if(area==0)
-			{
-				cout << "Error reading input option. Aborting...\n";
-				return 1;
-			}
+    if (option == FROM_PHI_FILE)
+    {
+        cout << "Reading input file...\n";
+        phi_file_read(phi);
+    }
+    else
+    {
+        if(option == FROM_UV_FILE)
+        {
+            cout << "Reading input file...\n";
+            if(uvfile_read(u,v)) return 1;
+        }
+        else
+        {
+            //Initialise knot
+            area = initialise_knot();
+            if(area==0)
+            {
+                cout << "Error reading input option. Aborting...\n";
+                return 1;
+            }
 
-			if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-			else cout << "Total no. of knot points: ";
-			cout << NK << '\n';
+            if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
+            else cout << "Total no. of knot points: ";
+            cout << NK << '\n';
 
-			//Calculate phi for initial conditions
-			initial_cond(x,y,z,phi,missed);
-		}
+            //Calculate phi for initial conditions
+            initial_cond(x,y,z,phi,missed);
+        }
 
-	}
+    }
 
-	vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
-	vector<double> ().swap(X);   //empty initial knot curve memory
-	vector<double> ().swap(Y);
-	vector<double> ().swap(Z);
-	vector<double> ().swap(dlx);
-	vector<double> ().swap(dly);
-	vector<double> ().swap(dlz);
+    vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
+    vector<double> ().swap(X);   //empty initial knot curve memory
+    vector<double> ().swap(Y);
+    vector<double> ().swap(Z);
+    vector<double> ().swap(dlx);
+    vector<double> ().swap(dly);
+    vector<double> ().swap(dlz);
 
-	if(option!=FROM_UV_FILE)
-	{
-		cout << "Calculating u and v...\n";
-		uv_initialise(phi,u,v,missed);
-	}
+    if(option!=FROM_UV_FILE)
+    {
+        cout << "Calculating u and v...\n";
+        uv_initialise(phi,u,v,missed);
+    }
 
-	delete [] phi;
-	if(option==FROM_KNOT_FILE) delete [] missed;
+    delete [] phi;
+    if(option==FROM_KNOT_FILE) delete [] missed;
 
-	ucvx = new double [Nx*Ny*Nz];
-	ucvy = new double [Nx*Ny*Nz];
-	ucvz = new double [Nx*Ny*Nz];
+    ucvx = new double [Nx*Ny*Nz];
+    ucvy = new double [Nx*Ny*Nz];
+    ucvz = new double [Nx*Ny*Nz];
 #if RK4
-	double *ku, *kv, *kut, *kvt, *uold, *vold;
-	ku = new double [Nx*Ny*Nz];
-	kv = new double [Nx*Ny*Nz];
-	kut = new double [Nx*Ny*Nz];
-	kvt = new double [Nx*Ny*Nz];
-	uold = new double [Nx*Ny*Nz];
-	vold = new double [Nx*Ny*Nz];
+    double *ku, *kv, *kut, *kvt, *uold, *vold;
+    ku = new double [Nx*Ny*Nz];
+    kv = new double [Nx*Ny*Nz];
+    kut = new double [Nx*Ny*Nz];
+    kvt = new double [Nx*Ny*Nz];
+    uold = new double [Nx*Ny*Nz];
+    vold = new double [Nx*Ny*Nz];
 
 #else
-	double *D2u;
+    double *D2u;
 
-	D2u = new double [Nx*Ny*Nz];
+    D2u = new double [Nx*Ny*Nz];
 #endif
 
-	cout << "Updating u and v...\n";
+    cout << "Updating u and v...\n";
 
-	// initilialising counters
-	int p=0;
-	int q=0;
-	n=0;
+    // initilialising counters
+    int p=0;
+    int q=0;
+    n=0;
 
-	// initialising timers
-	time_t then = time(NULL);
-	time_t rawtime;
-	time (&rawtime);
-	struct tm * timeinfo;
-	ofstream wrout;
-	wrout.open("writhe.txt");
-	wrout << "Time\tWrithe\tTwist\tLength\n";
-	wrout.close();
+    // initialising timers
+    time_t then = time(NULL);
+    time_t rawtime;
+    time (&rawtime);
+    struct tm * timeinfo;
+    ofstream wrout;
+    wrout.open("writhe.txt");
+    wrout << "Time\tWrithe\tTwist\tLength\n";
+    wrout.close();
 
 #if RK4
 #pragma omp parallel default(none) shared ( x, y, z, u, v, uold, vold, n,ku,kv,kut,kvt,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurve, knotcurveold, knotexists , minimizerstate)
 #else
 #pragma omp parallel default(none) shared ( x, y, z, u, v, n, D2u, p, q,ucvx, ucvy, ucvz, cout, rawtime, timeinfo, knotcurve, knotcurveold, knotexists ,minimizerstate)
 #endif
-	{
-		while(n*dtime <= TTime)
-		{
+    {
+        while(n*dtime <= TTime)
+        {
 #pragma omp single
-			{
-				if(n*dtime >= q)  //Do this every unit T
-				{
-					if(knotexists) knotcurve.clear(); //empty vector with knot curve points
-					crossgrad_calc(x,y,z,u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
-					cout << "T = " << n*dtime + starttime << endl;
-					time (&rawtime);
-					timeinfo = localtime (&rawtime);
-					cout << "current time \t" << asctime(timeinfo) << "\n";
-					if(n*dtime+starttime>=20 && knotexists)
-					{
-						find_knot_properties(x,y,z,ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
-						print_knot(x,y,z,n*dtime+starttime,knotcurve);
-					}
-					q++;
-				}
+            {
+                if(n*dtime >= q)  //Do this every unit T
+                {
+                    if(knotexists) knotcurve.clear(); //empty vector with knot curve points
+                    crossgrad_calc(x,y,z,u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
+                    cout << "T = " << n*dtime + starttime << endl;
+                    time (&rawtime);
+                    timeinfo = localtime (&rawtime);
+                    cout << "current time \t" << asctime(timeinfo) << "\n";
+                    if(n*dtime+starttime>=20 && knotexists)
+                    {
+                        find_knot_properties(x,y,z,ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
+                        print_knot(x,y,z,n*dtime+starttime,knotcurve);
+                    }
+                    q++;
+                }
 
-				if(n*dtime >= p*skiptime)
-				{
+                if(n*dtime >= p*skiptime)
+                {
 
-					print_uv(x,y,z,u,v,ucvx,ucvy,ucvz,n*dtime+starttime);
-					p++;
-				}
+                    print_uv(x,y,z,u,v,ucvx,ucvy,ucvz,n*dtime+starttime);
+                    p++;
+                }
 
-				n++;
-			}
+                n++;
+            }
 #if RK4
-			uv_update(u,v,ku,kv,kut,kvt,uold,vold);
+            uv_update(u,v,ku,kv,kut,kvt,uold,vold);
 #else
-			uv_update_euler(u,v,D2u);
+            uv_update_euler(u,v,D2u);
 #endif
-		}
-	}
-	time_t now = time(NULL);
-	cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
+        }
+    }
+    time_t now = time(NULL);
+    cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
 
 #if RK4
-	delete [] uold;
-	delete [] vold;
-	delete [] ku;
-	delete [] kv;
-	delete [] kut;
-	delete [] kvt;
+    delete [] uold;
+    delete [] vold;
+    delete [] ku;
+    delete [] kv;
+    delete [] kut;
+    delete [] kvt;
 #else
-	delete [] D2u;
+    delete [] D2u;
 #endif
-	delete [] x;
-	delete [] y;
-	delete [] z;
-	delete [] u;
-	delete [] v;
-	delete [] ucvx;
-	delete [] ucvy;
-	delete [] ucvz;
+    delete [] x;
+    delete [] y;
+    delete [] z;
+    delete [] u;
+    delete [] v;
+    delete [] ucvx;
+    delete [] ucvy;
+    delete [] ucvz;
 
-	return 0;
+    return 0;
 }
 
 /*************************Functions for knot initialisation*****************************/
 double initialise_knot()
 {
-	double L;
-	switch (option)
-	{
-		case FROM_SURFACE_FILE: L = init_from_surface_file();
-					break;
+    double L;
+    switch (option)
+    {
+        case FROM_SURFACE_FILE: L = init_from_surface_file();
+                    break;
 
-		case FROM_KNOT_FILE: L = init_from_knot_file();
-				     break;
+        case FROM_KNOT_FILE: L = init_from_knot_file();
+                     break;
 
-		default: L=0;
-			 break;
-	}
+        default: L=0;
+             break;
+    }
 
-	return L;
+    return L;
 }
 
 double init_from_surface_file(void)
 {
-	string filename, buff;
-	stringstream ss;
-	double A = 0;   //total area
-	int i=0;
-	int j;
-	double r10,r20,r21,s,xcoord,ycoord,zcoord;
-	string temp;
-	ifstream knotin;
-	/*  For recording max and min input values*/
-	double maxxin = 0;
-	double maxyin = 0;
-	double maxzin = 0;
-	double minxin = 0;
-	double minyin = 0;
-	double minzin = 0;
+    string filename, buff;
+    stringstream ss;
+    double A = 0;   //total area
+    int i=0;
+    int j;
+    double r10,r20,r21,s,xcoord,ycoord,zcoord;
+    string temp;
+    ifstream knotin;
+    /*  For recording max and min input values*/
+    double maxxin = 0;
+    double maxyin = 0;
+    double maxzin = 0;
+    double minxin = 0;
+    double minyin = 0;
+    double minzin = 0;
 
-	ss.clear();
-	ss.str("");
-	ss << knot_filename << ".stl";
+    ss.clear();
+    ss.str("");
+    ss << knot_filename << ".stl";
 
-	filename = ss.str();
-	knotin.open(filename.c_str());
-	if(knotin.good())
-	{
-		if(getline(knotin,buff)) temp = buff;
-	}
-	else cout << "Error reading file\n";
-	while(knotin.good())   //read in points for knot
-	{
-		if(getline(knotin,buff))  //read in surface normal
-		{
-			ss.clear();
-			ss.str("");
-			ss << buff;
-			ss >> temp;
-			if(temp.compare("endsolid") == 0) break;
-			knotsurface.push_back(triangle());
-			ss >> temp >> knotsurface[i].normal[0] >> knotsurface[i].normal[1] >> knotsurface[i].normal[2];
-		}
+    filename = ss.str();
+    knotin.open(filename.c_str());
+    if(knotin.good())
+    {
+        if(getline(knotin,buff)) temp = buff;
+    }
+    else cout << "Error reading file\n";
+    while(knotin.good())   //read in points for knot
+    {
+        if(getline(knotin,buff))  //read in surface normal
+        {
+            ss.clear();
+            ss.str("");
+            ss << buff;
+            ss >> temp;
+            if(temp.compare("endsolid") == 0) break;
+            knotsurface.push_back(triangle());
+            ss >> temp >> knotsurface[i].normal[0] >> knotsurface[i].normal[1] >> knotsurface[i].normal[2];
+        }
 
-		if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-		knotsurface[i].centre[0] = 0;
-		knotsurface[i].centre[1] = 0;
-		knotsurface[i].centre[2] = 0;
-		for(j=0;j<3;j++)
-		{
-			if(getline(knotin,buff))  //read in vertices
-			{
-				ss.clear();
-				ss.str("");
-				ss << buff;
-				ss >> temp >> xcoord >> ycoord >> zcoord;
+        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
+        knotsurface[i].centre[0] = 0;
+        knotsurface[i].centre[1] = 0;
+        knotsurface[i].centre[2] = 0;
+        for(j=0;j<3;j++)
+        {
+            if(getline(knotin,buff))  //read in vertices
+            {
+                ss.clear();
+                ss.str("");
+                ss << buff;
+                ss >> temp >> xcoord >> ycoord >> zcoord;
 
-				if(xcoord>maxxin) maxxin = xcoord;
-				if(ycoord>maxyin) maxyin = ycoord;
-				if(zcoord>maxzin) maxzin = zcoord;
-				if(xcoord<minxin) minxin = xcoord;
-				if(ycoord<minyin) minyin = ycoord;
-				if(zcoord<minzin) minzin = zcoord;
+                if(xcoord>maxxin) maxxin = xcoord;
+                if(ycoord>maxyin) maxyin = ycoord;
+                if(zcoord>maxzin) maxzin = zcoord;
+                if(xcoord<minxin) minxin = xcoord;
+                if(ycoord<minyin) minyin = ycoord;
+                if(zcoord<minzin) minzin = zcoord;
 
-				knotsurface[i].xvertex[j] = xcoord;
-				knotsurface[i].yvertex[j] = ycoord;
-				knotsurface[i].zvertex[j] = zcoord;
-				knotsurface[i].centre[0] += knotsurface[i].xvertex[j]/3.0;
-				knotsurface[i].centre[1] += knotsurface[i].yvertex[j]/3.0;
-				knotsurface[i].centre[2] += knotsurface[i].zvertex[j]/3.0;
-			}
-		}
-		//cout << i << " (" << knotsurface[i].centre[0] << ',' << knotsurface[i].centre[1] << ',' << knotsurface[i].centre[2] << ") , (" << knotsurface[i].normal[0] << ',' << knotsurface[i].normal[1] << ',' << knotsurface[i].normal[2] << ") \n";
+                knotsurface[i].xvertex[j] = xcoord;
+                knotsurface[i].yvertex[j] = ycoord;
+                knotsurface[i].zvertex[j] = zcoord;
+                knotsurface[i].centre[0] += knotsurface[i].xvertex[j]/3.0;
+                knotsurface[i].centre[1] += knotsurface[i].yvertex[j]/3.0;
+                knotsurface[i].centre[2] += knotsurface[i].zvertex[j]/3.0;
+            }
+        }
+        //cout << i << " (" << knotsurface[i].centre[0] << ',' << knotsurface[i].centre[1] << ',' << knotsurface[i].centre[2] << ") , (" << knotsurface[i].normal[0] << ',' << knotsurface[i].normal[1] << ',' << knotsurface[i].normal[2] << ") \n";
 
-		if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-		if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
+        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
+        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
 
-		i++;
-	}
+        i++;
+    }
 
-	NK = i;
-	/* Work out space scaling for knot surface */
-	double scale[3];
-	if(maxxin-minxin>0) scale[0] = xmax/(maxxin-minxin);
-	else scale[0] = 1;
-	if(maxyin-minyin>0) scale[1] = ymax/(maxyin-minyin);
-	else scale[1] = 1;
-	if(maxzin-minzin>0) scale[2] = zmax/(maxzin-minzin);
-	else scale[2] = 1;
-	double midpoint[3];
-	double norm;
-	//double p1x,p1y,p1z,p2x,p2y,p2z,nx,ny,nz;
-	midpoint[0] = 0.5*(maxxin+minxin);
-	midpoint[1] = 0.5*(maxyin+minyin);
-	midpoint[2] = 0.5*(maxzin+minzin);
+    NK = i;
+    /* Work out space scaling for knot surface */
+    double scale[3];
+    if(maxxin-minxin>0) scale[0] = xmax/(maxxin-minxin);
+    else scale[0] = 1;
+    if(maxyin-minyin>0) scale[1] = ymax/(maxyin-minyin);
+    else scale[1] = 1;
+    if(maxzin-minzin>0) scale[2] = zmax/(maxzin-minzin);
+    else scale[2] = 1;
+    double midpoint[3];
+    double norm;
+    //double p1x,p1y,p1z,p2x,p2y,p2z,nx,ny,nz;
+    midpoint[0] = 0.5*(maxxin+minxin);
+    midpoint[1] = 0.5*(maxyin+minyin);
+    midpoint[2] = 0.5*(maxzin+minzin);
 
-	/*Rescale points and normals to fit grid properly*/
-	for(i=0;i<NK;i++)
-	{
-		for(j=0;j<3;j++)
-		{
-			knotsurface[i].xvertex[j] = scale[0]*(knotsurface[i].xvertex[j] - midpoint[0]);
-			knotsurface[i].yvertex[j] = scale[1]*(knotsurface[i].yvertex[j] - midpoint[1]);
-			knotsurface[i].zvertex[j] = scale[2]*(knotsurface[i].zvertex[j] - midpoint[2]);
-			knotsurface[i].centre[j] = scale[j]*(knotsurface[i].centre[j] - midpoint[j]);
-		}
+    /*Rescale points and normals to fit grid properly*/
+    for(i=0;i<NK;i++)
+    {
+        for(j=0;j<3;j++)
+        {
+            knotsurface[i].xvertex[j] = scale[0]*(knotsurface[i].xvertex[j] - midpoint[0]);
+            knotsurface[i].yvertex[j] = scale[1]*(knotsurface[i].yvertex[j] - midpoint[1]);
+            knotsurface[i].zvertex[j] = scale[2]*(knotsurface[i].zvertex[j] - midpoint[2]);
+            knotsurface[i].centre[j] = scale[j]*(knotsurface[i].centre[j] - midpoint[j]);
+        }
 
-		norm = sqrt(scale[1]*scale[1]*scale[2]*scale[2]*knotsurface[i].normal[0]*knotsurface[i].normal[0] +
-				scale[0]*scale[0]*scale[2]*scale[2]*knotsurface[i].normal[1]*knotsurface[i].normal[1] +
-				scale[0]*scale[0]*scale[1]*scale[1]*knotsurface[i].normal[2]*knotsurface[i].normal[2]);
+        norm = sqrt(scale[1]*scale[1]*scale[2]*scale[2]*knotsurface[i].normal[0]*knotsurface[i].normal[0] +
+                scale[0]*scale[0]*scale[2]*scale[2]*knotsurface[i].normal[1]*knotsurface[i].normal[1] +
+                scale[0]*scale[0]*scale[1]*scale[1]*knotsurface[i].normal[2]*knotsurface[i].normal[2]);
 
-		knotsurface[i].normal[0] *= scale[1]*scale[2]/norm;
-		knotsurface[i].normal[1] *= scale[0]*scale[2]/norm;
-		knotsurface[i].normal[2] *= scale[0]*scale[1]/norm;
+        knotsurface[i].normal[0] *= scale[1]*scale[2]/norm;
+        knotsurface[i].normal[1] *= scale[0]*scale[2]/norm;
+        knotsurface[i].normal[2] *= scale[0]*scale[1]/norm;
 
-		/*Check surface normal is correct
-		  p1x = knotsurface[i].xvertex[1] - knotsurface[i].xvertex[0];
-		  p1y = knotsurface[i].yvertex[1] - knotsurface[i].yvertex[0];
-		  p1z = knotsurface[i].zvertex[1] - knotsurface[i].zvertex[0];
-		  p2x = knotsurface[i].xvertex[2] - knotsurface[i].xvertex[0];
-		  p2y = knotsurface[i].yvertex[2] - knotsurface[i].yvertex[0];
-		  p2z = knotsurface[i].zvertex[2] - knotsurface[i].zvertex[0];
-		  nx = p1y*p2z - p2y*p1z;
-		  ny = p1z*p2x - p2z*p1x;
-		  nz = p1x*p2y - p2x*p1y;
-		  norm = sqrt(nx*nx+ny*ny+nz*nz);
-		  nx = nx/norm;
-		  ny = ny/norm;
-		  nz = nz/norm;
-		  cout << nx*knotsurface[i].normal[0] + ny*knotsurface[i].normal[1] + nz*knotsurface[i].normal[2] << '\n';
-		 */
+        /*Check surface normal is correct
+          p1x = knotsurface[i].xvertex[1] - knotsurface[i].xvertex[0];
+          p1y = knotsurface[i].yvertex[1] - knotsurface[i].yvertex[0];
+          p1z = knotsurface[i].zvertex[1] - knotsurface[i].zvertex[0];
+          p2x = knotsurface[i].xvertex[2] - knotsurface[i].xvertex[0];
+          p2y = knotsurface[i].yvertex[2] - knotsurface[i].yvertex[0];
+          p2z = knotsurface[i].zvertex[2] - knotsurface[i].zvertex[0];
+          nx = p1y*p2z - p2y*p1z;
+          ny = p1z*p2x - p2z*p1x;
+          nz = p1x*p2y - p2x*p1y;
+          norm = sqrt(nx*nx+ny*ny+nz*nz);
+          nx = nx/norm;
+          ny = ny/norm;
+          nz = nz/norm;
+          cout << nx*knotsurface[i].normal[0] + ny*knotsurface[i].normal[1] + nz*knotsurface[i].normal[2] << '\n';
+         */
 
-		r10 = sqrt((knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0]));
-		r20 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0]));
-		r21 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1]));
-		s = (r10+r20+r21)/2;
-		knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
-		A += knotsurface[i].area;
-	}
+        r10 = sqrt((knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0]));
+        r20 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0]));
+        r21 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1]));
+        s = (r10+r20+r21)/2;
+        knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
+        A += knotsurface[i].area;
+    }
 
-	cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << "in x,y and z\n";
+    cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << "in x,y and z\n";
 
-	return A;
+    return A;
 }
 
 double init_from_knot_file(void)
 {
-	double xt,yt,zt,dx,dy,dz,dl,lseg,Lh;    //temporary variables
-	vector<double> px,py,pz,dr,ntx,nty,ntz;  //points, distances and tangents
-	int npts;  //counter
-	string temp;
-	double L=0;
-	int n,m,t,s,NKh;
-	ifstream knotin;   //knot file(s)
-	string filename, buff;
-	stringstream ss;
-	double maxxin = 0;
-	double maxyin = 0;
-	double maxzin = 0;
-	double minxin = 0;
-	double minyin = 0;
-	double minzin = 0;
+    double xt,yt,zt,dx,dy,dz,dl,lseg,Lh;    //temporary variables
+    vector<double> px,py,pz,dr,ntx,nty,ntz;  //points, distances and tangents
+    int npts;  //counter
+    string temp;
+    double L=0;
+    int n,m,t,s,NKh;
+    ifstream knotin;   //knot file(s)
+    string filename, buff;
+    stringstream ss;
+    double maxxin = 0;
+    double maxyin = 0;
+    double maxzin = 0;
+    double minxin = 0;
+    double minyin = 0;
+    double minzin = 0;
 
-	NK=0;    //count total no. of points
+    NK=0;    //count total no. of points
 
-	for (m=1; m<=ncomp; m++)
-	{
-		npts=0;
+    for (m=1; m<=ncomp; m++)
+    {
+        npts=0;
 
-		ss.clear();
-		ss.str("");
-		if (ncomp==1) ss << knot_filename << ".txt";
-		else ss << knot_filename << m << ".txt";
+        ss.clear();
+        ss.str("");
+        if (ncomp==1) ss << knot_filename << ".txt";
+        else ss << knot_filename << m << ".txt";
 
-		filename = ss.str();
-		knotin.open(filename.c_str());
+        filename = ss.str();
+        knotin.open(filename.c_str());
 
-		while(knotin.good())   //read in points for knot
-		{
-			if(getline(knotin,buff))
-			{
-				ss.clear();
-				ss.str("");
-				ss << buff;
-				ss >> xt >> yt >> zt;
-			}
-			else break;
-			/*needs changing*/
-			px.push_back(xt);
-			py.push_back(yt);             //store points
-			pz.push_back(zt);
+        while(knotin.good())   //read in points for knot
+        {
+            if(getline(knotin,buff))
+            {
+                ss.clear();
+                ss.str("");
+                ss << buff;
+                ss >> xt >> yt >> zt;
+            }
+            else break;
+            /*needs changing*/
+            px.push_back(xt);
+            py.push_back(yt);             //store points
+            pz.push_back(zt);
 
-			if(xt > maxxin) maxxin = xt;  //find max and min points
-			if(yt > maxyin) maxyin = yt;
-			if(zt > maxzin) maxzin = zt;
-			if(xt < minxin) minxin = xt;
-			if(yt < minyin) minyin = yt;
-			if(zt < minzin) minzin = zt;
+            if(xt > maxxin) maxxin = xt;  //find max and min points
+            if(yt > maxyin) maxyin = yt;
+            if(zt > maxzin) maxzin = zt;
+            if(xt < minxin) minxin = xt;
+            if(yt < minyin) minyin = yt;
+            if(zt < minzin) minzin = zt;
 
-			npts++;
-		}
+            npts++;
+        }
 
-		knotin.close();
+        knotin.close();
 
-		/*rescale knot*/
-		double scale[3];
-		if(maxxin-minxin>0) scale[0] = xmax/(maxxin-minxin);
-		else scale[0] = 1;
-		if(maxyin-minyin>0) scale[1] = ymax/(maxyin-minyin);
-		else scale[1] = 1;
-		if(maxzin-minzin>0) scale[2] = zmax/(maxzin-minzin);
-		else scale[2] = 1;
-		double midpoint[3];
-		midpoint[0] = 0.5*(maxxin+minxin);
-		midpoint[1] = 0.5*(maxyin+minyin);
-		midpoint[2] = 0.5*(maxzin+minzin);
+        /*rescale knot*/
+        double scale[3];
+        if(maxxin-minxin>0) scale[0] = xmax/(maxxin-minxin);
+        else scale[0] = 1;
+        if(maxyin-minyin>0) scale[1] = ymax/(maxyin-minyin);
+        else scale[1] = 1;
+        if(maxzin-minzin>0) scale[2] = zmax/(maxzin-minzin);
+        else scale[2] = 1;
+        double midpoint[3];
+        midpoint[0] = 0.5*(maxxin+minxin);
+        midpoint[1] = 0.5*(maxyin+minyin);
+        midpoint[2] = 0.5*(maxzin+minzin);
 
-		Lh=0;
-		for(t=0; t<npts; t++)
-		{
-			px[t] = scale[0]*(px[t]-midpoint[0]);
-			py[t] = scale[1]*(py[t]-midpoint[1]);
-			pz[t] = scale[2]*(pz[t]-midpoint[2]);
-			if(t>0)
-			{
-				dx = px[t] - px[t-1];
-				dy = py[t] - py[t-1];     //distance between points
-				dz = pz[t] - pz[t-1];
-				dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
-				ntx.push_back(dx/dr[t-1]);    //tangent direction to next pt, goes from 0:npts-1
-				nty.push_back(dy/dr[t-1]);
-				ntz.push_back(dz/dr[t-1]);
-				Lh += dr[t-1];                //total length of link component
-			}
-		}
-		/*Do final point*/
-		dx = px[0] - px[npts-1];
-		dy = py[0] - py[npts-1];     //distance between points
-		dz = pz[0] - pz[npts-1];
-		dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
-		ntx.push_back(dx/dr[npts-1]);    //tangent direction to next pt, goes from 0:npts-1
-		nty.push_back(dy/dr[npts-1]);
-		ntz.push_back(dz/dr[npts-1]);
-		Lh += dr[npts-1];                //total length of link component
+        Lh=0;
+        for(t=0; t<npts; t++)
+        {
+            px[t] = scale[0]*(px[t]-midpoint[0]);
+            py[t] = scale[1]*(py[t]-midpoint[1]);
+            pz[t] = scale[2]*(pz[t]-midpoint[2]);
+            if(t>0)
+            {
+                dx = px[t] - px[t-1];
+                dy = py[t] - py[t-1];     //distance between points
+                dz = pz[t] - pz[t-1];
+                dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
+                ntx.push_back(dx/dr[t-1]);    //tangent direction to next pt, goes from 0:npts-1
+                nty.push_back(dy/dr[t-1]);
+                ntz.push_back(dz/dr[t-1]);
+                Lh += dr[t-1];                //total length of link component
+            }
+        }
+        /*Do final point*/
+        dx = px[0] - px[npts-1];
+        dy = py[0] - py[npts-1];     //distance between points
+        dz = pz[0] - pz[npts-1];
+        dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
+        ntx.push_back(dx/dr[npts-1]);    //tangent direction to next pt, goes from 0:npts-1
+        nty.push_back(dy/dr[npts-1]);
+        ntz.push_back(dz/dr[npts-1]);
+        Lh += dr[npts-1];                //total length of link component
 
-		NKh = ((int) (2*Lh/h));  //Number of points to define knot with ~h/2 spacing
-		dl = Lh/NKh;       //Actual spacing ~h/2
+        NKh = ((int) (2*Lh/h));  //Number of points to define knot with ~h/2 spacing
+        dl = Lh/NKh;       //Actual spacing ~h/2
 
-		//Start at p0
-		X.push_back(px[0]);
-		Y.push_back(py[0]);
-		Z.push_back(pz[0]);
+        //Start at p0
+        X.push_back(px[0]);
+        Y.push_back(py[0]);
+        Z.push_back(pz[0]);
 
-		n = 0; //input pt counter
+        n = 0; //input pt counter
 
-		for(t=1;t<NKh;t++)
-		{
-			s = NK+t;
-			X.push_back(X[s-1] + dl*ntx[n]);     //interpolate between input points
-			Y.push_back(Y[s-1] + dl*nty[n]);
-			Z.push_back(Z[s-1] + dl*ntz[n]);
-			lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] -               pz[n])*(Z[s] - pz[n]));     //distance from last input point
-			while(lseg>dr[n])   //if we have passed next input point
-			{
-				n=n+1;     //move to next input point
-				X[s] = px[n] + (lseg-dr[n-1])*ntx[n];    //add extra bit in next direction
-				Y[s] = py[n] + (lseg-dr[n-1])*nty[n];
-				Z[s] = pz[n] + (lseg-dr[n-1])*ntz[n];
-				lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] - pz[n])*(Z[s] - pz[n]));    //recalculate segment length
-			}
-			//cout << X[s] << ' ' << Y[s] << ' ' << Z[s] << '\n';
-		}
+        for(t=1;t<NKh;t++)
+        {
+            s = NK+t;
+            X.push_back(X[s-1] + dl*ntx[n]);     //interpolate between input points
+            Y.push_back(Y[s-1] + dl*nty[n]);
+            Z.push_back(Z[s-1] + dl*ntz[n]);
+            lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] -               pz[n])*(Z[s] - pz[n]));     //distance from last input point
+            while(lseg>dr[n])   //if we have passed next input point
+            {
+                n=n+1;     //move to next input point
+                X[s] = px[n] + (lseg-dr[n-1])*ntx[n];    //add extra bit in next direction
+                Y[s] = py[n] + (lseg-dr[n-1])*nty[n];
+                Z[s] = pz[n] + (lseg-dr[n-1])*ntz[n];
+                lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] - pz[n])*(Z[s] - pz[n]));    //recalculate segment length
+            }
+            //cout << X[s] << ' ' << Y[s] << ' ' << Z[s] << '\n';
+        }
 
-		px.clear();
-		py.clear();
-		pz.clear();
-		ntx.clear();
-		nty.clear();
-		ntz.clear();
-		dr.clear();
+        px.clear();
+        py.clear();
+        pz.clear();
+        ntx.clear();
+        nty.clear();
+        ntz.clear();
+        dr.clear();
 
-		//smooth curve
-		/*double *Xnew,*Ynew,*Znew;
-		  double d2x,d2y,d2z;
+        //smooth curve
+        /*double *Xnew,*Ynew,*Znew;
+          double d2x,d2y,d2z;
 
-		  for(n=0;n<10000;n++)
-		  {
-		  for(t=0;t<NKh;t++)
-		  {
-		  d2x = X[NK+incp(t,1,NKh)] - 2*X[NK+t] + X[NK+incp(t,-1,NKh)];
-		  d2y = Y[NK+incp(t,1,NKh)] - 2*Y[NK+t] + Y[NK+incp(t,-1,NKh)];
-		  d2z = Z[NK+incp(t,1,NKh)] - 2*Z[NK+t] + Z[NK+incp(t,-1,NKh)];
-		  X[NK+t] += 0.01*d2x;
-		  Y[NK+t] += 0.01*d2y;
-		  Z[NK+t] += 0.01*d2z;
-		  }
-		  }*/
+          for(n=0;n<10000;n++)
+          {
+          for(t=0;t<NKh;t++)
+          {
+          d2x = X[NK+incp(t,1,NKh)] - 2*X[NK+t] + X[NK+incp(t,-1,NKh)];
+          d2y = Y[NK+incp(t,1,NKh)] - 2*Y[NK+t] + Y[NK+incp(t,-1,NKh)];
+          d2z = Z[NK+incp(t,1,NKh)] - 2*Z[NK+t] + Z[NK+incp(t,-1,NKh)];
+          X[NK+t] += 0.01*d2x;
+          Y[NK+t] += 0.01*d2y;
+          Z[NK+t] += 0.01*d2z;
+          }
+          }*/
 
-		for(t=0;t<NKh;t++)
-		{
-			dlx.push_back(0.5*(X[NK+incp(t,1,NKh)] - X[NK+incp(t,-1,NKh)]));   //central diff for tangent
-			dly.push_back(0.5*(Y[NK+incp(t,1,NKh)] - Y[NK+incp(t,-1,NKh)]));
-			dlz.push_back(0.5*(Z[NK+incp(t,1,NKh)] - Z[NK+incp(t,-1,NKh)]));
-		}
-		NK += NKh;
-		L += Lh;    //keep track of total length and npts to define link
-	}
+        for(t=0;t<NKh;t++)
+        {
+            dlx.push_back(0.5*(X[NK+incp(t,1,NKh)] - X[NK+incp(t,-1,NKh)]));   //central diff for tangent
+            dly.push_back(0.5*(Y[NK+incp(t,1,NKh)] - Y[NK+incp(t,-1,NKh)]));
+            dlz.push_back(0.5*(Z[NK+incp(t,1,NKh)] - Z[NK+incp(t,-1,NKh)]));
+        }
+        NK += NKh;
+        L += Lh;    //keep track of total length and npts to define link
+    }
 
-	ofstream oknotfile;
+    ofstream oknotfile;
 
-	oknotfile.open("knotfile.vtk");
+    oknotfile.open("knotfile.vtk");
 
-	oknotfile << "# vtk DataFile Version 3.0\nKnotin\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-	oknotfile << "POINTS " << NK << " float\n";
+    oknotfile << "# vtk DataFile Version 3.0\nKnotin\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+    oknotfile << "POINTS " << NK << " float\n";
 
-	for(t=0; t<NK; t++)
-	{
-		oknotfile << X[t] << ' ' << Y[t] << ' ' << Z[t] << '\n';
-	}
+    for(t=0; t<NK; t++)
+    {
+        oknotfile << X[t] << ' ' << Y[t] << ' ' << Z[t] << '\n';
+    }
 
-	oknotfile.close();
+    oknotfile.close();
 
-	return L;
+    return L;
 }
 
 /*************************Functions for B and Phi calcs*****************************/
 
 void initial_cond(double *x, double *y, double *z, double *phi, int* missed)
 {
-	if(option == FROM_KNOT_FILE)
-	{
-		int *ignore;  //Points to ignore
-		int *ignore1;
-		double *Bx;  //Mag field
-		double *By;
-		double *Bz;
-		double *Bmag;
+    if(option == FROM_KNOT_FILE)
+    {
+        int *ignore;  //Points to ignore
+        int *ignore1;
+        double *Bx;  //Mag field
+        double *By;
+        double *Bz;
+        double *Bmag;
 
-		ignore = new int [Nx*Ny*Nz];
-		ignore1 = new int [Nx*Ny*Nz];
-		Bx = new double [Nx*Ny*Nz];
-		By = new double [Nx*Ny*Nz];
-		Bz = new double [Nx*Ny*Nz];
-		Bmag = new double [Nx*Ny*Nz];
+        ignore = new int [Nx*Ny*Nz];
+        ignore1 = new int [Nx*Ny*Nz];
+        Bx = new double [Nx*Ny*Nz];
+        By = new double [Nx*Ny*Nz];
+        Bz = new double [Nx*Ny*Nz];
+        Bmag = new double [Nx*Ny*Nz];
 
-		cout << "Calculating B field...\n";
-		time_t then = time(NULL);
-		B_field_calc(x,y,z,Bx, By, Bz, Bmag, ignore, ignore1, missed);
-		time_t now = time(NULL);
-		cout << "B field calc took " << now - then << " seconds.\n";
-		cout << "Calculating scalar potential...\n";
-		then = time(NULL);
-		phi_calc_B(Bx, By, Bz, Bmag, ignore, ignore1, missed, phi);
-		now = time(NULL);
-		cout << "Phi field calc took " << now - then << " seconds.\n";
-		cout << "Printing B and phi...\n";
-		print_B_phi(x, y, z, phi, missed);
+        cout << "Calculating B field...\n";
+        time_t then = time(NULL);
+        B_field_calc(x,y,z,Bx, By, Bz, Bmag, ignore, ignore1, missed);
+        time_t now = time(NULL);
+        cout << "B field calc took " << now - then << " seconds.\n";
+        cout << "Calculating scalar potential...\n";
+        then = time(NULL);
+        phi_calc_B(Bx, By, Bz, Bmag, ignore, ignore1, missed, phi);
+        now = time(NULL);
+        cout << "Phi field calc took " << now - then << " seconds.\n";
+        cout << "Printing B and phi...\n";
+        print_B_phi(x, y, z, phi, missed);
 
-		delete [] ignore;
-		delete [] ignore1;
-		delete [] Bx;
-		delete [] By;
-		delete [] Bz;
-		delete [] Bmag;
-	}
-	else
-	{
-		cout << "Calculating scalar potential...\n";
-		time_t then = time(NULL);
-		phi_calc(x,y,z,phi);
-		time_t now = time(NULL);
-		cout << "Initialisation took " << now - then << " seconds.\n";
-		cout << "Printing B and phi...\n";
-		print_B_phi(x, y, z, phi, missed);
-	}
+        delete [] ignore;
+        delete [] ignore1;
+        delete [] Bx;
+        delete [] By;
+        delete [] Bz;
+        delete [] Bmag;
+    }
+    else
+    {
+        cout << "Calculating scalar potential...\n";
+        time_t then = time(NULL);
+        phi_calc(x,y,z,phi);
+        time_t now = time(NULL);
+        cout << "Initialisation took " << now - then << " seconds.\n";
+        cout << "Printing B and phi...\n";
+        print_B_phi(x, y, z, phi, missed);
+    }
 }
 
 void phi_calc(double *x, double *y, double *z, double *phi)
 {
-	int i,j,k,n,s;
-	double rx,ry,rz,r;
+    int i,j,k,n,s;
+    double rx,ry,rz,r;
 
 
 #pragma omp parallel default(none) shared ( x, y, z, knotsurface, phi, NK ) private ( i, j, k, n, s, rx, ry, rz , r)
-	{
+    {
 #pragma omp for
-		for(i=0;i<Nx;i++)
-		{
-			for(j=0; j<Ny; j++)
-			{
-				for(k=0; k<Nz; k++)
-				{
-					n = pt(i,j,k);
-					phi[n] = 0;
-					for(s=0;s<NK;s++)
-					{
-						rx = knotsurface[s].centre[0]-x[i];
-						ry = knotsurface[s].centre[1]-y[j];
-						rz = knotsurface[s].centre[2]-z[k];
-						r = sqrt(rx*rx+ry*ry+rz*rz);
-						if(r>0) phi[n] += (rx*knotsurface[s].normal[0] + ry*knotsurface[s].normal[1] + rz*knotsurface[s].normal[2])*knotsurface[s].area/(2*r*r*r);
-					}
-					while(phi[n]>M_PI) phi[n] -= 2*M_PI;
-					while(phi[n]<-M_PI) phi[n] += 2*M_PI;
-				}
-			}
-		}
-	}
+        for(i=0;i<Nx;i++)
+        {
+            for(j=0; j<Ny; j++)
+            {
+                for(k=0; k<Nz; k++)
+                {
+                    n = pt(i,j,k);
+                    phi[n] = 0;
+                    for(s=0;s<NK;s++)
+                    {
+                        rx = knotsurface[s].centre[0]-x[i];
+                        ry = knotsurface[s].centre[1]-y[j];
+                        rz = knotsurface[s].centre[2]-z[k];
+                        r = sqrt(rx*rx+ry*ry+rz*rz);
+                        if(r>0) phi[n] += (rx*knotsurface[s].normal[0] + ry*knotsurface[s].normal[1] + rz*knotsurface[s].normal[2])*knotsurface[s].area/(2*r*r*r);
+                    }
+                    while(phi[n]>M_PI) phi[n] -= 2*M_PI;
+                    while(phi[n]<-M_PI) phi[n] += 2*M_PI;
+                }
+            }
+        }
+    }
 
 }
 
 void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed)
 {
-	int i,j,k,n,t;
-	double lx,ly,lz,lmag;
-	double coresize = lambda/(2*M_PI);
+    int i,j,k,n,t;
+    double lx,ly,lz,lmag;
+    double coresize = lambda/(2*M_PI);
 
 #pragma omp parallel default(none) shared ( x, y, z, X, Y, Z, Bx, By, Bz, missed, Bmag, NK, coresize, ignore, ignore1, dlx, dly, dlz ) private ( i, j, k, n, t, lx, ly ,lz, lmag)
-	{
+    {
 #pragma omp for
-		for(i=0;i<Nx;i++)
-		{
-			for(j=0;j<Ny;j++)
-			{
-				for(k=0;k<Nz;k++)
-				{
-					n = pt(i,j,k);    //3D counter
-					Bx[n] = 0;
-					By[n] = 0;
-					Bz[n] = 0;
-					missed[n] = 1;   //intialise
-					for(t=0;t<NK;t++)  //integrate over line
-					{
-						lx = x[i]-X[t];    //distance to point on line
-						ly = y[j]-Y[t];
-						lz = z[k]-Z[t];
-						lmag = sqrt(lx*lx + ly*ly + lz*lz);
-						if (lmag < 2*coresize) ignore[n]=1;   //do not use these points first time
-						if (lmag < 0.5*coresize) ignore1[n]=1; //do not use these at all
-						Bx[n] += (ly*dlz[t] - lz*dly[t])/(2*lmag*lmag*lmag);
-						By[n] += (lz*dlx[t] - lx*dlz[t])/(2*lmag*lmag*lmag);
-						Bz[n] += (lx*dly[t] - ly*dlx[t])/(2*lmag*lmag*lmag);
-					}
-					Bmag[n] = sqrt(Bx[n]*Bx[n] + By[n]*By[n] + Bz[n]*Bz[n]);
-				}
-			}
-		}
-	}
+        for(i=0;i<Nx;i++)
+        {
+            for(j=0;j<Ny;j++)
+            {
+                for(k=0;k<Nz;k++)
+                {
+                    n = pt(i,j,k);    //3D counter
+                    Bx[n] = 0;
+                    By[n] = 0;
+                    Bz[n] = 0;
+                    missed[n] = 1;   //intialise
+                    for(t=0;t<NK;t++)  //integrate over line
+                    {
+                        lx = x[i]-X[t];    //distance to point on line
+                        ly = y[j]-Y[t];
+                        lz = z[k]-Z[t];
+                        lmag = sqrt(lx*lx + ly*ly + lz*lz);
+                        if (lmag < 2*coresize) ignore[n]=1;   //do not use these points first time
+                        if (lmag < 0.5*coresize) ignore1[n]=1; //do not use these at all
+                        Bx[n] += (ly*dlz[t] - lz*dly[t])/(2*lmag*lmag*lmag);
+                        By[n] += (lz*dlx[t] - lx*dlz[t])/(2*lmag*lmag*lmag);
+                        Bz[n] += (lx*dly[t] - ly*dlx[t])/(2*lmag*lmag*lmag);
+                    }
+                    Bmag[n] = sqrt(Bx[n]*Bx[n] + By[n]*By[n] + Bz[n]*Bz[n]);
+                }
+            }
+        }
+    }
 }
 
 void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi)
 {
-	int i0=(Nx+1)/2;
-	int j0=(Ny+1)/2;   //base point for path integral
-	int k0=(Nz+1)/2;
-	int i[2],j[2],k[2],id,jd,kd,c1,c2,c3,pathlength,t,nt,ntm;
-	double Bxmid,Bymid,Bzmid;
-	int *pi,*pj,*pk;
-	int n = pt(i0,j0,k0);
+    int i0=(Nx+1)/2;
+    int j0=(Ny+1)/2;   //base point for path integral
+    int k0=(Nz+1)/2;
+    int i[2],j[2],k[2],id,jd,kd,c1,c2,c3,pathlength,t,nt,ntm;
+    double Bxmid,Bymid,Bzmid;
+    int *pi,*pj,*pk;
+    int n = pt(i0,j0,k0);
 
-	missed[n]=0;  //matrix to store points where phi is not calculated
-	phi[n]=0;
+    missed[n]=0;  //matrix to store points where phi is not calculated
+    phi[n]=0;
 
-	pi = new int [Nx+Ny+Nz];
-	pj = new int [Nx+Ny+Nz];
-	pk = new int [Nx+Ny+Nz];
+    pi = new int [Nx+Ny+Nz];
+    pj = new int [Nx+Ny+Nz];
+    pk = new int [Nx+Ny+Nz];
 
-	//#pragma omp parallel default(none) shared ( X, Y, Z, Bx, By, Bz, phi, ignore, ignore1, missed, Bmag, pi, pj, pk) private ( i, j, k, i0, j0, k0, id, jd, kd, n, c1, c2, c3, Bxmid, Bymid, Bzmid, t, nt, ntm, pathlength )
-	{
-		//#pragma omp for
-		for(id=0; id<(Nx+1)/2; id++)    //from zero to half grid points
-		{
-			for(jd=0; jd<(Ny+1)/2; jd++)
-			{
-				for(kd=0; kd<(Nz+1)/2; kd++)
-				{
-					i[0] = id;
-					i[1] = Nx-1-id;
-					j[0] = jd;
-					j[1] = Ny-1-jd;
-					k[0] = kd;
-					k[1] = Nz-1-kd;
-					for(c1=0;c1<2;c1++)    //count inwards from corners
-					{
-						for(c2=0;c2<2;c2++)
-						{
-							for(c3=0;c3<2;c3++)
-							{
-								n = pt(i[c1],j[c2],k[c3]);
+    //#pragma omp parallel default(none) shared ( X, Y, Z, Bx, By, Bz, phi, ignore, ignore1, missed, Bmag, pi, pj, pk) private ( i, j, k, i0, j0, k0, id, jd, kd, n, c1, c2, c3, Bxmid, Bymid, Bzmid, t, nt, ntm, pathlength )
+    {
+        //#pragma omp for
+        for(id=0; id<(Nx+1)/2; id++)    //from zero to half grid points
+        {
+            for(jd=0; jd<(Ny+1)/2; jd++)
+            {
+                for(kd=0; kd<(Nz+1)/2; kd++)
+                {
+                    i[0] = id;
+                    i[1] = Nx-1-id;
+                    j[0] = jd;
+                    j[1] = Ny-1-jd;
+                    k[0] = kd;
+                    k[1] = Nz-1-kd;
+                    for(c1=0;c1<2;c1++)    //count inwards from corners
+                    {
+                        for(c2=0;c2<2;c2++)
+                        {
+                            for(c3=0;c3<2;c3++)
+                            {
+                                n = pt(i[c1],j[c2],k[c3]);
 
-								if(missed[n]==1 && ignore[n]==0)
-								{
-									pathlength = pathfind(i0,j0,k0,i[c1],j[c2],k[c3],pi,pj,pk,ignore,Bx,By,Bz,Bmag);  //find path to current point
-									for (t=1;t<=pathlength;t++)   //travel along path
-									{
-										nt = pt(pi[t],pj[t],pk[t]);     //this point
-										ntm = pt(pi[t-1],pj[t-1],pk[t-1]); //prev pt
-										Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
-										Bymid = 0.5*(By[nt]+By[ntm]);   //midpoint
-										Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
-										phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));    //integrate along
-										missed[nt]=0;
-										while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
-										while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		//#pragma omp for
-		for(id=0; id<Nx; id++)    //fill in ignore points but not ignore1
-		{
-			for(jd=0; jd<Ny; jd++)
-			{
-				for(kd=0; kd<Nz; kd++)
-				{
-					n = pt(id,jd,kd);
-					if(ignore1[n]==0 && missed[n]==1)
-					{
-						pathlength = pathfind(i0,j0,k0,id,jd,kd,pi,pj,pk,ignore1,Bx,By,Bz,Bmag);
-						for (t=1;t<=pathlength;t++)
-						{
-							nt = pt(pi[t],pj[t],pk[t]);
-							ntm = pt(pi[t-1],pj[t-1],pk[t-1]);
-							Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
-							Bymid = 0.5*(By[nt]+By[ntm]);
-							Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
-							phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));
-							missed[nt]=0;
-							while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
-							while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
-						}
-					}
-				}
-			}
-		}
-	}
+                                if(missed[n]==1 && ignore[n]==0)
+                                {
+                                    pathlength = pathfind(i0,j0,k0,i[c1],j[c2],k[c3],pi,pj,pk,ignore,Bx,By,Bz,Bmag);  //find path to current point
+                                    for (t=1;t<=pathlength;t++)   //travel along path
+                                    {
+                                        nt = pt(pi[t],pj[t],pk[t]);     //this point
+                                        ntm = pt(pi[t-1],pj[t-1],pk[t-1]); //prev pt
+                                        Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
+                                        Bymid = 0.5*(By[nt]+By[ntm]);   //midpoint
+                                        Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
+                                        phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));    //integrate along
+                                        missed[nt]=0;
+                                        while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
+                                        while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //#pragma omp for
+        for(id=0; id<Nx; id++)    //fill in ignore points but not ignore1
+        {
+            for(jd=0; jd<Ny; jd++)
+            {
+                for(kd=0; kd<Nz; kd++)
+                {
+                    n = pt(id,jd,kd);
+                    if(ignore1[n]==0 && missed[n]==1)
+                    {
+                        pathlength = pathfind(i0,j0,k0,id,jd,kd,pi,pj,pk,ignore1,Bx,By,Bz,Bmag);
+                        for (t=1;t<=pathlength;t++)
+                        {
+                            nt = pt(pi[t],pj[t],pk[t]);
+                            ntm = pt(pi[t-1],pj[t-1],pk[t-1]);
+                            Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
+                            Bymid = 0.5*(By[nt]+By[ntm]);
+                            Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
+                            phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));
+                            missed[nt]=0;
+                            while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
+                            while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-	delete [] pi;
-	delete [] pj;
-	delete [] pk;
+    delete [] pi;
+    delete [] pj;
+    delete [] pk;
 }
 int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag)
 {
-	int io,jo,ko,ip,jp,kp,n,np,nu,go,stop,t=0;
-	int *track;
-	double MAX,weight1,weight2;
-	track = new int [Nx*Ny*Nz];
+    int io,jo,ko,ip,jp,kp,n,np,nu,go,stop,t=0;
+    int *track;
+    double MAX,weight1,weight2;
+    track = new int [Nx*Ny*Nz];
 
-	fill(track,track+Nx*Ny*Nz,0);
+    fill(track,track+Nx*Ny*Nz,0);
 
-	pi[0] = i0;    //starting point for path
-	pj[0] = j0;
-	pk[0] = k0;
-	int di = ie - i0;
-	int dj = je - j0;
-	int dk = ke - k0;   //distance to go to final point
+    pi[0] = i0;    //starting point for path
+    pj[0] = j0;
+    pk[0] = k0;
+    int di = ie - i0;
+    int dj = je - j0;
+    int dk = ke - k0;   //distance to go to final point
 
-	while (t<Nx+Ny+Nz && (abs(di)>0 || abs(dj)>0 || abs(dk)>0))  //until reaches end of path or path too long
-	{
-		n = pt(pi[t],pj[t],pk[t]);
-		nu = pt(pi[t]+sign(di),pj[t]+sign(dj),pk[t]+sign(dk));  //check direct route
-		if(ignore[nu] + track[nu]==0)  //if next space is available
-		{
-			pi[t+1] = pi[t] + sign(di);
-			pj[t+1] = pj[t] + sign(dj);
-			pk[t+1] = pk[t] + sign(dk);
-			t++;   //move to next point
-			n = pt(pi[t],pj[t],pk[t]);
-			track[n]=1;
-		}
-		else
-		{
-			MAX = -10;    //compare point values
-			go = 0;
-			for(ip=-1; ip<2; ip++)
-			{
-				for(jp=-1; jp<2; jp++)
-				{
-					for(kp=-1; kp<2; kp++)  //check all neighbours
-					{
-						np = pt(pi[t]+ip,pj[t]+jp,pk[t]+kp);
-						if(pi[t]+ip<Nx && pi[t]+ip>0 && pj[t]+jp<Ny && pj[t]+jp>0 && pk[t]+kp<Nz && pk[t]+kp>0) //If it is in the simulation box
-						{
-							stop = ignore[np] + track[np];  //not allowed to visit ignore points or previously visited points
-						}
-						else stop = 1;
-						if(stop==0)
-						{
-							go=1;
-							//weigting for which point to favour
-							//direction of final point weighting
-							weight1 = (di*ip + dj*jp + dk*kp)/(sqrt(di*di + dj*dj + dk*dk)*sqrt(ip*ip + jp*jp + kp*kp));
-							//direction of B field weighting (helps to choose a direction around a barrier)
-							weight2 = (Bx[np]*ip + By[np]*jp + Bz[np]*kp)/(Bmag[np]*sqrt(ip*ip + jp*jp + kp*kp));
-							if(weight1 + weight2 > MAX)
-							{
-								MAX = weight1+weight2;
-								io = ip;
-								jo = jp;    //store the most favourable point
-								ko = kp;
-								n = pt(pi[t],pj[t],pk[t]);
-								track[n]=1;  //track points visited
-							}
-						}
-					}
-				}
-			}
-			if(go==1)   //found a point to move to
-			{
-				pi[t+1] = pi[t]+io;
-				pj[t+1] = pj[t]+jo;
-				pk[t+1] = pk[t]+ko;
-				t++;   //move to next point
-			}
-			else
-			{
-				if(t==0)
-				{
-					cout << "Could not find path to" << ie << ' ' << je << ' ' << ke << endl;
-					return 0;
-				}
-				else
-				{
-					t--;  //go back to refind previous point
-				}
-			}
-		}
-		di = ie - pi[t];
-		dj = je - pj[t];
-		dk = ke - pk[t];
-	}
+    while (t<Nx+Ny+Nz && (abs(di)>0 || abs(dj)>0 || abs(dk)>0))  //until reaches end of path or path too long
+    {
+        n = pt(pi[t],pj[t],pk[t]);
+        nu = pt(pi[t]+sign(di),pj[t]+sign(dj),pk[t]+sign(dk));  //check direct route
+        if(ignore[nu] + track[nu]==0)  //if next space is available
+        {
+            pi[t+1] = pi[t] + sign(di);
+            pj[t+1] = pj[t] + sign(dj);
+            pk[t+1] = pk[t] + sign(dk);
+            t++;   //move to next point
+            n = pt(pi[t],pj[t],pk[t]);
+            track[n]=1;
+        }
+        else
+        {
+            MAX = -10;    //compare point values
+            go = 0;
+            for(ip=-1; ip<2; ip++)
+            {
+                for(jp=-1; jp<2; jp++)
+                {
+                    for(kp=-1; kp<2; kp++)  //check all neighbours
+                    {
+                        np = pt(pi[t]+ip,pj[t]+jp,pk[t]+kp);
+                        if(pi[t]+ip<Nx && pi[t]+ip>0 && pj[t]+jp<Ny && pj[t]+jp>0 && pk[t]+kp<Nz && pk[t]+kp>0) //If it is in the simulation box
+                        {
+                            stop = ignore[np] + track[np];  //not allowed to visit ignore points or previously visited points
+                        }
+                        else stop = 1;
+                        if(stop==0)
+                        {
+                            go=1;
+                            //weigting for which point to favour
+                            //direction of final point weighting
+                            weight1 = (di*ip + dj*jp + dk*kp)/(sqrt(di*di + dj*dj + dk*dk)*sqrt(ip*ip + jp*jp + kp*kp));
+                            //direction of B field weighting (helps to choose a direction around a barrier)
+                            weight2 = (Bx[np]*ip + By[np]*jp + Bz[np]*kp)/(Bmag[np]*sqrt(ip*ip + jp*jp + kp*kp));
+                            if(weight1 + weight2 > MAX)
+                            {
+                                MAX = weight1+weight2;
+                                io = ip;
+                                jo = jp;    //store the most favourable point
+                                ko = kp;
+                                n = pt(pi[t],pj[t],pk[t]);
+                                track[n]=1;  //track points visited
+                            }
+                        }
+                    }
+                }
+            }
+            if(go==1)   //found a point to move to
+            {
+                pi[t+1] = pi[t]+io;
+                pj[t+1] = pj[t]+jo;
+                pk[t+1] = pk[t]+ko;
+                t++;   //move to next point
+            }
+            else
+            {
+                if(t==0)
+                {
+                    cout << "Could not find path to" << ie << ' ' << je << ' ' << ke << endl;
+                    return 0;
+                }
+                else
+                {
+                    t--;  //go back to refind previous point
+                }
+            }
+        }
+        di = ie - pi[t];
+        dj = je - pj[t];
+        dk = ke - pk[t];
+    }
 
-	if (t==Nx+Ny+Nz) t=0; //couldn't find path
+    if (t==Nx+Ny+Nz) t=0; //couldn't find path
 
-	delete [] track;
+    delete [] track;
 
-	return t;
+    return t;
 }
 
 
@@ -944,906 +944,906 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
 
 void uv_initialise(double *phi, double *u, double *v, int* missed)
 {
-	int n;
+    int n;
 
-	for(n=0; n<Nx*Ny*Nz; n++)
-	{
-		u[n] = (2*cos(phi[n]) - 0.4);
-		v[n] = (sin(phi[n]) - 0.4);
-		if(option==FROM_KNOT_FILE && missed[n]==1)
-		{
-			u[n] = -0.4;
-			v[n] = -0.4;
-		}
-	}
+    for(n=0; n<Nx*Ny*Nz; n++)
+    {
+        u[n] = (2*cos(phi[n]) - 0.4);
+        v[n] = (sin(phi[n]) - 0.4);
+        if(option==FROM_KNOT_FILE && missed[n]==1)
+        {
+            u[n] = -0.4;
+            v[n] = -0.4;
+        }
+    }
 }
 
 void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz)
 {
-	int i,j,k,n,kup,kdwn;
-	double dxu,dyu,dzu,dxv,dyv,dzv,ucvmag,ucvmax;
-	knotcurve.push_back(knotpoint());
-	ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.  
-	for(i=0;i<Nx;i++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(k=0; k<Nz; k++)   //Central difference
-			{
-				if(periodic)   //check for periodic boundaries
-				{
-					kup = incp(k,1,Nz);
-					kdwn = incp(k,-1,Nz);
-				}
-				else
-				{
-					kup = incw(k,1,Nz);
-					kdwn = incw(k,-1,Nz);
-				}
-				dxu = 0.5*(u[pt(incw(i,1,Nx),j,k)]-u[pt(incw(i,-1,Nx),j,k)])/h;
-				dxv = 0.5*(v[pt(incw(i,1,Nx),j,k)]-v[pt(incw(i,-1,Nx),j,k)])/h;
-				dyu = 0.5*(u[pt(i,incw(j,1,Ny),k)]-u[pt(i,incw(j,-1,Ny),k)])/h;
-				dyv = 0.5*(v[pt(i,incw(j,1,Ny),k)]-v[pt(i,incw(j,-1,Ny),k)])/h;
-				dzu = 0.5*(u[pt(i,j,kup)]-u[pt(i,j,kdwn)])/h;
-				dzv = 0.5*(v[pt(i,j,kup)]-v[pt(i,j,kdwn)])/h;
-				n = pt(i,j,k);
-				ucvx[n] = dyu*dzv - dzu*dyv;
-				ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
-				ucvz[n] = dxu*dyv - dyu*dxv;
-				ucvmag = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
-				if(ucvmag > ucvmax)
-				{
-					ucvmax = ucvmag;
-					knotcurve[0].xcoord=x[i];
-					knotcurve[0].ycoord=y[j];
-					knotcurve[0].zcoord=z[k];
-				}
-			}
-		}
-	}
-	if(ucvmax<0.1) knotexists = false;
-	else knotexists = true;
+    int i,j,k,n,kup,kdwn;
+    double dxu,dyu,dzu,dxv,dyv,dzv,ucvmag,ucvmax;
+    knotcurve.push_back(knotpoint());
+    ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.  
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)   //Central difference
+            {
+                if(periodic)   //check for periodic boundaries
+                {
+                    kup = incp(k,1,Nz);
+                    kdwn = incp(k,-1,Nz);
+                }
+                else
+                {
+                    kup = incw(k,1,Nz);
+                    kdwn = incw(k,-1,Nz);
+                }
+                dxu = 0.5*(u[pt(incw(i,1,Nx),j,k)]-u[pt(incw(i,-1,Nx),j,k)])/h;
+                dxv = 0.5*(v[pt(incw(i,1,Nx),j,k)]-v[pt(incw(i,-1,Nx),j,k)])/h;
+                dyu = 0.5*(u[pt(i,incw(j,1,Ny),k)]-u[pt(i,incw(j,-1,Ny),k)])/h;
+                dyv = 0.5*(v[pt(i,incw(j,1,Ny),k)]-v[pt(i,incw(j,-1,Ny),k)])/h;
+                dzu = 0.5*(u[pt(i,j,kup)]-u[pt(i,j,kdwn)])/h;
+                dzv = 0.5*(v[pt(i,j,kup)]-v[pt(i,j,kdwn)])/h;
+                n = pt(i,j,k);
+                ucvx[n] = dyu*dzv - dzu*dyv;
+                ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
+                ucvz[n] = dxu*dyv - dyu*dxv;
+                ucvmag = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
+                if(ucvmag > ucvmax)
+                {
+                    ucvmax = ucvmag;
+                    knotcurve[0].xcoord=x[i];
+                    knotcurve[0].ycoord=y[j];
+                    knotcurve[0].zcoord=z[k];
+                }
+            }
+        }
+    }
+    if(ucvmax<0.1) knotexists = false;
+    else knotexists = true;
 }
 
 void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double *u, double t, gsl_multimin_fminimizer* minimizerstate)
 {
-	int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc,attempts;
-	int s=1;
-	bool finish=false;
-	double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, norm, fx, fy, fz, xdiff, ydiff, zdiff;
+    int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc,attempts;
+    int s=1;
+    bool finish=false;
+    double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, norm, fx, fy, fz, xdiff, ydiff, zdiff;
 
-	/*calculate local direction of grad u x grad v (the tangent to the knot curve) at point s-1, then move to point s by moving along tangent + unit confinement force*/
-	while (finish==false)
-	{
-		norm=0;
-		/**Find nearest gridpoint**/
-		idwn = (int) ((knotcurve[s-1].xcoord/h) - 0.5 + Nx/2.0);
-		jdwn = (int) ((knotcurve[s-1].ycoord/h) - 0.5 + Ny/2.0);
-		kdwn = (int) ((knotcurve[s-1].zcoord/h) - 0.5 + Nz/2.0);
-		if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
-		pts=0;
-		ucvxs=0;
-		ucvys=0;
-		ucvzs=0;
-		/*curve to gridpoint down distance*/
-		xd = (knotcurve[s-1].xcoord - x[idwn])/h;
-		yd = (knotcurve[s-1].ycoord - y[jdwn])/h;
-		zd = (knotcurve[s-1].zcoord - z[kdwn])/h;
-		for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-		{
-			/* Work out increments*/
-			iinc = m%2;
-			jinc = (m/2)%2;
-			kinc = (m/4)%2;
-			/*Loop over nearest points*/
-			i = incw(idwn, iinc, Nx);
-			j = incw(jdwn, jinc, Ny);
-			if(periodic) k = incp(kdwn,kinc, Nz);
-			else k = incw(kdwn,kinc, Nz);
-			prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-			/*interpolate grad u x grad v over nearest points*/
-			ucvxs += prefactor*ucvx[pt(i,j,k)];
-			ucvys += prefactor*ucvy[pt(i,j,k)];
-			ucvzs += prefactor*ucvz[pt(i,j,k)];
-		}
-		norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
-		ucvxs = ucvxs/norm; //normalise
-		ucvys = ucvys/norm; //normalise
-		ucvzs = ucvzs/norm; //normalise
+    /*calculate local direction of grad u x grad v (the tangent to the knot curve) at point s-1, then move to point s by moving along tangent + unit confinement force*/
+    while (finish==false)
+    {
+        norm=0;
+        /**Find nearest gridpoint**/
+        idwn = (int) ((knotcurve[s-1].xcoord/h) - 0.5 + Nx/2.0);
+        jdwn = (int) ((knotcurve[s-1].ycoord/h) - 0.5 + Ny/2.0);
+        kdwn = (int) ((knotcurve[s-1].zcoord/h) - 0.5 + Nz/2.0);
+        if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+        pts=0;
+        ucvxs=0;
+        ucvys=0;
+        ucvzs=0;
+        /*curve to gridpoint down distance*/
+        xd = (knotcurve[s-1].xcoord - x[idwn])/h;
+        yd = (knotcurve[s-1].ycoord - y[jdwn])/h;
+        zd = (knotcurve[s-1].zcoord - z[kdwn])/h;
+        for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+        {
+            /* Work out increments*/
+            iinc = m%2;
+            jinc = (m/2)%2;
+            kinc = (m/4)%2;
+            /*Loop over nearest points*/
+            i = incw(idwn, iinc, Nx);
+            j = incw(jdwn, jinc, Ny);
+            if(periodic) k = incp(kdwn,kinc, Nz);
+            else k = incw(kdwn,kinc, Nz);
+            prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+            /*interpolate grad u x grad v over nearest points*/
+            ucvxs += prefactor*ucvx[pt(i,j,k)];
+            ucvys += prefactor*ucvy[pt(i,j,k)];
+            ucvzs += prefactor*ucvz[pt(i,j,k)];
+        }
+        norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+        ucvxs = ucvxs/norm; //normalise
+        ucvys = ucvys/norm; //normalise
+        ucvzs = ucvzs/norm; //normalise
 
-		// okay we have our first guess, move forward in this direction
-		double testx = knotcurve[s-1].xcoord + 0.1*ucvxs*lambda/(2*M_PI);
-		double testy = knotcurve[s-1].ycoord + 0.1*ucvys*lambda/(2*M_PI);
-		double testz = knotcurve[s-1].zcoord + 0.1*ucvzs*lambda/(2*M_PI);
+        // okay we have our first guess, move forward in this direction
+        double testx = knotcurve[s-1].xcoord + 0.1*ucvxs*lambda/(2*M_PI);
+        double testy = knotcurve[s-1].ycoord + 0.1*ucvys*lambda/(2*M_PI);
+        double testz = knotcurve[s-1].zcoord + 0.1*ucvzs*lambda/(2*M_PI);
 
-		// now get the grad at this point
-		idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
-		jdwn = (int) ((testy/h) - 0.5 + Ny/2.0);
-		kdwn = (int) ((testz/h) - 0.5 + Nz/2.0);
-		if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
-		pts=0;
-		graducvx=0;
-		graducvy=0;
-		graducvz=0;
-		/*curve to gridpoint down distance*/
-		xd = (testx - x[idwn])/h;
-		yd = (testy - y[jdwn])/h;
-		zd = (testz - z[kdwn])/h;
-		for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-		{
-			/* Work out increments*/
-			iinc = m%2;
-			jinc = (m/2)%2;
-			kinc = (m/4)%2;
-			/*Loop over nearest points*/
-			i = incw(idwn, iinc, Nx);
-			j = incw(jdwn, jinc, Ny);
-			if(periodic) k = incp(kdwn,kinc, Nz);
-			else k = incw(kdwn,kinc, Nz);
-			prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-			/*interpolate gradients of |grad u x grad v|*/
-			graducvx += prefactor*(sqrt(ucvx[pt(incw(i,1,Nx),j,k)]*ucvx[pt(incw(i,1,Nx),j,k)] + ucvy[pt(incw(i,1,Nx),j,k)]*ucvy[pt(incw(i,1,Nx),j,k)] + ucvz[pt(incw(i,1,Nx),j,k)]*ucvz[pt(incw(i,1,Nx),j,k)]) - sqrt(ucvx[pt(incw(i,-1,Nx),j,k)]*ucvx[pt(incw(i,-1,Nx),j,k)] + ucvy[pt(incw(i,-1,Nx),j,k)]*ucvy[pt(incw(i,-1,Nx),j,k)] + ucvz[pt(incw(i,-1,Nx),j,k)]*ucvz[pt(incw(i,-1,Nx),j,k)]))/(2*h);
-			graducvy += prefactor*(sqrt(ucvx[pt(i,incw(j,1,Ny),k)]*ucvx[pt(i,incw(j,1,Ny),k)] + ucvy[pt(i,incw(j,1,Ny),k)]*ucvy[pt(i,incw(j,1,Ny),k)] + ucvz[pt(i,incw(j,1,Ny),k)]*ucvz[pt(i,incw(j,1,Ny),k)]) - sqrt(ucvx[pt(i,incw(j,-1,Ny),k)]*ucvx[pt(i,incw(j,-1,Ny),k)] + ucvy[pt(i,incw(j,-1,Ny),k)]*ucvy[pt(i,incw(j,-1,Ny),k)] + ucvz[pt(i,incw(j,-1,Ny),k)]*ucvz[pt(i,incw(j,-1,Ny),k)]))/(2*h);
-			if(periodic) graducvz += prefactor*(sqrt(ucvx[pt(i,j,incp(k,1,Nz))]*ucvx[pt(i,j,incp(k,1,Nz))] + ucvy[pt(i,j,incp(k,1,Nz))]*ucvy[pt(i,j,incp(k,1,Nz))] + ucvz[pt(i,j,incp(k,1,Nz))]*ucvz[pt(i,j,incp(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incp(k,-1,Nz))]*ucvx[pt(i,j,incp(k,-1,Nz))] + ucvy[pt(i,j,incp(k,-1,Nz))]*ucvy[pt(i,j,incp(k,-1,Nz))] + ucvz[pt(i,j,incp(k,-1,Nz))]*ucvz[pt(i,j,incp(k,-1,Nz))]))/(2*h);
-			else graducvz += prefactor*(sqrt(ucvx[pt(i,j,incw(k,1,Nz))]*ucvx[pt(i,j,incw(k,1,Nz))] + ucvy[pt(i,j,incw(k,1,Nz))]*ucvy[pt(i,j,incw(k,1,Nz))] + ucvz[pt(i,j,incw(k,1,Nz))]*ucvz[pt(i,j,incw(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incw(k,-1,Nz))]*ucvx[pt(i,j,incw(k,-1,Nz))] + ucvy[pt(i,j,incw(k,-1,Nz))]*ucvy[pt(i,j,incw(k,-1,Nz))] + ucvz[pt(i,j,incw(k,-1,Nz))]*ucvz[pt(i,j,incw(k,-1,Nz))]))/(2*h);
+        // now get the grad at this point
+        idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
+        jdwn = (int) ((testy/h) - 0.5 + Ny/2.0);
+        kdwn = (int) ((testz/h) - 0.5 + Nz/2.0);
+        if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+        pts=0;
+        graducvx=0;
+        graducvy=0;
+        graducvz=0;
+        /*curve to gridpoint down distance*/
+        xd = (testx - x[idwn])/h;
+        yd = (testy - y[jdwn])/h;
+        zd = (testz - z[kdwn])/h;
+        for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+        {
+            /* Work out increments*/
+            iinc = m%2;
+            jinc = (m/2)%2;
+            kinc = (m/4)%2;
+            /*Loop over nearest points*/
+            i = incw(idwn, iinc, Nx);
+            j = incw(jdwn, jinc, Ny);
+            if(periodic) k = incp(kdwn,kinc, Nz);
+            else k = incw(kdwn,kinc, Nz);
+            prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+            /*interpolate gradients of |grad u x grad v|*/
+            graducvx += prefactor*(sqrt(ucvx[pt(incw(i,1,Nx),j,k)]*ucvx[pt(incw(i,1,Nx),j,k)] + ucvy[pt(incw(i,1,Nx),j,k)]*ucvy[pt(incw(i,1,Nx),j,k)] + ucvz[pt(incw(i,1,Nx),j,k)]*ucvz[pt(incw(i,1,Nx),j,k)]) - sqrt(ucvx[pt(incw(i,-1,Nx),j,k)]*ucvx[pt(incw(i,-1,Nx),j,k)] + ucvy[pt(incw(i,-1,Nx),j,k)]*ucvy[pt(incw(i,-1,Nx),j,k)] + ucvz[pt(incw(i,-1,Nx),j,k)]*ucvz[pt(incw(i,-1,Nx),j,k)]))/(2*h);
+            graducvy += prefactor*(sqrt(ucvx[pt(i,incw(j,1,Ny),k)]*ucvx[pt(i,incw(j,1,Ny),k)] + ucvy[pt(i,incw(j,1,Ny),k)]*ucvy[pt(i,incw(j,1,Ny),k)] + ucvz[pt(i,incw(j,1,Ny),k)]*ucvz[pt(i,incw(j,1,Ny),k)]) - sqrt(ucvx[pt(i,incw(j,-1,Ny),k)]*ucvx[pt(i,incw(j,-1,Ny),k)] + ucvy[pt(i,incw(j,-1,Ny),k)]*ucvy[pt(i,incw(j,-1,Ny),k)] + ucvz[pt(i,incw(j,-1,Ny),k)]*ucvz[pt(i,incw(j,-1,Ny),k)]))/(2*h);
+            if(periodic) graducvz += prefactor*(sqrt(ucvx[pt(i,j,incp(k,1,Nz))]*ucvx[pt(i,j,incp(k,1,Nz))] + ucvy[pt(i,j,incp(k,1,Nz))]*ucvy[pt(i,j,incp(k,1,Nz))] + ucvz[pt(i,j,incp(k,1,Nz))]*ucvz[pt(i,j,incp(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incp(k,-1,Nz))]*ucvx[pt(i,j,incp(k,-1,Nz))] + ucvy[pt(i,j,incp(k,-1,Nz))]*ucvy[pt(i,j,incp(k,-1,Nz))] + ucvz[pt(i,j,incp(k,-1,Nz))]*ucvz[pt(i,j,incp(k,-1,Nz))]))/(2*h);
+            else graducvz += prefactor*(sqrt(ucvx[pt(i,j,incw(k,1,Nz))]*ucvx[pt(i,j,incw(k,1,Nz))] + ucvy[pt(i,j,incw(k,1,Nz))]*ucvy[pt(i,j,incw(k,1,Nz))] + ucvz[pt(i,j,incw(k,1,Nz))]*ucvz[pt(i,j,incw(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incw(k,-1,Nz))]*ucvx[pt(i,j,incw(k,-1,Nz))] + ucvy[pt(i,j,incw(k,-1,Nz))]*ucvy[pt(i,j,incw(k,-1,Nz))] + ucvz[pt(i,j,incw(k,-1,Nz))]*ucvz[pt(i,j,incw(k,-1,Nz))]))/(2*h);
 
-		}
-		knotcurve.push_back(knotpoint());
-		fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);   //confining force perpendicular to curve direction
-		fy = (graducvy - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvys);
-		fz = (graducvz - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvzs);
-		norm = sqrt(fx*fx + fy*fy + fz*fz);  //force is normalised, this could mean curve oscillates around the centre, but it does moke the confinement magnitude easier to control
-		fx = fx/norm;
-		fy = fy/norm;
-		fz = fz/norm;
+        }
+        knotcurve.push_back(knotpoint());
+        fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);   //confining force perpendicular to curve direction
+        fy = (graducvy - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvys);
+        fz = (graducvz - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvzs);
+        norm = sqrt(fx*fx + fy*fy + fz*fz);  //force is normalised, this could mean curve oscillates around the centre, but it does moke the confinement magnitude easier to control
+        fx = fx/norm;
+        fy = fy/norm;
+        fz = fz/norm;
 
-		// okay we have our direction to perfrom the line minimisation in
-		// the point
-		gsl_vector* v = gsl_vector_alloc (3);
-		gsl_vector_set (v, 0, testx);
-		gsl_vector_set (v, 1, testy);
-		gsl_vector_set (v, 2, testz);
-		// one vector in the plane we with to minimize in
-		gsl_vector* f = gsl_vector_alloc (3);
-		gsl_vector_set (f, 0, fx);
-		gsl_vector_set (f, 1, fy);
-		gsl_vector_set (f, 2, fz);
-		// the ucv vector
-		gsl_vector* ucv = gsl_vector_alloc (3);
-		gsl_vector_set (ucv, 0, ucvxs);
-		gsl_vector_set (ucv, 1, ucvys);
-		gsl_vector_set (ucv, 2, ucvzs);
-		// take a cross product to get the other vector in the plane 
+        // okay we have our direction to perfrom the line minimisation in
+        // the point
+        gsl_vector* v = gsl_vector_alloc (3);
+        gsl_vector_set (v, 0, testx);
+        gsl_vector_set (v, 1, testy);
+        gsl_vector_set (v, 2, testz);
+        // one vector in the plane we with to minimize in
+        gsl_vector* f = gsl_vector_alloc (3);
+        gsl_vector_set (f, 0, fx);
+        gsl_vector_set (f, 1, fy);
+        gsl_vector_set (f, 2, fz);
+        // the ucv vector
+        gsl_vector* ucv = gsl_vector_alloc (3);
+        gsl_vector_set (ucv, 0, ucvxs);
+        gsl_vector_set (ucv, 1, ucvys);
+        gsl_vector_set (ucv, 2, ucvzs);
+        // take a cross product to get the other vector in the plane 
 
-		gsl_vector* b = gsl_vector_alloc (3);
-		cross_product(f,ucv,b); 
-		// initial conditions
-		gsl_vector* minimum = gsl_vector_alloc (2);
-		gsl_vector_set (minimum, 0, 0);
-		gsl_vector_set (minimum, 1, 0);
-		struct parameters params; struct parameters* pparams = &params;
-		pparams->x = x; pparams->y=y;pparams->z=z;
-		pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
-		pparams->v = v; pparams->f = f;pparams->b=b;
-		// some initial values
-		gsl_multimin_function F;
-		F.n=2;
-		F.f = &my_f;
-		F.params = (void*) pparams;
-		gsl_vector* stepsize = gsl_vector_alloc (2);
-		gsl_vector_set (stepsize, 0, lambda/(8*M_PI));
-		gsl_vector_set (stepsize, 1, lambda/(8*M_PI));
-		gsl_multimin_fminimizer_set (minimizerstate, &F, minimum, stepsize);
+        gsl_vector* b = gsl_vector_alloc (3);
+        cross_product(f,ucv,b); 
+        // initial conditions
+        gsl_vector* minimum = gsl_vector_alloc (2);
+        gsl_vector_set (minimum, 0, 0);
+        gsl_vector_set (minimum, 1, 0);
+        struct parameters params; struct parameters* pparams = &params;
+        pparams->x = x; pparams->y=y;pparams->z=z;
+        pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
+        pparams->v = v; pparams->f = f;pparams->b=b;
+        // some initial values
+        gsl_multimin_function F;
+        F.n=2;
+        F.f = &my_f;
+        F.params = (void*) pparams;
+        gsl_vector* stepsize = gsl_vector_alloc (2);
+        gsl_vector_set (stepsize, 0, lambda/(8*M_PI));
+        gsl_vector_set (stepsize, 1, lambda/(8*M_PI));
+        gsl_multimin_fminimizer_set (minimizerstate, &F, minimum, stepsize);
 
-		int iter=0;
-		int status =0;
-		double minimizersize=0;
-		do
-		{
-			iter++;
-			status = gsl_multimin_fminimizer_iterate(minimizerstate);
+        int iter=0;
+        int status =0;
+        double minimizersize=0;
+        do
+        {
+            iter++;
+            status = gsl_multimin_fminimizer_iterate(minimizerstate);
 
-			if (status) 
-				break;
+            if (status) 
+                break;
 
-			minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
-			status = gsl_multimin_test_size (size, 1e-2);
+            minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
+            status = gsl_multimin_test_size (size, 1e-2);
 
-		}
-		while (status == GSL_CONTINUE && iter < 500);
+        }
+        while (status == GSL_CONTINUE && iter < 500);
 
 
-		gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
-		gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
-		gsl_vector_add(f,b);
-		gsl_vector_add(v,f);
-		knotcurve[s].xcoord = gsl_vector_get(v, 0);
-		knotcurve[s].ycoord= gsl_vector_get(v, 1);
-		knotcurve[s].zcoord= gsl_vector_get(v, 2);
+        gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
+        gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
+        gsl_vector_add(f,b);
+        gsl_vector_add(v,f);
+        knotcurve[s].xcoord = gsl_vector_get(v, 0);
+        knotcurve[s].ycoord= gsl_vector_get(v, 1);
+        knotcurve[s].zcoord= gsl_vector_get(v, 2);
 
-		gsl_vector_free(v);
-		gsl_vector_free(f);
-		gsl_vector_free(b);
-		gsl_vector_free(ucv);
-		gsl_vector_free(stepsize);
+        gsl_vector_free(v);
+        gsl_vector_free(f);
+        gsl_vector_free(b);
+        gsl_vector_free(ucv);
+        gsl_vector_free(stepsize);
 
-		xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
-		ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
-		zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
-		if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 10) finish = true;
-		if(s>50000) finish = true;
-		s++;
-	}
-	/*Fill in remaining points*/
-	double dx = xdiff/16.0;
-	double dy = ydiff/16.0;
-	double dz = zdiff/16.0;
-	for(m=0; m<15; m++)
-	{
-		knotcurve.push_back(knotpoint());
-		knotcurve[s+m].xcoord = knotcurve[s+m-1].xcoord + dx;
-		knotcurve[s+m].ycoord = knotcurve[s+m-1].ycoord + dy;
-		knotcurve[s+m].zcoord = knotcurve[s+m-1].zcoord + dz;
-	}
+        xdiff = knotcurve[0].xcoord - knotcurve[s].xcoord;     //distance from start/end point
+        ydiff = knotcurve[0].ycoord - knotcurve[s].ycoord;
+        zdiff = knotcurve[0].zcoord - knotcurve[s].zcoord;
+        if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 10) finish = true;
+        if(s>50000) finish = true;
+        s++;
+    }
+    /*Fill in remaining points*/
+    double dx = xdiff/16.0;
+    double dy = ydiff/16.0;
+    double dz = zdiff/16.0;
+    for(m=0; m<15; m++)
+    {
+        knotcurve.push_back(knotpoint());
+        knotcurve[s+m].xcoord = knotcurve[s+m-1].xcoord + dx;
+        knotcurve[s+m].ycoord = knotcurve[s+m-1].ycoord + dy;
+        knotcurve[s+m].zcoord = knotcurve[s+m-1].zcoord + dz;
+    }
 
-	int NP = knotcurve.size();  //store number of points in knot curve
+    int NP = knotcurve.size();  //store number of points in knot curve
 
-	/*******Erase some points********/
+    /*******Erase some points********/
 
-	//~ for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
-	//~ for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
-	//~ {
-	//~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
-	//~ }
+    //~ for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
+    //~ for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
+    //~ {
+    //~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
+    //~ }
 
-	/********************************/
+    /********************************/
 
-	NP = knotcurve.size();  //update number of points in knot curve
+    NP = knotcurve.size();  //update number of points in knot curve
 
-	/*******Vertex averaging*********/
+    /*******Vertex averaging*********/
 
-	double totlength, dl;
-	//~ for(i=0;i<3;i++)   //repeat a couple of times because of end point
-	//~ {
-	//~ totlength=0;
-	//~ for(s=0; s<NP; s++)   //Work out total length of curve
-	//~ {
-	//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-	//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-	//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-	//~ totlength += sqrt(dx*dx + dy*dy + dz*dz);
-	//~ }
-	//~ dl = totlength/NP;
-	//~ for(s=0; s<NP; s++)    //Move points to have spacing dl
-	//~ {
-	//~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
-	//~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
-	//~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
-	//~ norm = sqrt(dx*dx + dy*dy + dz*dz);
-	//~ knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
-	//~ knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
-	//~ knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
-	//~ }
-	//~ }
+    double totlength, dl;
+    //~ for(i=0;i<3;i++)   //repeat a couple of times because of end point
+    //~ {
+    //~ totlength=0;
+    //~ for(s=0; s<NP; s++)   //Work out total length of curve
+    //~ {
+    //~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+    //~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+    //~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+    //~ totlength += sqrt(dx*dx + dy*dy + dz*dz);
+    //~ }
+    //~ dl = totlength/NP;
+    //~ for(s=0; s<NP; s++)    //Move points to have spacing dl
+    //~ {
+    //~ dx = knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord;
+    //~ dy = knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord;
+    //~ dz = knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord;
+    //~ norm = sqrt(dx*dx + dy*dy + dz*dz);
+    //~ knotcurve[incp(s,1,NP)].xcoord = knotcurve[s].xcoord + dl*dx/norm;
+    //~ knotcurve[incp(s,1,NP)].ycoord = knotcurve[s].ycoord + dl*dy/norm;
+    //~ knotcurve[incp(s,1,NP)].zcoord = knotcurve[s].zcoord + dl*dz/norm;
+    //~ }
+    //~ }
 
-	/********************************/
+    /********************************/
 
-	/*****Writhe and twist integrals******/
-	NP = knotcurve.size();  //store number of points in knot curve
-	//if(t==50) cout << "Number of points: " << NP << '\n';
-	double totwrithe = 0;
-	double tottwist = 0;
-	double ds = 2*M_PI/NP;
-	double dxds, dyds, dzds, dxdm, dydm, dzdm, dxu, dyu, dzu, dxup, dyup, dzup, bx, by, bz, check;
-	totlength = 0;
+    /*****Writhe and twist integrals******/
+    NP = knotcurve.size();  //store number of points in knot curve
+    //if(t==50) cout << "Number of points: " << NP << '\n';
+    double totwrithe = 0;
+    double tottwist = 0;
+    double ds = 2*M_PI/NP;
+    double dxds, dyds, dzds, dxdm, dydm, dzdm, dxu, dyu, dzu, dxup, dyup, dzup, bx, by, bz, check;
+    totlength = 0;
 
-	/******************Interpolate direction of grad u for twist calc*******/
-	/**Find nearest gridpoint**/
-	for(s=0; s<NP; s++)
-	{
-		idwn = (int) ((knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
-		jdwn = (int) ((knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
-		kdwn = (int) ((knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
-		if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
-		dxu=0;
-		dyu=0;
-		dzu=0;
-		/*curve to gridpoint down distance*/
-		xd = (knotcurve[s].xcoord - x[idwn])/h;
-		yd = (knotcurve[s].ycoord - y[jdwn])/h;
-		zd = (knotcurve[s].zcoord - z[kdwn])/h;
-		for(m=0;m<8;m++)  //linear interpolation of 8 NNs
-		{
-			/* Work out increments*/
-			iinc = m%2;
-			jinc = (m/2)%2;
-			kinc = (m/4)%2;
-			/*Loop over nearest points*/
-			i = incw(idwn, iinc, Nx);
-			j = incw(jdwn, jinc, Ny);
-			if(periodic) k = incp(kdwn,kinc, Nz);
-			else k = incw(kdwn,kinc, Nz);
-			prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);   //terms of the form (1-xd)(1-yd)zd etc. (interpolation coefficient)
-			/*interpolate grad u over nearest points*/
-			dxu += prefactor*0.5*(u[pt(incw(i,1,Nx),j,k)] -  u[pt(incw(i,-1,Nx),j,k)])/h;  //central diff
-			dyu += prefactor*0.5*(u[pt(i,incw(j,1,Ny),k)] -  u[pt(i,incw(j,-1,Ny),k)])/h;
-			if(periodic) prefactor*0.5*(u[pt(i,j,incp(k,1,Nz))] -  u[pt(i,j,incp(k,-1,Nz))])/h;
-			else  dzu += prefactor*0.5*(u[pt(i,j,incw(k,1,Nz))] -  u[pt(i,j,incw(k,-1,Nz))])/h;
-		}
-		//project du onto perp of tangent direction first
-		dx = 0.5*(knotcurve[incp(s,1,NP)].xcoord - knotcurve[incp(s,-1,NP)].xcoord);   //central diff as a is defined on the points
-		dy = 0.5*(knotcurve[incp(s,1,NP)].ycoord - knotcurve[incp(s,-1,NP)].ycoord);
-		dz = 0.5*(knotcurve[incp(s,1,NP)].zcoord - knotcurve[incp(s,-1,NP)].zcoord);
-		dxup = dxu - (dxu*dx + dyu*dy + dzu*dz)*dx/(dx*dx+dy*dy+dz*dz);               //Grad u_j * (delta_ij - t_i t_j)
-		dyup = dyu - (dxu*dx + dyu*dy + dzu*dz)*dy/(dx*dx+dy*dy+dz*dz);
-		dzup = dzu - (dxu*dx + dyu*dy + dzu*dz)*dz/(dx*dx+dy*dy+dz*dz);
-		/*Vector a is the normalised gradient of u, should point in direction of max u perp to t*/
-		norm = sqrt(dxup*dxup+dyup*dyup+dzup*dzup);
-		knotcurve[s].ax = dxup/norm;
-		knotcurve[s].ay = dyup/norm;
-		knotcurve[s].az = dzup/norm;
-	}
+    /******************Interpolate direction of grad u for twist calc*******/
+    /**Find nearest gridpoint**/
+    for(s=0; s<NP; s++)
+    {
+        idwn = (int) ((knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
+        jdwn = (int) ((knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
+        kdwn = (int) ((knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
+        if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+        dxu=0;
+        dyu=0;
+        dzu=0;
+        /*curve to gridpoint down distance*/
+        xd = (knotcurve[s].xcoord - x[idwn])/h;
+        yd = (knotcurve[s].ycoord - y[jdwn])/h;
+        zd = (knotcurve[s].zcoord - z[kdwn])/h;
+        for(m=0;m<8;m++)  //linear interpolation of 8 NNs
+        {
+            /* Work out increments*/
+            iinc = m%2;
+            jinc = (m/2)%2;
+            kinc = (m/4)%2;
+            /*Loop over nearest points*/
+            i = incw(idwn, iinc, Nx);
+            j = incw(jdwn, jinc, Ny);
+            if(periodic) k = incp(kdwn,kinc, Nz);
+            else k = incw(kdwn,kinc, Nz);
+            prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);   //terms of the form (1-xd)(1-yd)zd etc. (interpolation coefficient)
+            /*interpolate grad u over nearest points*/
+            dxu += prefactor*0.5*(u[pt(incw(i,1,Nx),j,k)] -  u[pt(incw(i,-1,Nx),j,k)])/h;  //central diff
+            dyu += prefactor*0.5*(u[pt(i,incw(j,1,Ny),k)] -  u[pt(i,incw(j,-1,Ny),k)])/h;
+            if(periodic) prefactor*0.5*(u[pt(i,j,incp(k,1,Nz))] -  u[pt(i,j,incp(k,-1,Nz))])/h;
+            else  dzu += prefactor*0.5*(u[pt(i,j,incw(k,1,Nz))] -  u[pt(i,j,incw(k,-1,Nz))])/h;
+        }
+        //project du onto perp of tangent direction first
+        dx = 0.5*(knotcurve[incp(s,1,NP)].xcoord - knotcurve[incp(s,-1,NP)].xcoord);   //central diff as a is defined on the points
+        dy = 0.5*(knotcurve[incp(s,1,NP)].ycoord - knotcurve[incp(s,-1,NP)].ycoord);
+        dz = 0.5*(knotcurve[incp(s,1,NP)].zcoord - knotcurve[incp(s,-1,NP)].zcoord);
+        dxup = dxu - (dxu*dx + dyu*dy + dzu*dz)*dx/(dx*dx+dy*dy+dz*dz);               //Grad u_j * (delta_ij - t_i t_j)
+        dyup = dyu - (dxu*dx + dyu*dy + dzu*dz)*dy/(dx*dx+dy*dy+dz*dz);
+        dzup = dzu - (dxu*dx + dyu*dy + dzu*dz)*dz/(dx*dx+dy*dy+dz*dz);
+        /*Vector a is the normalised gradient of u, should point in direction of max u perp to t*/
+        norm = sqrt(dxup*dxup+dyup*dyup+dzup*dzup);
+        knotcurve[s].ax = dxup/norm;
+        knotcurve[s].ay = dyup/norm;
+        knotcurve[s].az = dzup/norm;
+    }
 
-	/***Do the integrals**/
-	for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
-	{
-		dxds = (knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord)/(ds);
-		dyds = (knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord)/(ds);
-		dzds = (knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord)/(ds);
-		/*These quantities defined on line connecting points s and s+1*/
-		knotcurve[s].writhe = 0;
-		knotcurve[s].length = sqrt(dxds*dxds + dyds*dyds + dzds*dzds)*ds;  //actual length of thing
-		bx = (knotcurve[incp(s,1,NP)].ax - knotcurve[s].ax)/ds;
-		by = (knotcurve[incp(s,1,NP)].ay - knotcurve[s].ay)/ds;
-		bz = (knotcurve[incp(s,1,NP)].az - knotcurve[s].az)/ds;
-		knotcurve[s].twist = (dxds*(knotcurve[s].ay*bz - knotcurve[s].az*by) + dyds*(knotcurve[s].az*bx - knotcurve[s].ax*bz) + dzds*(knotcurve[s].ax*by - knotcurve[s].ay*bx))/(2*M_PI*sqrt(dxds*dxds + dyds*dyds + dzds*dzds));
-		/*Check this is actually normal to tangent*/
-		/*check = fabs(0.5*(knotcurve[s].ax + knotcurve[incp(s,1,NP)].ax)*dxds + 0.5*(knotcurve[s].ay + knotcurve[incp(s,1,NP)].ay)*dyds + 0.5*(knotcurve[s].az + knotcurve[incp(s,1,NP)].az)*dzds)/sqrt(dxds*dxds + dyds*dyds + dzds*dzds);
-		  if(check>0.01) cout << s << ": (" << knotcurve[s].xcoord << ", " << knotcurve[s].ycoord << ", " << knotcurve[s].zcoord << "). Grad u . t = " << check << '\n';*/
-		for(m=0; m<NP; m++)
-		{
-			if(s != m)
-			{
-				xdiff = 0.5*(knotcurve[incp(s,1,NP)].xcoord + knotcurve[s].xcoord - knotcurve[incp(m,1,NP)].xcoord - knotcurve[m].xcoord);   //interpolate, consistent with fwd diff
-				ydiff = 0.5*(knotcurve[incp(s,1,NP)].ycoord + knotcurve[s].ycoord - knotcurve[incp(m,1,NP)].ycoord - knotcurve[m].ycoord);
-				zdiff = 0.5*(knotcurve[incp(s,1,NP)].zcoord + knotcurve[s].zcoord - knotcurve[incp(m,1,NP)].zcoord - knotcurve[m].zcoord);
-				dxdm = (knotcurve[incp(m,1,NP)].xcoord - knotcurve[m].xcoord)/(ds);
-				dydm = (knotcurve[incp(m,1,NP)].ycoord - knotcurve[m].ycoord)/(ds);
-				dzdm = (knotcurve[incp(m,1,NP)].zcoord - knotcurve[m].zcoord)/(ds);
-				knotcurve[s].writhe += ds*(xdiff*(dyds*dzdm - dzds*dydm) + ydiff*(dzds*dxdm - dxds*dzdm) + zdiff*(dxds*dydm - dyds*dxdm))/(4*M_PI*(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff)*sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff));
-			}
-		}
-		/*Add on writhe, twist and length*/
-		totwrithe += knotcurve[s].writhe*ds;
-		totlength += knotcurve[s].length;
-		tottwist  += knotcurve[s].twist*ds;
-	}
+    /***Do the integrals**/
+    for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
+    {
+        dxds = (knotcurve[incp(s,1,NP)].xcoord - knotcurve[s].xcoord)/(ds);
+        dyds = (knotcurve[incp(s,1,NP)].ycoord - knotcurve[s].ycoord)/(ds);
+        dzds = (knotcurve[incp(s,1,NP)].zcoord - knotcurve[s].zcoord)/(ds);
+        /*These quantities defined on line connecting points s and s+1*/
+        knotcurve[s].writhe = 0;
+        knotcurve[s].length = sqrt(dxds*dxds + dyds*dyds + dzds*dzds)*ds;  //actual length of thing
+        bx = (knotcurve[incp(s,1,NP)].ax - knotcurve[s].ax)/ds;
+        by = (knotcurve[incp(s,1,NP)].ay - knotcurve[s].ay)/ds;
+        bz = (knotcurve[incp(s,1,NP)].az - knotcurve[s].az)/ds;
+        knotcurve[s].twist = (dxds*(knotcurve[s].ay*bz - knotcurve[s].az*by) + dyds*(knotcurve[s].az*bx - knotcurve[s].ax*bz) + dzds*(knotcurve[s].ax*by - knotcurve[s].ay*bx))/(2*M_PI*sqrt(dxds*dxds + dyds*dyds + dzds*dzds));
+        /*Check this is actually normal to tangent*/
+        /*check = fabs(0.5*(knotcurve[s].ax + knotcurve[incp(s,1,NP)].ax)*dxds + 0.5*(knotcurve[s].ay + knotcurve[incp(s,1,NP)].ay)*dyds + 0.5*(knotcurve[s].az + knotcurve[incp(s,1,NP)].az)*dzds)/sqrt(dxds*dxds + dyds*dyds + dzds*dzds);
+          if(check>0.01) cout << s << ": (" << knotcurve[s].xcoord << ", " << knotcurve[s].ycoord << ", " << knotcurve[s].zcoord << "). Grad u . t = " << check << '\n';*/
+        for(m=0; m<NP; m++)
+        {
+            if(s != m)
+            {
+                xdiff = 0.5*(knotcurve[incp(s,1,NP)].xcoord + knotcurve[s].xcoord - knotcurve[incp(m,1,NP)].xcoord - knotcurve[m].xcoord);   //interpolate, consistent with fwd diff
+                ydiff = 0.5*(knotcurve[incp(s,1,NP)].ycoord + knotcurve[s].ycoord - knotcurve[incp(m,1,NP)].ycoord - knotcurve[m].ycoord);
+                zdiff = 0.5*(knotcurve[incp(s,1,NP)].zcoord + knotcurve[s].zcoord - knotcurve[incp(m,1,NP)].zcoord - knotcurve[m].zcoord);
+                dxdm = (knotcurve[incp(m,1,NP)].xcoord - knotcurve[m].xcoord)/(ds);
+                dydm = (knotcurve[incp(m,1,NP)].ycoord - knotcurve[m].ycoord)/(ds);
+                dzdm = (knotcurve[incp(m,1,NP)].zcoord - knotcurve[m].zcoord)/(ds);
+                knotcurve[s].writhe += ds*(xdiff*(dyds*dzdm - dzds*dydm) + ydiff*(dzds*dxdm - dxds*dzdm) + zdiff*(dxds*dydm - dyds*dxdm))/(4*M_PI*(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff)*sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff));
+            }
+        }
+        /*Add on writhe, twist and length*/
+        totwrithe += knotcurve[s].writhe*ds;
+        totlength += knotcurve[s].length;
+        tottwist  += knotcurve[s].twist*ds;
+    }
 
-	print_knot(x,y,z,t, knotcurve);
+    print_knot(x,y,z,t, knotcurve);
 
-	/***Write values to file*******/
-	ofstream wrout;
-	wrout.open("writhe.txt",ios_base::app);
-	wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
-	wrout.close();
+    /***Write values to file*******/
+    ofstream wrout;
+    wrout.open("writhe.txt",ios_base::app);
+    wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
+    wrout.close();
 }
 
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold)
 {
-	int i,j,k,l,n,kup,kdwn;
-	double D2u;
+    int i,j,k,l,n,kup,kdwn;
+    double D2u;
 
 #pragma omp for
-	for(i=0;i<Nx;i++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(k=0; k<Nz; k++)
-			{
-				n = pt(i,j,k);
-				uold[n] = u[n];  //old value of u
-				vold[n] = v[n];  //old value of v
-				kut[n] = 0;
-				kvt[n] = 0;
-			}
-		}
-	}
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)
+            {
+                n = pt(i,j,k);
+                uold[n] = u[n];  //old value of u
+                vold[n] = v[n];  //old value of v
+                kut[n] = 0;
+                kvt[n] = 0;
+            }
+        }
+    }
 
-	for(l=0;l<4;l++)  //u and v update for each fractional time step
-	{
+    for(l=0;l<4;l++)  //u and v update for each fractional time step
+    {
 #pragma omp for
-		for(i=0;i<Nx;i++)
-		{
-			for(j=0; j<Ny; j++)
-			{
-				for(k=0; k<Nz; k++)   //Central difference
-				{
-					n = pt(i,j,k);
-					if(periodic)   //check for periodic boundaries
-					{
-						kup = incp(k,1,Nz);
-						kdwn = incp(k,-1,Nz);
-					}
-					else
-					{
-						kup = incw(k,1,Nz);
-						kdwn = incw(k,-1,Nz);
-					}
-					D2u = oneoverhsq*(u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6.0*u[n]);
-					ku[n] = oneoverepsilon*(u[n] - u[n]*u[n]*u[n]/3.0 - v[n]) + D2u;
-					kv[n] = epsilon*(u[n] + beta - gam*v[n]);
-				}
-			}
-		}
+        for(i=0;i<Nx;i++)
+        {
+            for(j=0; j<Ny; j++)
+            {
+                for(k=0; k<Nz; k++)   //Central difference
+                {
+                    n = pt(i,j,k);
+                    if(periodic)   //check for periodic boundaries
+                    {
+                        kup = incp(k,1,Nz);
+                        kdwn = incp(k,-1,Nz);
+                    }
+                    else
+                    {
+                        kup = incw(k,1,Nz);
+                        kdwn = incw(k,-1,Nz);
+                    }
+                    D2u = oneoverhsq*(u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6.0*u[n]);
+                    ku[n] = oneoverepsilon*(u[n] - u[n]*u[n]*u[n]/3.0 - v[n]) + D2u;
+                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+                }
+            }
+        }
 
-		switch (l)
-		{
-			case 0:
-				{
-					uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,1.0);   //add k1 to uv and add to total k
-				}
-				break;
+        switch (l)
+        {
+            case 0:
+                {
+                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,1.0);   //add k1 to uv and add to total k
+                }
+                break;
 
-			case 1:
-				{
-					uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,2.0);   //add k2 to uv and add to total k
-				}
-				break;
+            case 1:
+                {
+                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,2.0);   //add k2 to uv and add to total k
+                }
+                break;
 
-			case 2:
-				{
-					uv_add(u,v,uold,vold,ku,kv,kut,kvt,1.0,2.0);      //add k3 to uv and add to total k
-				}
-				break;
+            case 2:
+                {
+                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,1.0,2.0);      //add k3 to uv and add to total k
+                }
+                break;
 
-			case 3:
-				{
+            case 3:
+                {
 #pragma omp for
-					for(i=0;i<Nx;i++)
-					{
-						for(j=0; j<Ny; j++)
-						{
-							for(k=0; k<Nz; k++)  //update
-							{
-								n = pt(i,j,k);
-								u[n] = uold[n] + dtime*sixth*(kut[n]+ku[n]);
-								v[n] = vold[n] + dtime*sixth*(kvt[n]+kv[n]);
-							}
-						}
-					}
-				}
-				break;
+                    for(i=0;i<Nx;i++)
+                    {
+                        for(j=0; j<Ny; j++)
+                        {
+                            for(k=0; k<Nz; k++)  //update
+                            {
+                                n = pt(i,j,k);
+                                u[n] = uold[n] + dtime*sixth*(kut[n]+ku[n]);
+                                v[n] = vold[n] + dtime*sixth*(kvt[n]+kv[n]);
+                            }
+                        }
+                    }
+                }
+                break;
 
-			default:
-				break;
-		}
-	}
+            default:
+                break;
+        }
+    }
 }
 
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff)
 {
-	int i,j,k,n;
+    int i,j,k,n;
 
 #pragma omp for
-	for(i=0;i<Nx;i++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(k=0; k<Nz; k++)  //update
-			{
-				n = pt(i,j,k);
-				u[n] = uold[n] + dtime*inc*ku[n];
-				v[n] = vold[n] + dtime*inc*kv[n];
-				kut[n] += coeff*ku[n];
-				kvt[n] += coeff*kv[n];
-			}
-		}
-	}
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)  //update
+            {
+                n = pt(i,j,k);
+                u[n] = uold[n] + dtime*inc*ku[n];
+                v[n] = vold[n] + dtime*inc*kv[n];
+                kut[n] += coeff*ku[n];
+                kvt[n] += coeff*kv[n];
+            }
+        }
+    }
 
 }
 
 void uv_update_euler(double *u, double *v, double *D2u)
 {
-	int i,j,k,l,n,kup,kdwn;
+    int i,j,k,l,n,kup,kdwn;
 
 #pragma omp for
-	for(i=0;i<Nx;i++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(k=0; k<Nz; k++)
-			{
-				n = pt(i,j,k);
-				if(periodic)   //check for periodic boundaries
-				{
-					kup = incp(k,1,Nz);
-					kdwn = incp(k,-1,Nz);
-				}
-				else
-				{
-					kup = incw(k,1,Nz);
-					kdwn = incw(k,-1,Nz);
-				}
-				D2u[n] = (u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6*u[n])/(h*h);
-			}
-		}
-	}
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)
+            {
+                n = pt(i,j,k);
+                if(periodic)   //check for periodic boundaries
+                {
+                    kup = incp(k,1,Nz);
+                    kdwn = incp(k,-1,Nz);
+                }
+                else
+                {
+                    kup = incw(k,1,Nz);
+                    kdwn = incw(k,-1,Nz);
+                }
+                D2u[n] = (u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6*u[n])/(h*h);
+            }
+        }
+    }
 
 #pragma omp for
-	for(i=0;i<Nx;i++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(k=0; k<Nz; k++)
-			{
-				n = pt(i,j,k);
-				u[n] = u[n] + dtime*((u[n] - u[n]*u[n]*u[n]/3 - v[n])/epsilon + D2u[n]);
-				v[n] = v[n] + dtime*(epsilon*(u[n] + beta - gam*v[n]));
-			}
-		}
-	}
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)
+            {
+                n = pt(i,j,k);
+                u[n] = u[n] + dtime*((u[n] - u[n]*u[n]*u[n]/3 - v[n])/epsilon + D2u[n]);
+                v[n] = v[n] + dtime*(epsilon*(u[n] + beta - gam*v[n]));
+            }
+        }
+    }
 }
 
 /*************************File reading and writing*****************************/
 
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t)
 {
-	int i,j,k,n;
-	stringstream ss;
-	ss << "uv_plot" << t << ".vtk";
-	ofstream uvout (ss.str().c_str());
+    int i,j,k,n;
+    stringstream ss;
+    ss << "uv_plot" << t << ".vtk";
+    ofstream uvout (ss.str().c_str());
 
-	uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
-	uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
-	uvout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
-	uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
-	uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
-	uvout << "SCALARS u float\nLOOKUP_TABLE default\n";
-
-
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n = pt(i,j,k);
-				uvout << u[n] << '\n';
-			}
-		}
-	}
-
-	uvout << "SCALARS v float\nLOOKUP_TABLE default\n";
+    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
+    uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
+    uvout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
+    uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
+    uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
+    uvout << "SCALARS u float\nLOOKUP_TABLE default\n";
 
 
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n = pt(i,j,k);
-				uvout << v[n] << '\n';
-			}
-		}
-	}
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k);
+                uvout << u[n] << '\n';
+            }
+        }
+    }
 
-	uvout << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
+    uvout << "SCALARS v float\nLOOKUP_TABLE default\n";
 
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n = pt(i,j,k);
-				uvout << sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]) << '\n';
-			}
-		}
-	}
 
-	uvout.close();
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k);
+                uvout << v[n] << '\n';
+            }
+        }
+    }
+
+    uvout << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k);
+                uvout << sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]) << '\n';
+            }
+        }
+    }
+
+    uvout.close();
 }
 
 void print_B_phi(double *x, double *y, double*z, double *phi, int* missed)
 {
-	int i,j,k,n;
-	string fn = "phi.vtk";
+    int i,j,k,n;
+    string fn = "phi.vtk";
 
-	ofstream Bout (fn.c_str());
+    ofstream Bout (fn.c_str());
 
-	Bout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET STRUCTURED_POINTS\n";
-	Bout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
-	Bout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
-	Bout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
-	Bout << "POINT_DATA " << Nx*Ny*Nz << '\n';
-	Bout << "SCALARS Phi float\nLOOKUP_TABLE default\n";
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n = pt(i,j,k);
-				Bout << phi[n] << '\n';
-			}
-		}
-	}
+    Bout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET STRUCTURED_POINTS\n";
+    Bout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
+    Bout << "ORIGIN " << x[0] << ' ' << y[0] << ' ' << z[0] << '\n';
+    Bout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
+    Bout << "POINT_DATA " << Nx*Ny*Nz << '\n';
+    Bout << "SCALARS Phi float\nLOOKUP_TABLE default\n";
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k);
+                Bout << phi[n] << '\n';
+            }
+        }
+    }
 
-	if(option==FROM_KNOT_FILE)
-	{
-		Bout << "\n\nSCALARS Missed int\nLOOKUP_TABLE default\n";
-		for(k=0; k<Nz; k++)
-		{
-			for(j=0; j<Ny; j++)
-			{
-				for(i=0; i<Nx; i++)
-				{
-					n = pt(i,j,k);
-					Bout << missed[n] << '\n';
-				}
-			}
-		}
-	}
+    if(option==FROM_KNOT_FILE)
+    {
+        Bout << "\n\nSCALARS Missed int\nLOOKUP_TABLE default\n";
+        for(k=0; k<Nz; k++)
+        {
+            for(j=0; j<Ny; j++)
+            {
+                for(i=0; i<Nx; i++)
+                {
+                    n = pt(i,j,k);
+                    Bout << missed[n] << '\n';
+                }
+            }
+        }
+    }
 
-	Bout.close();
+    Bout.close();
 }
 
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename)
 {
-	string fn = "info.txt";
+    string fn = "info.txt";
 
-	time_t rawtime;
-	struct tm * timeinfo;
+    time_t rawtime;
+    struct tm * timeinfo;
 
-	time (&rawtime);
-	timeinfo = localtime (&rawtime);
+    time (&rawtime);
+    timeinfo = localtime (&rawtime);
 
-	ofstream infoout (fn.c_str());
+    ofstream infoout (fn.c_str());
 
-	infoout << "run started at\t" << asctime(timeinfo) << "\n";
-	infoout << "Number of grid points\t" << Nx << '\t' << Ny << '\t' << Nz << '\n';
-	infoout << "timestep\t" << dtime << '\n';
-	infoout << "Spacing\t" << h << '\n';
-	infoout << "Periodic\t" << periodic << '\n';
-	infoout << "initoptions\t" << option << '\n';
-	infoout << "knot filename\t" << knot_filename << '\n';
-	infoout << "B or uv filename\t" << B_filename << '\n';
-	infoout.close();
+    infoout << "run started at\t" << asctime(timeinfo) << "\n";
+    infoout << "Number of grid points\t" << Nx << '\t' << Ny << '\t' << Nz << '\n';
+    infoout << "timestep\t" << dtime << '\n';
+    infoout << "Spacing\t" << h << '\n';
+    infoout << "Periodic\t" << periodic << '\n';
+    infoout << "initoptions\t" << option << '\n';
+    infoout << "knot filename\t" << knot_filename << '\n';
+    infoout << "B or uv filename\t" << B_filename << '\n';
+    infoout.close();
 }
 
 void print_knot(double *x, double *y, double *z, double t, std::vector<knotpoint>& knotcurve)
 {
-	stringstream ss;
-	ss << "knotplot" << t << ".vtk";
-	ofstream knotout (ss.str().c_str());
+    stringstream ss;
+    ss << "knotplot" << t << ".vtk";
+    ofstream knotout (ss.str().c_str());
 
-	int i;
-	int n = knotcurve.size();
+    int i;
+    int n = knotcurve.size();
 
-	knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-	knotout << "POINTS " << n << " float\n";
+    knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+    knotout << "POINTS " << n << " float\n";
 
-	for(i=0; i<n; i++)
-	{
-		knotout << knotcurve[i].xcoord << ' ' << knotcurve[i].ycoord << ' ' << knotcurve[i].zcoord << '\n';
-	}
+    for(i=0; i<n; i++)
+    {
+        knotout << knotcurve[i].xcoord << ' ' << knotcurve[i].ycoord << ' ' << knotcurve[i].zcoord << '\n';
+    }
 
-	knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
+    knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
 
-	for(i=0; i<n; i++)
-	{
-		knotout << 2 << ' ' << i << ' ' << incp(i,1,n) << '\n';
-	}
+    for(i=0; i<n; i++)
+    {
+        knotout << 2 << ' ' << i << ' ' << incp(i,1,n) << '\n';
+    }
 
-	knotout << "\n\nCELL_TYPES " << n << '\n';
+    knotout << "\n\nCELL_TYPES " << n << '\n';
 
-	for(i=0; i<n; i++)
-	{
-		knotout << "3\n";
-	}
+    for(i=0; i<n; i++)
+    {
+        knotout << "3\n";
+    }
 
-	knotout << "\n\nPOINT_DATA " << n << "\n\n";
-	knotout << "\nVECTORS A float\n";
-	for(i=0; i<n; i++)
-	{
-		knotout << knotcurve[i].ax << ' ' << knotcurve[i].ay << ' ' << knotcurve[i].az << '\n';
-	}
+    knotout << "\n\nPOINT_DATA " << n << "\n\n";
+    knotout << "\nVECTORS A float\n";
+    for(i=0; i<n; i++)
+    {
+        knotout << knotcurve[i].ax << ' ' << knotcurve[i].ay << ' ' << knotcurve[i].az << '\n';
+    }
 
-	knotout << "\n\nCELL_DATA " << n << "\n\n";
-	knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
-	for(i=0; i<n; i++)
-	{
-		knotout << knotcurve[i].writhe << '\n';
-	}
+    knotout << "\n\nCELL_DATA " << n << "\n\n";
+    knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
+    for(i=0; i<n; i++)
+    {
+        knotout << knotcurve[i].writhe << '\n';
+    }
 
-	knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
-	for(i=0; i<n; i++)
-	{
-		knotout << knotcurve[i].twist << '\n';
-	}
+    knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
+    for(i=0; i<n; i++)
+    {
+        knotout << knotcurve[i].twist << '\n';
+    }
 
-	knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
-	for(i=0; i<n; i++)
-	{
-		knotout << knotcurve[i].length << '\n';
-	}
+    knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
+    for(i=0; i<n; i++)
+    {
+        knotout << knotcurve[i].length << '\n';
+    }
 
-	knotout.close();
+    knotout.close();
 }
 
 int phi_file_read(double *phi)
 {
-	string temp,buff;
-	stringstream ss;
-	ifstream fin (B_filename.c_str());
-	int i,j,k,n;
+    string temp,buff;
+    stringstream ss;
+    ifstream fin (B_filename.c_str());
+    int i,j,k,n;
 
-	for(i=0;i<10;i++)
-	{
-		if(fin.good())
-		{
-			if(getline(fin,buff)) temp = buff;
-		}
-		else
-		{
-			cout << "Something went wrong!\n";
-			return 1;
-		}
-	}
+    for(i=0;i<10;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
 
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n=pt(i,j,k);
-				ss.clear();
-				ss.str("");
-				if(fin.good())
-				{
-					if(getline(fin,buff))
-					{
-						ss << buff;
-						ss >> phi[n];
-					}
-				}
-				else
-				{
-					cout << "Something went wrong!\n";
-					return 1;
-				}
-			}
-		}
-	}
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff))
+                    {
+                        ss << buff;
+                        ss >> phi[n];
+                    }
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
 
-	fin.close();
+    fin.close();
 
-	return 0;
+    return 0;
 }
 
 int uvfile_read(double *u, double *v)
 {
-	string temp,buff;
-	stringstream ss;
-	ifstream fin (B_filename.c_str());
-	int i,j,k,n;
+    string temp,buff;
+    stringstream ss;
+    ifstream fin (B_filename.c_str());
+    int i,j,k,n;
 
-	for(i=0;i<10;i++)
-	{
-		if(fin.good())
-		{
-			if(getline(fin,buff)) temp = buff;
-		}
-		else
-		{
-			cout << "Something went wrong!\n";
-			return 1;
-		}
-	}
+    for(i=0;i<10;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
 
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n=pt(i,j,k);
-				ss.clear();
-				ss.str("");
-				if(fin.good())
-				{
-					if(getline(fin,buff))
-					{
-						ss << buff;
-						ss >> u[n];
-					}
-				}
-				else
-				{
-					cout << "Something went wrong!\n";
-					return 1;
-				}
-			}
-		}
-	}
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff))
+                    {
+                        ss << buff;
+                        ss >> u[n];
+                    }
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
 
-	for(i=0;i<2;i++)
-	{
-		if(fin.good())
-		{
-			if(getline(fin,buff)) temp = buff;
-		}
-		else
-		{
-			cout << "Something went wrong!\n";
-			return 1;
-		}
-	}
+    for(i=0;i<2;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
 
-	for(k=0; k<Nz; k++)
-	{
-		for(j=0; j<Ny; j++)
-		{
-			for(i=0; i<Nx; i++)
-			{
-				n=pt(i,j,k);
-				ss.clear();
-				ss.str("");
-				if(fin.good())
-				{
-					if(getline(fin,buff)) ss << buff;
-					ss >> v[n];
-				}
-				else
-				{
-					cout << "Something went wrong!\n";
-					return 1;
-				}
-			}
-		}
-	}
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff)) ss << buff;
+                    ss >> v[n];
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
 
-	fin.close();
+    fin.close();
 
-	return 0;
+    return 0;
 }
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
-	double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
-	double uy = SegmentEnd.ycoord - SegmentStart.ycoord ;
-	double uz = SegmentEnd.zcoord - SegmentStart.zcoord ;
+    double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
+    double uy = SegmentEnd.ycoord - SegmentStart.ycoord ;
+    double uz = SegmentEnd.zcoord - SegmentStart.zcoord ;
 
-	double wx= SegmentStart.xcoord - PlaneSegmentStart.xcoord ;
-	double wy = SegmentStart.ycoord - PlaneSegmentStart.ycoord ;
-	double wz = SegmentStart.zcoord - PlaneSegmentStart.zcoord ;
+    double wx= SegmentStart.xcoord - PlaneSegmentStart.xcoord ;
+    double wy = SegmentStart.ycoord - PlaneSegmentStart.ycoord ;
+    double wz = SegmentStart.zcoord - PlaneSegmentStart.zcoord ;
 
-	double nx= PlaneSegmentEnd.xcoord  - PlaneSegmentStart.xcoord ;
-	double ny = PlaneSegmentEnd.ycoord  - PlaneSegmentStart.ycoord ;
-	double nz = PlaneSegmentEnd.zcoord  - PlaneSegmentStart.zcoord ;
+    double nx= PlaneSegmentEnd.xcoord  - PlaneSegmentStart.xcoord ;
+    double ny = PlaneSegmentEnd.ycoord  - PlaneSegmentStart.ycoord ;
+    double nz = PlaneSegmentEnd.zcoord  - PlaneSegmentStart.zcoord ;
 
-	double D = nx*ux+ ny*uy + nz*uz;
-	double N = - (nx*wx+ ny*wy + nz*wz);
+    double D = nx*ux+ ny*uy + nz*uz;
+    double N = - (nx*wx+ ny*wy + nz*wz);
 
-	if (fabs(D) < 0.01)
-	{           // segment is parallel to plane
-		if (N == 0)                      // segment lies in plane
-			return 2;
-		else
-			return 0;                    // no intersection
-	}
+    if (fabs(D) < 0.01)
+    {           // segment is parallel to plane
+        if (N == 0)                      // segment lies in plane
+            return 2;
+        else
+            return 0;                    // no intersection
+    }
 
-	double sI = N / D;
-	if (sI < 0 || sI > 1)
-		return 0;                        // no intersection
+    double sI = N / D;
+    if (sI < 0 || sI > 1)
+        return 0;                        // no intersection
 
 
-	IntersectionFraction = sI;
-	IntersectionPoint[0] = SegmentStart.xcoord + sI * ux;
-	IntersectionPoint[1] = SegmentStart.ycoord + sI * uy;
-	IntersectionPoint[2] = SegmentStart.zcoord + sI * uz;
-	return 1;
+    IntersectionFraction = sI;
+    IntersectionPoint[0] = SegmentStart.xcoord + sI * ux;
+    IntersectionPoint[1] = SegmentStart.ycoord + sI * uy;
+    IntersectionPoint[2] = SegmentStart.zcoord + sI * uz;
+    return 1;
 }
 // intersect3D_SegmentPlane(): find the 3D intersection of a segment and a plane
 //    Input:  S = a segment, and Pn = a plane = {Point V0;  Vector n;}
@@ -2082,80 +2082,80 @@ first = false;
 double my_f(const gsl_vector* minimum, void* params)
 {
 
-	int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc;
-	double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
-	struct parameters* myparameters = (struct parameters *) params;
-	double* x= myparameters->x;
-	double* y= myparameters->y;
-	double* z= myparameters->z;
-	double* ucvx= myparameters->ucvx;
-	double* ucvy= myparameters->ucvy;
-	double* ucvz= myparameters->ucvz;
+    int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc;
+    double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
+    struct parameters* myparameters = (struct parameters *) params;
+    double* x= myparameters->x;
+    double* y= myparameters->y;
+    double* z= myparameters->z;
+    double* ucvx= myparameters->ucvx;
+    double* ucvy= myparameters->ucvy;
+    double* ucvz= myparameters->ucvz;
 
-	gsl_vector* tempf = gsl_vector_alloc (3);
-	gsl_vector* tempv = gsl_vector_alloc (3);
-	gsl_vector* tempb = gsl_vector_alloc (3);
-	gsl_vector_memcpy (tempf,myparameters->f);
-	gsl_vector_memcpy (tempv,myparameters->v);
-	gsl_vector_memcpy (tempb,myparameters->b);
+    gsl_vector* tempf = gsl_vector_alloc (3);
+    gsl_vector* tempv = gsl_vector_alloc (3);
+    gsl_vector* tempb = gsl_vector_alloc (3);
+    gsl_vector_memcpy (tempf,myparameters->f);
+    gsl_vector_memcpy (tempv,myparameters->v);
+    gsl_vector_memcpy (tempb,myparameters->b);
 
-	// s gives us how much of f to add to p
+    // s gives us how much of f to add to p
 
-	gsl_vector_scale(tempf,gsl_vector_get (minimum, 0));
-	gsl_vector_scale(tempb,gsl_vector_get (minimum, 1));
-	gsl_vector_add(tempf,tempb);
-	gsl_vector_add(tempv,tempf);
-	double px = gsl_vector_get(tempv, 0);
-	double py = gsl_vector_get(tempv, 1);
-	double pz = gsl_vector_get(tempv, 2);
-	gsl_vector_free(tempf);
-	gsl_vector_free(tempv);
-	gsl_vector_free(tempb);
+    gsl_vector_scale(tempf,gsl_vector_get (minimum, 0));
+    gsl_vector_scale(tempb,gsl_vector_get (minimum, 1));
+    gsl_vector_add(tempf,tempb);
+    gsl_vector_add(tempv,tempf);
+    double px = gsl_vector_get(tempv, 0);
+    double py = gsl_vector_get(tempv, 1);
+    double pz = gsl_vector_get(tempv, 2);
+    gsl_vector_free(tempf);
+    gsl_vector_free(tempv);
+    gsl_vector_free(tempb);
 
-	/**Find nearest gridpoint**/
-	idwn = (int) ((px/h) - 0.5 + Nx/2.0);
-	jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
-	kdwn = (int) ((pz/h) - 0.5 + Nz/2.0);
-	pts=0;
-	ucvxs=0;
-	ucvys=0;
-	ucvzs=0;
-	/*curve to gridpoint down distance*/
-	xd = (px - x[idwn])/h;
-	yd = (py - y[jdwn])/h;
-	zd = (pz - z[kdwn])/h;
-	for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-	{
-		/* Work out increments*/
-		iinc = m%2;
-		jinc = (m/2)%2;
-		kinc = (m/4)%2;
-		/*Loop over nearest points*/
-		i = incw(idwn, iinc, Nx);
-		j = incw(jdwn, jinc, Ny);
-		if(periodic) k = incp(kdwn,kinc, Nz);
-		else k = incw(kdwn,kinc, Nz);
-		prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-		/*interpolate grad u x grad v over nearest points*/
-		ucvxs += prefactor*ucvx[pt(i,j,k)];
-		ucvys += prefactor*ucvy[pt(i,j,k)];
-		ucvzs += prefactor*ucvz[pt(i,j,k)];
-	}
-	double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
-	return  ans;
+    /**Find nearest gridpoint**/
+    idwn = (int) ((px/h) - 0.5 + Nx/2.0);
+    jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
+    kdwn = (int) ((pz/h) - 0.5 + Nz/2.0);
+    pts=0;
+    ucvxs=0;
+    ucvys=0;
+    ucvzs=0;
+    /*curve to gridpoint down distance*/
+    xd = (px - x[idwn])/h;
+    yd = (py - y[jdwn])/h;
+    zd = (pz - z[kdwn])/h;
+    for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+    {
+        /* Work out increments*/
+        iinc = m%2;
+        jinc = (m/2)%2;
+        kinc = (m/4)%2;
+        /*Loop over nearest points*/
+        i = incw(idwn, iinc, Nx);
+        j = incw(jdwn, jinc, Ny);
+        if(periodic) k = incp(kdwn,kinc, Nz);
+        else k = incw(kdwn,kinc, Nz);
+        prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+        /*interpolate grad u x grad v over nearest points*/
+        ucvxs += prefactor*ucvx[pt(i,j,k)];
+        ucvys += prefactor*ucvy[pt(i,j,k)];
+        ucvzs += prefactor*ucvz[pt(i,j,k)];
+    }
+    double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+    return  ans;
 }
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product)
 {
-	double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
-		- gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
+    double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
+        - gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
 
-	double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
-		- gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
+    double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
+        - gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
 
-	double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
-		- gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
+    double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
+        - gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
 
-	gsl_vector_set(product, 0, p1);
-	gsl_vector_set(product, 1, p2);
-	gsl_vector_set(product, 2, p3);
+    gsl_vector_set(product, 0, p1);
+    gsl_vector_set(product, 1, p2);
+    gsl_vector_set(product, 2, p3);
 }
