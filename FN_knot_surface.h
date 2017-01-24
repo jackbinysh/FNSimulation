@@ -23,7 +23,7 @@ using namespace std;
 #define FROM_SURFACE_FILE 1
 #define FROM_UV_FILE 2
 #define FROM_KNOT_FILE 3
-
+#define FROM_FUNCTION 4
 const double sixth = 1.0/6.0;
 
 struct parameters
@@ -103,6 +103,8 @@ void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, doubl
 
 void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi);
 
+void phi_calc_manual(double *x, double *y, double *z, double *phi);
+
 int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag);
 
 //FitzHugh Nagumo functions
@@ -120,6 +122,6 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 void print_B_phi(double *x, double *y, double*z, double *phi, int *missed);
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
-void print_knot(double *x, double *y, double *z, double t, std::vector<knotpoint>& knotcurve);
+void print_knot(double *x, double *y, double *z, double t, vector<vector< knotpoint > >& knotcurves);
 int uvfile_read(double *u,double *v);
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);
