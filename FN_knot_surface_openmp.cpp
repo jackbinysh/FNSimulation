@@ -1325,7 +1325,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 double filter;
                 for (i = 0; i < NP; ++i)
                 {
-                    if (i < 2*M_PI*(totlength/lambda))
+                    if (i < M_PI*(totlength/lambda))
                     {
                         // passband
                         filter = 1.0;
@@ -1358,7 +1358,6 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             //if(t==50) cout << "Number of points: " << NP << '\n';
             double totwrithe = 0;
             double tottwist = 0;
-            double ds = 2*M_PI/NP;
             double dxds, dyds, dzds, dxdm, dydm, dzdm, dxu, dyu, dzu, dxup, dyup, dzup, bx, by, bz, check;
             totlength = 0;
 
@@ -1412,46 +1411,47 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             /***Do the integrals**/
             double T[3][3];
             double N[2][3];
-            double ds[3];
-            double k[2];
+            double deltas[3]; double ds;
+            double curvature[2];double torsion;
             for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
             {
-                for(i=0;i<3,i++)
+                for(i=0;i<3;i++)
                 {
 
                     dx = (knotcurves[c][incp(s,i+1,NP)].xcoord - knotcurves[c][incp(s,i,NP)].xcoord);   //central diff as a is defined on the points
                     dy = (knotcurves[c][incp(s,i+1,NP)].ycoord - knotcurves[c][incp(s,i,NP)].ycoord);
                     dz = (knotcurves[c][incp(s,i+1,NP)].zcoord - knotcurves[c][incp(s,i,NP)].zcoord);
-                    ds[i] = sqrt(dx*dx+dy*dy+dz*dz);
-                    T[i][0] = dx/(ds[i]);
-                    T[i][1] = dy/(ds[i]);
-                    T[i][2] = dz/(ds[i]);
-if(i==0)
-{
-knotcurves[c][s].length = ds[0];
-dxds = T[0][0];
-dyds = T[0][1];
-dzds = T[0][2];
-}
+                    deltas[i] = sqrt(dx*dx+dy*dy+dz*dz);
+                    T[i][0] = dx/(deltas[i]);
+                    T[i][1] = dy/(deltas[i]);
+                    T[i][2] = dz/(deltas[i]);
+                    if(i==0)
+                    {
+                        knotcurves[c][s].length = deltas[0];
+                        dxds = T[0][0];
+                        dyds = T[0][1];
+                        dzds = T[0][2];
+                        ds = deltas[0];
+                    }
                 }
-                for(i=0,i<2,i++)
+                for(i=0;i<2;i++)
                 {
-                    N[i][0] = (T[i+1][0]-T[i][0])/ds[i];
-                    N[i][1] = (T[i+1][1]-T[i][1])/ds[i];
-                    N[i][2] = (T[i+1][2]-T[i][2])/ds[i];
-                    k[i] = sqrt(N[i][0]*N[i][0]+N[i][1]*N[i][1]+N[i][2]*N[i][2]);
-                    N[i][0] /=k[i];
-                    N[i][1] /=k[i];
-                    N[i][2] /=k[i];
+                    N[i][0] = (T[i+1][0]-T[i][0])/deltas[i];
+                    N[i][1] = (T[i+1][1]-T[i][1])/deltas[i];
+                    N[i][2] = (T[i+1][2]-T[i][2])/deltas[i];
+                    curvature[i] = sqrt(N[i][0]*N[i][0]+N[i][1]*N[i][1]+N[i][2]*N[i][2]);
+                    N[i][0] /=curvature[i];
+                    N[i][1] /=curvature[i];
+                    N[i][2] /=curvature[i];
                 }
 
-                bx= (N[1][0]-N[0][0])/ds[0] + k[0]*T[0][0];
-                by= (N[1][1]-N[0][1])/ds[0] + k[0]*T[0][1];
-                bz= (N[1][2]-N[0][2])/ds[0] + k[0]*T[0][2];
-                t = sqrt(bx*bx + by*by+ bz*bz);
+                bx= (N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0];
+                by= (N[1][1]-N[0][1])/deltas[0] + curvature[0]*T[0][1];
+                bz= (N[1][2]-N[0][2])/deltas[0] + curvature[0]*T[0][2];
+                torsion = sqrt(bx*bx + by*by+ bz*bz);
 
-                knotcurves[c][i].k = k;
-                knotcurves[c][i].t = t;
+                knotcurves[c][s].curvature = curvature[0];
+                knotcurves[c][s].torsion = torsion;
                 /*These quantities defined on line connecting points s and s+1*/
                 knotcurves[c][s].writhe = 0;
                 bx = (knotcurves[c][incp(s,1,NP)].ax - knotcurves[c][s].ax)/ds;
@@ -1819,6 +1819,18 @@ void print_knot(double *x, double *y, double *z, double t, vector <vector <knotp
         }
 
         knotout << "\n\nPOINT_DATA " << n << "\n\n";
+
+        knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].curvature << '\n'; }
+
+        knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].torsion << '\n';
+        }
+
         knotout << "\nVECTORS A float\n";
         for(i=0; i<n; i++)
         {
@@ -1842,18 +1854,6 @@ void print_knot(double *x, double *y, double *z, double t, vector <vector <knotp
         for(i=0; i<n; i++)
         {
             knotout << knotcurves[c][i].length << '\n';
-        }
-
-        knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c][i].k << '\n';
-        }
-
-        knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c][i].t << '\n';
         }
         knotout.close();
     }
