@@ -28,9 +28,9 @@
 #define RK4 1         //1 to use Runge Kutta 4th order method, 0 for euler forward method
 #define PRESERVE_RATIOS 1  //1 to scale input file preserving the aspect ratio
 //includes for the signal processing
-/*#include <gsl/gsl_errno.h>
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
-#include <gsl/gsl_fft_halfcomplex.h>*/
+#include <gsl/gsl_fft_halfcomplex.h>
 
 /*Available options:
 FROM_PHI_FILE: Skip initialisation, input from previous run.
@@ -40,7 +40,7 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_SURFACE_FILE;         //unknot default option
+int option = FROM_UV_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -48,15 +48,15 @@ string knot_filename = "whitehead";      //if FROM_SURFACE_FILE assumed input fi
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot30.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot50.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 300;   //No. points in x,y and z
 const int Ny = 300;
 const int Nz = 300;
-const double TTime = 100;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
+const double TTime = 50;       //total time of simulation (simulation units)
+const double skiptime = 1;       //print out every # unit of time (simulation units)
+const double starttime = 50;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -1267,46 +1267,92 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 
             int NP = knotcurves[c].size();  //store number of points in knot curve
 
-            /*******Erase some points********/
-
-            //~ for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
-            //~ for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
-            //~ {
-            //~ knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
-            //~ }
-
-            /********************************/
-
-            NP = knotcurves[c].size();  //update number of points in knot curve
 
             /*******Vertex averaging*********/
 
             double totlength, dl;
-             for(i=0;i<3;i++)   //repeat a couple of times because of end point
-             {
-                 totlength=0;
-                 for(s=0; s<NP; s++)   //Work out total length of curve
-                 {
-                     dx = knotcurves[c][incp(s,1,NP)].xcoord - knotcurves[c][s].xcoord;
-                     dy = knotcurves[c][incp(s,1,NP)].ycoord - knotcurves[c][s].ycoord;
-                     dz = knotcurves[c][incp(s,1,NP)].zcoord - knotcurves[c][s].zcoord;
-                     totlength += sqrt(dx*dx + dy*dy + dz*dz);
-                 }
-                 dl = totlength/NP;
-                 for(s=0; s<NP; s++)    //Move points to have spacing dl
-                 {
-                   dx = knotcurves[c][incp(s,1,NP)].xcoord - knotcurves[c][s].xcoord;
-                     dy = knotcurves[c][incp(s,1,NP)].ycoord - knotcurves[c][s].ycoord;
-                   dz = knotcurves[c][incp(s,1,NP)].zcoord - knotcurves[c][s].zcoord;
-                     norm = sqrt(dx*dx + dy*dy + dz*dz);
-                   knotcurves[c][incp(s,1,NP)].xcoord = knotcurves[c][s].xcoord + dl*dx/norm;
-                     knotcurves[c][incp(s,1,NP)].ycoord = knotcurves[c][s].ycoord + dl*dy/norm;
-                   knotcurves[c][incp(s,1,NP)].zcoord = knotcurves[c][s].zcoord + dl*dz/norm;
-                 }
-             }
+            for(i=0;i<3;i++)   //repeat a couple of times because of end point
+            {
+                totlength=0;
+                for(s=0; s<NP; s++)   //Work out total length of curve
+                {
+                    dx = knotcurves[c][incp(s,1,NP)].xcoord - knotcurves[c][s].xcoord;
+                    dy = knotcurves[c][incp(s,1,NP)].ycoord - knotcurves[c][s].ycoord;
+                    dz = knotcurves[c][incp(s,1,NP)].zcoord - knotcurves[c][s].zcoord;
+                    totlength += sqrt(dx*dx + dy*dy + dz*dz);
+                }
+                dl = totlength/NP;
+                for(s=0; s<NP; s++)    //Move points to have spacing dl
+                {
+                    dx = knotcurves[c][incp(s,1,NP)].xcoord - knotcurves[c][s].xcoord;
+                    dy = knotcurves[c][incp(s,1,NP)].ycoord - knotcurves[c][s].ycoord;
+                    dz = knotcurves[c][incp(s,1,NP)].zcoord - knotcurves[c][s].zcoord;
+                    norm = sqrt(dx*dx + dy*dy + dz*dz);
+                    knotcurves[c][incp(s,1,NP)].xcoord = knotcurves[c][s].xcoord + dl*dx/norm;
+                    knotcurves[c][incp(s,1,NP)].ycoord = knotcurves[c][s].ycoord + dl*dy/norm;
+                    knotcurves[c][incp(s,1,NP)].zcoord = knotcurves[c][s].zcoord + dl*dz/norm;
+                }
+            }
 
-            /********************************/
-
+            /*************Curve Smoothing*******************/
+            vector<double> coord(NP);
+            gsl_fft_real_wavetable * real;
+            gsl_fft_halfcomplex_wavetable * hc;
+            gsl_fft_real_workspace * work;
+            work = gsl_fft_real_workspace_alloc (NP);
+            real = gsl_fft_real_wavetable_alloc (NP);
+            hc = gsl_fft_halfcomplex_wavetable_alloc (NP);
+            for(j=1; j<4; j++)
+            {
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].xcoord ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].ycoord ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].zcoord ; break;
+                }
+                double* data = coord.data();
+                // take the fft
+                gsl_fft_real_transform (data, 1, NP, real, work);
+                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
+                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
+                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
+                // plug in above. im doing a rough length calc below, this might be overkill.
+                // at the moment its just a hard filter, we can choose others though.
+                // compute a rough length to set scale
+                double filter;
+                for (i = 0; i < NP; ++i)
+                {
+                    if (i < 2*M_PI*(totlength/lambda))
+                    {
+                        // passband
+                        filter = 1.0;
+                    }
+                    else
+                    {
+                        // stopband
+                        filter = 0.0;
+                    }
+                    data[i] *= filter;
+                };
+                // transform back
+                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].xcoord = coord[i] ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].ycoord = coord[i] ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].zcoord = coord[i] ; break;
+                }
+            }
+            gsl_fft_real_wavetable_free (real);
+            gsl_fft_halfcomplex_wavetable_free (hc);
+            gsl_fft_real_workspace_free (work);
+            /*******************************/
             /*****Writhe and twist integrals******/
             NP = knotcurves[c].size();  //store number of points in knot curve
             //if(t==50) cout << "Number of points: " << NP << '\n';
@@ -1939,6 +1985,98 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
     IntersectionPoint[2] = SegmentStart.zcoord + sI * uz;
     return 1;
 }
+
+double my_f(const gsl_vector* minimum, void* params)
+{
+
+    int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc;
+    double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
+    struct parameters* myparameters = (struct parameters *) params;
+    double* x= myparameters->x;
+    double* y= myparameters->y;
+    double* z= myparameters->z;
+    double* ucvx= myparameters->ucvx;
+    double* ucvy= myparameters->ucvy;
+    double* ucvz= myparameters->ucvz;
+
+    gsl_vector* tempf = gsl_vector_alloc (3);
+    gsl_vector* tempv = gsl_vector_alloc (3);
+    gsl_vector* tempb = gsl_vector_alloc (3);
+    gsl_vector_memcpy (tempf,myparameters->f);
+    gsl_vector_memcpy (tempv,myparameters->v);
+    gsl_vector_memcpy (tempb,myparameters->b);
+
+    // s gives us how much of f to add to p
+
+    gsl_vector_scale(tempf,gsl_vector_get (minimum, 0));
+    gsl_vector_scale(tempb,gsl_vector_get (minimum, 1));
+    gsl_vector_add(tempf,tempb);
+    gsl_vector_add(tempv,tempf);
+    double px = gsl_vector_get(tempv, 0);
+    double py = gsl_vector_get(tempv, 1);
+    double pz = gsl_vector_get(tempv, 2);
+    gsl_vector_free(tempf);
+    gsl_vector_free(tempv);
+    gsl_vector_free(tempb);
+
+    /**Find nearest gridpoint**/
+    idwn = (int) ((px/h) - 0.5 + Nx/2.0);
+    jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
+    kdwn = (int) ((pz/h) - 0.5 + Nz/2.0);
+    pts=0;
+    ucvxs=0;
+    ucvys=0;
+    ucvzs=0;
+    /*curve to gridpoint down distance*/
+    xd = (px - x[idwn])/h;
+    yd = (py - y[jdwn])/h;
+    zd = (pz - z[kdwn])/h;
+    for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+    {
+        /* Work out increments*/
+        iinc = m%2;
+        jinc = (m/2)%2;
+        kinc = (m/4)%2;
+        /*Loop over nearest points*/
+        i = incw(idwn, iinc, Nx);
+        j = incw(jdwn, jinc, Ny);
+        if(periodic) k = incp(kdwn,kinc, Nz);
+        else k = incw(kdwn,kinc, Nz);
+        prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+        /*interpolate grad u x grad v over nearest points*/
+        ucvxs += prefactor*ucvx[pt(i,j,k)];
+        ucvys += prefactor*ucvy[pt(i,j,k)];
+        ucvzs += prefactor*ucvz[pt(i,j,k)];
+    }
+    double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+    return  ans;
+}
+void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product)
+{
+    double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
+        - gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
+
+    double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
+        - gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
+
+    double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
+        - gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
+
+    gsl_vector_set(product, 0, p1);
+    gsl_vector_set(product, 1, p2);
+    gsl_vector_set(product, 2, p3);
+}
+            /*******Erase some points********/
+
+           // for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
+           // for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
+           // {
+           //     knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
+           // }
+
+            /********************************/
+
+            //NP = knotcurves[c].size();  //update number of points in knot curve
 // intersect3D_SegmentPlane(): find the 3D intersection of a segment and a plane
 //    Input:  S = a segment, and Pn = a plane = {Point V0;  Vector n;}
 //    Output: *I0 = the intersect point (when it exists)
@@ -2027,68 +2165,6 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
   delete [] kzpi;
   }/*
 
-/********Fourier transform******/   //may not be necessary
-//~ /********Fourier transform******/
-//~ NP = knotcurve.size();  //update number of points in knot curve
-//~ vector<double> coord(NP);
-//~ gsl_fft_real_wavetable * real;
-//~ gsl_fft_halfcomplex_wavetable * hc;
-//~ gsl_fft_real_workspace * work;
-//~ work = gsl_fft_real_workspace_alloc (NP);
-//~ real = gsl_fft_real_wavetable_alloc (NP);
-//~ hc = gsl_fft_halfcomplex_wavetable_alloc (NP);
-//~ for(int j=1; j<4; j++)
-//~ {
-//~ switch(j)
-//~ {
-//~ case 1 :
-//~ for(int i=0; i<NP; i++) coord[i] =  knotcurve[i].xcoord ; break;
-//~ case 2 :
-//~ for(int i=0; i<NP; i++) coord[i] =  knotcurve[i].ycoord ; break;
-//~ case 3 :
-//~ for(int i=0; i<NP; i++) coord[i] =  knotcurve[i].zcoord ; break;
-//~ }
-//~ double* data = coord.data();
-//~ // take the fft
-//~ gsl_fft_real_transform (data, 1, NP, real, work);
-//~ // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
-//~ // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
-//~ // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
-//~ // plug in above. im doing a rough length calc below, this might be overkill.
-//~ // at the moment its just a hard filter, we can choose others though.
-//~ // compute a rough length to set scale
-//~ int roughlength =0;
-//~ for (int  s =1 ; s<NP ; s++) roughlength += sqrt((knotcurve[s].xcoord - knotcurve[s-1].xcoord)*(knotcurve[s].xcoord - knotcurve[s-1].xcoord)+ (knotcurve[s].ycoord - knotcurve[s-1].ycoord)*(knotcurve[s].ycoord - knotcurve[s-1].ycoord) + (knotcurve[s].zcoord - knotcurve[s-1].zcoord)*(knotcurve[s].zcoord - knotcurve[s-1].zcoord));
-//~ double filter;
-//~ for (int i = 0; i < NP; ++i)
-//~ {
-//~ if (i < roughlength/h)
-//~ {
-//~ // passband
-//~ filter = 1.0;
-//~ }
-//~ else
-//~ {
-//~ // stopband
-//~ filter = 0.0;
-//~ }
-//~ data[i] *= filter;
-//~ };
-//~ // transform back
-//~ gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
-//~ switch(j)
-//~ {
-//~ case 1 :
-//~ for(int i=0; i<NP; i++)  knotcurve[i].xcoord = coord[i] ; break;
-//~ case 2 :
-//~ for(int i=0; i<NP; i++)  knotcurve[i].ycoord = coord[i] ; break;
-//~ case 3 :
-//~ for(int i=0; i<NP; i++)  knotcurve[i].zcoord = coord[i] ; break;
-//~ }
-//~ }
-//~ gsl_fft_real_wavetable_free (real);
-//~ gsl_fft_halfcomplex_wavetable_free (hc);
-//~ gsl_fft_real_workspace_free (work);
 /*******************************/
 /* compute velocity vector, spin rate */
 // Following Winfree (1990) review, we take the current arc, and look for where it punctures the local normal of the previous arc - this connects the two slightly
@@ -2172,84 +2248,3 @@ knotcurveold[s].spinrate = ((ax - knotcurveold[s].ax)/dtime)*((ax - knotcurveold
 }
 first = false;
 * */
-
-double my_f(const gsl_vector* minimum, void* params)
-{
-
-    int i,j,k,idwn,jdwn,kdwn,m,pts,iinc,jinc,kinc;
-    double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
-    struct parameters* myparameters = (struct parameters *) params;
-    double* x= myparameters->x;
-    double* y= myparameters->y;
-    double* z= myparameters->z;
-    double* ucvx= myparameters->ucvx;
-    double* ucvy= myparameters->ucvy;
-    double* ucvz= myparameters->ucvz;
-
-    gsl_vector* tempf = gsl_vector_alloc (3);
-    gsl_vector* tempv = gsl_vector_alloc (3);
-    gsl_vector* tempb = gsl_vector_alloc (3);
-    gsl_vector_memcpy (tempf,myparameters->f);
-    gsl_vector_memcpy (tempv,myparameters->v);
-    gsl_vector_memcpy (tempb,myparameters->b);
-
-    // s gives us how much of f to add to p
-
-    gsl_vector_scale(tempf,gsl_vector_get (minimum, 0));
-    gsl_vector_scale(tempb,gsl_vector_get (minimum, 1));
-    gsl_vector_add(tempf,tempb);
-    gsl_vector_add(tempv,tempf);
-    double px = gsl_vector_get(tempv, 0);
-    double py = gsl_vector_get(tempv, 1);
-    double pz = gsl_vector_get(tempv, 2);
-    gsl_vector_free(tempf);
-    gsl_vector_free(tempv);
-    gsl_vector_free(tempb);
-
-    /**Find nearest gridpoint**/
-    idwn = (int) ((px/h) - 0.5 + Nx/2.0);
-    jdwn = (int) ((py/h) - 0.5 + Ny/2.0);
-    kdwn = (int) ((pz/h) - 0.5 + Nz/2.0);
-    pts=0;
-    ucvxs=0;
-    ucvys=0;
-    ucvzs=0;
-    /*curve to gridpoint down distance*/
-    xd = (px - x[idwn])/h;
-    yd = (py - y[jdwn])/h;
-    zd = (pz - z[kdwn])/h;
-    for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-    {
-        /* Work out increments*/
-        iinc = m%2;
-        jinc = (m/2)%2;
-        kinc = (m/4)%2;
-        /*Loop over nearest points*/
-        i = incw(idwn, iinc, Nx);
-        j = incw(jdwn, jinc, Ny);
-        if(periodic) k = incp(kdwn,kinc, Nz);
-        else k = incw(kdwn,kinc, Nz);
-        prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-        /*interpolate grad u x grad v over nearest points*/
-        ucvxs += prefactor*ucvx[pt(i,j,k)];
-        ucvys += prefactor*ucvy[pt(i,j,k)];
-        ucvzs += prefactor*ucvz[pt(i,j,k)];
-    }
-    double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
-    return  ans;
-}
-void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product)
-{
-    double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
-        - gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
-
-    double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
-        - gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
-
-    double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
-        - gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
-
-    gsl_vector_set(product, 0, p1);
-    gsl_vector_set(product, 1, p2);
-    gsl_vector_set(product, 2, p3);
-}
