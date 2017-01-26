@@ -55,6 +55,8 @@ struct knotpoint
 	double vx;       // x velocity
     double vy;       //y velocity
     double vz;       //z velocity
+    double k;        // curvature
+    double t;        // torsion
     double twist;    //local twist value
     double writhe;   //local writhe value
     double length;   //length of line

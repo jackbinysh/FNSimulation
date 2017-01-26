@@ -1410,14 +1410,50 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             }
 
             /***Do the integrals**/
+            double T[3][3];
+            double N[2][3];
+            double ds[3];
+            double k[2];
             for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
             {
-                dxds = (knotcurves[c][incp(s,1,NP)].xcoord - knotcurves[c][s].xcoord)/(ds);
-                dyds = (knotcurves[c][incp(s,1,NP)].ycoord - knotcurves[c][s].ycoord)/(ds);
-                dzds = (knotcurves[c][incp(s,1,NP)].zcoord - knotcurves[c][s].zcoord)/(ds);
+                for(i=0;i<3,i++)
+                {
+
+                    dx = (knotcurves[c][incp(s,i+1,NP)].xcoord - knotcurves[c][incp(s,i,NP)].xcoord);   //central diff as a is defined on the points
+                    dy = (knotcurves[c][incp(s,i+1,NP)].ycoord - knotcurves[c][incp(s,i,NP)].ycoord);
+                    dz = (knotcurves[c][incp(s,i+1,NP)].zcoord - knotcurves[c][incp(s,i,NP)].zcoord);
+                    ds[i] = sqrt(dx*dx+dy*dy+dz*dz);
+                    T[i][0] = dx/(ds[i]);
+                    T[i][1] = dy/(ds[i]);
+                    T[i][2] = dz/(ds[i]);
+if(i==0)
+{
+knotcurves[c][s].length = ds[0];
+dxds = T[0][0];
+dyds = T[0][1];
+dzds = T[0][2];
+}
+                }
+                for(i=0,i<2,i++)
+                {
+                    N[i][0] = (T[i+1][0]-T[i][0])/ds[i];
+                    N[i][1] = (T[i+1][1]-T[i][1])/ds[i];
+                    N[i][2] = (T[i+1][2]-T[i][2])/ds[i];
+                    k[i] = sqrt(N[i][0]*N[i][0]+N[i][1]*N[i][1]+N[i][2]*N[i][2]);
+                    N[i][0] /=k[i];
+                    N[i][1] /=k[i];
+                    N[i][2] /=k[i];
+                }
+
+                bx= (N[1][0]-N[0][0])/ds[0] + k[0]*T[0][0];
+                by= (N[1][1]-N[0][1])/ds[0] + k[0]*T[0][1];
+                bz= (N[1][2]-N[0][2])/ds[0] + k[0]*T[0][2];
+                t = sqrt(bx*bx + by*by+ bz*bz);
+
+                knotcurves[c][i].k = k;
+                knotcurves[c][i].t = t;
                 /*These quantities defined on line connecting points s and s+1*/
                 knotcurves[c][s].writhe = 0;
-                knotcurves[c][s].length = sqrt(dxds*dxds + dyds*dyds + dzds*dzds)*ds;  //actual length of thing
                 bx = (knotcurves[c][incp(s,1,NP)].ax - knotcurves[c][s].ax)/ds;
                 by = (knotcurves[c][incp(s,1,NP)].ay - knotcurves[c][s].ay)/ds;
                 bz = (knotcurves[c][incp(s,1,NP)].az - knotcurves[c][s].az)/ds;
@@ -1808,6 +1844,17 @@ void print_knot(double *x, double *y, double *z, double t, vector <vector <knotp
             knotout << knotcurves[c][i].length << '\n';
         }
 
+        knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].k << '\n';
+        }
+
+        knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].t << '\n';
+        }
         knotout.close();
     }
 }
@@ -2066,17 +2113,17 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
     gsl_vector_set(product, 1, p2);
     gsl_vector_set(product, 2, p3);
 }
-            /*******Erase some points********/
+/*******Erase some points********/
 
-           // for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
-           // for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
-           // {
-           //     knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
-           // }
+// for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
+// for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
+// {
+//     knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
+// }
 
-            /********************************/
+/********************************/
 
-            //NP = knotcurves[c].size();  //update number of points in knot curve
+//NP = knotcurves[c].size();  //update number of points in knot curve
 // intersect3D_SegmentPlane(): find the 3D intersection of a segment and a plane
 //    Input:  S = a segment, and Pn = a plane = {Point V0;  Vector n;}
 //    Output: *I0 = the intersect point (when it exists)
