@@ -1349,20 +1349,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                         for(i=0; i<NP; i++)  knotcurves[c][i].zcoord = coord[i] ; break;
                 }
             }
-            gsl_fft_real_wavetable_free (real);
-            gsl_fft_halfcomplex_wavetable_free (hc);
-            gsl_fft_real_workspace_free (work);
-            /*******************************/
-            /*****Writhe and twist integrals******/
-            NP = knotcurves[c].size();  //store number of points in knot curve
-            //if(t==50) cout << "Number of points: " << NP << '\n';
-            double totwrithe = 0;
-            double tottwist = 0;
-            double dxds, dyds, dzds, dxdm, dydm, dzdm, dxu, dyu, dzu, dxup, dyup, dzup, bx, by, bz, check;
-            totlength = 0;
 
             /******************Interpolate direction of grad u for twist calc*******/
             /**Find nearest gridpoint**/
+            double dxu, dyu, dzu, dxup, dyup, dzup;
             for(s=0; s<NP; s++)
             {
                 idwn = (int) ((knotcurves[c][s].xcoord/h) - 0.5 + Nx/2.0);
@@ -1408,6 +1398,63 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 knotcurves[c][s].az = dzup/norm;
             }
 
+            for(j=1; j<4; j++)
+            {
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].ax ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].ay ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c][i].az ; break;
+                }
+                double* data = coord.data();
+                // take the fft
+                gsl_fft_real_transform (data, 1, NP, real, work);
+                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
+                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
+                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
+                // plug in above. im doing a rough length calc below, this might be overkill.
+                // at the moment its just a hard filter, we can choose others though.
+                // compute a rough length to set scale
+                double filter;
+                for (i = 0; i < NP; ++i)
+                {
+                    if (i < M_PI*(totlength/lambda))
+                    {
+                        // passband
+                        filter = 1.0;
+                    }
+                    else
+                    {
+                        // stopband
+                        filter = 0.0;
+                    }
+                    data[i] *= filter;
+                };
+                // transform back
+                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].ax= coord[i] ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].ay= coord[i] ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++)  knotcurves[c][i].az = coord[i] ; break;
+                }
+            }
+            gsl_fft_real_wavetable_free (real);
+            gsl_fft_halfcomplex_wavetable_free (hc);
+            gsl_fft_real_workspace_free (work);
+
+            /*****Writhe and twist integrals******/
+            NP = knotcurves[c].size();  //store number of points in knot curve
+            double totwrithe = 0;
+            double tottwist = 0;
+            double dxds, dyds, dzds, dxdm, dydm, dzdm,bx, by, bz;
+            totlength = 0;
             /***Do the integrals**/
             double T[3][3];
             double N[2][3];
