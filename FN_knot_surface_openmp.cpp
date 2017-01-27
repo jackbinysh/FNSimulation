@@ -1526,18 +1526,19 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 totlength += knotcurves[c][s].length;
                 tottwist  += knotcurves[c][s].twist*ds;
             }
-            c++;
+    /***Write values to file*******/
+            stringstream ss;
+            ss << "writhe" << "_" << c <<  ".txt";
+            ofstream wrout (ss.str().c_str());
+            wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
+            wrout.close();
 
+            c++;
         }
 
     }
 
     print_knot(x,y,z,t, knotcurves);
-    /***Write values to file*******/
-    //        ofstream wrout;
-    //        wrout.open("writhe.txt",ios_base::app);
-    //        wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
-    //        wrout.close();
 
     if(cleanupneeded)
     {
