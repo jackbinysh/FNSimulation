@@ -40,11 +40,11 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_UV_FILE;         //unknot default option
+int option = FROM_SURFACE_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
-string knot_filename = "whitehead";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
@@ -55,8 +55,8 @@ const int Nx = 300;   //No. points in x,y and z
 const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
-const double skiptime = 1;       //print out every # unit of time (simulation units)
-const double starttime = 50;        //Time at start of simulation (non-zero if continuing from UV file)
+const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -78,6 +78,7 @@ int NK;   //number of surface points
 //Unallocated matrices
 vector<triangle> knotsurface;    //structure for storing knot surface coordinates
 vector< vector< knotpoint> > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
+vector< vector< knotpoint> > knotcurvesold; // 
 vector<double> X, Y, Z, dlx, dly,dlz;
 
 double area;   //initial knot area
@@ -1037,9 +1038,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
     static bool xmarked[Nx] = {false};
     static bool ymarked[Ny] = {false};
     static bool zmarked[Nz] = {false};
-    bool knotexists = true;
-    bool cleanupneeded = false;
-    while(knotexists)
+    bool knotcomponentsexist = true;
+    bool knotexists = false;
+    while(knotcomponentsexist)
     {
         double  ucvmag, norm;
         double   ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
@@ -1062,13 +1063,13 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 }
             }
         }
-        if(ucvmax<0.7) knotexists = false;
+        if(ucvmax<0.7) knotcomponentsexist = false;
         else
         {
-            knotexists = true; 
-            cleanupneeded = true;
+            knotcomponentsexist = true; 
+            knotexists = true;
         }
-        if(knotexists)
+        if(knotcomponentsexist)
         {
             knotcurves.push_back(std::vector<knotpoint>());
             knotcurves[c].push_back(knotpoint());
@@ -1526,7 +1527,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 totlength += knotcurves[c][s].length;
                 tottwist  += knotcurves[c][s].twist*ds;
             }
-    /***Write values to file*******/
+            /***Write values to file*******/
             stringstream ss;
             ss << "writhe" << "_" << c <<  ".txt";
             ofstream wrout (ss.str().c_str());
@@ -1538,11 +1539,97 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
 
     }
 
-    print_knot(x,y,z,t, knotcurves);
+    /*******************************/
+    /* compute velocity vector, spin rate */
+    // Following Winfree (1990) review, we take the current arc, and look for where it punctures the local normal of the previous arc - this connects the two slightly
+    // displaced curves together, and tells us how to compute spin rate, and velocity of the filament with finite differences between these pairs.
+    // Practically, we have two vectors of possibly different lengths, representing an ordered bunch of segments forming the filaments.
+    // We know the curves are very similar - by aligning them initially (ie finding the same "start point" on each curve), then  travelling fractions of total arc length along them,
+    // we know we will be in roughly the same on each - thus we only need test a few segments for the desired interesection.
 
-    if(cleanupneeded)
+    if(knotexists)
     {
+        static bool first = true;
+
+        if (!first)
+        {
+            for(c=0;c<knotcurvesold.size();c++)
+            {
+                // this code should associate knotcurveold component c with knotcurve component d
+{// insert idea here!}
+                int NP = knotcurves[d].size();
+                int NPold = knotcurvesold[c].size();
+
+                // align the two curves. minlocation will give the offset on the new curve.
+                double minlength =  (knotcurves[d][0].xcoord - knotcurvesold[c][0].xcoord)*(knotcurves[d][0].xcoord - knotcurvesold[c][0].xcoord) + (knotcurves[d][0].ycoord - knotcurvesold[c][0].ycoord) * (knotcurves[d][0].ycoord - knotcurvesold[c][0].ycoord) +  (knotcurves[d][0].zcoord - knotcurvesold[c][0].zcoord) * (knotcurves[d][0].zcoord - knotcurvesold[c][0].zcoord);
+                double templength = -1;
+                int offset = 0;
+                for(int s = 1; s< NP; s++)
+                {
+                    templength = (knotcurves[d][s].xcoord - knotcurvesold[c][0].xcoord)*(knotcurves[d][s].xcoord - knotcurvesold[c][0].xcoord) + (knotcurves[d][s].ycoord - knotcurvesold[c][0].ycoord) * (knotcurves[d][s].ycoord - knotcurvesold[c][0].ycoord) +  (knotcurves[d][s].zcoord - knotcurvesold[c][0].zcoord) * (knotcurves[d][s].zcoord - knotcurvesold[c][0].zcoord);
+                    if (templength < minlength)
+                    {
+                        minlength = templength;
+                        offset = s;
+                    }
+                }
+
+                bool intersection = false;
+                double IntersectionFraction =-1;
+                std::vector<double> IntersectionPoint(3);
+                for(int s = 0; s< knotcurvesold[c].size(); s++)
+                {
+                    intersection = false;
+                    int m = s + offset;
+                    int stepnum = 0;
+                    while(!intersection)
+                    {
+                        intersection = intersect3D_SegmentPlane( knotcurves[d][m%NP], knotcurves[d][(m+1)%NP], knotcurvesold[c][s%NPold], knotcurvesold[c][(s+1)%NPold], IntersectionFraction, IntersectionPoint );
+                        if(intersection) break;
+                        stepnum++;
+                        stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
+
+                    }
+                    // linear interpolation of twist rate
+                    double axinterpolated = knotcurves[d][(m+1)%NP].ax*IntersectionFraction + knotcurves[d][m%NP].ax*(1-IntersectionFraction);
+                    double ayinterpolated = knotcurves[d][(m+1)%NP].ay*IntersectionFraction + knotcurves[d][m%NP].ay*(1-IntersectionFraction);
+                    double azinterpolated = knotcurves[d][(m+1)%NP].az*IntersectionFraction + knotcurves[d][m%NP].az*(1-IntersectionFraction);
+
+                    //Compute delta a,  remove the component along the filaments tangent
+
+                    double nx  =  knotcurvesold[c][(s+1)%NPold].xcoord - knotcurvesold[c][s%NPold].xcoord;
+                    double ny  =  knotcurvesold[c][(s+1)%NPold].ycoord - knotcurvesold[c][s%NPold].ycoord;
+                    double nz  =  knotcurvesold[c][(s+1)%NPold].zcoord - knotcurvesold[c][s%NPold].zcoord;
+
+                    double proj = (axinterpolated*nx+ayinterpolated*ny+azinterpolated*nz)/(nx*nx+ny*ny+nz*nz);
+
+                    axinterpolated = axinterpolated - proj*nx;
+                    ayinterpolated = ayinterpolated - proj*ny;
+                    azinterpolated = axinterpolated - proj*nz;
+
+                    double norm = sqrt(axinterpolated*axinterpolated+ayinterpolated*ayinterpolated+azinterpolated*azinterpolated);
+
+                    axinterpolated = axinterpolated/norm;
+                    ayinterpolated = ayinterpolated/norm;
+                    azinterpolated = azinterpolated/norm;
+
+                    // work out velocity and twist rate
+                    knotcurvesold[c][s].vx = (IntersectionPoint[0] - knotcurvesold[c][s].xcoord )/ dtime;
+                    knotcurvesold[c][s].vy = (IntersectionPoint[1] - knotcurvesold[c][s].ycoord )/ dtime;
+                    knotcurvesold[c][s].vz = (IntersectionPoint[2] - knotcurvesold[c][s].zcoord )/ dtime;
+
+                    knotcurvesold[c][s].spinrate = sqrt(((axinterpolated - knotcurvesold[c][s].ax)/dtime)*((axinterpolated - knotcurvesold[c][s].ax)/dtime) + ((ayinterpolated - knotcurvesold[c][s].ay)/dtime)*((ayinterpolated - knotcurvesold[c][s].ay)/dtime) + ((azinterpolated - knotcurvesold[c][s].az)/dtime)*((azinterpolated - knotcurvesold[c][s].az)/dtime));
+
+                }
+            }
+        }
+
+        if(!first)print_knot(x,y,z,t-dtime, knotcurvesold);
+        first = false;
+
+        knotcurvesold = knotcurves;
         knotcurves.clear(); //empty vector with knot curve points
+
         memset(xmarked, 0, sizeof(xmarked));
         memset(ymarked, 0, sizeof(ymarked));
         memset(zmarked, 0, sizeof(zmarked));
@@ -1879,10 +1966,22 @@ void print_knot(double *x, double *y, double *z, double t, vector <vector <knotp
             knotout << knotcurves[c][i].torsion << '\n';
         }
 
+        knotout << "\nSCALARS Spinrate float\nLOOKUP_TABLE default\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].spinrate << '\n';
+        }
+
         knotout << "\nVECTORS A float\n";
         for(i=0; i<n; i++)
         {
             knotout << knotcurves[c][i].ax << ' ' << knotcurves[c][i].ay << ' ' << knotcurves[c][i].az << '\n';
+        }
+
+        knotout << "\nVECTORS Velocity  float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c][i].vx << ' ' << knotcurves[c][i].vy << ' ' << knotcurves[c][i].vz << '\n';
         }
 
         knotout << "\n\nCELL_DATA " << n << "\n\n";

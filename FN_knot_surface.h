@@ -28,8 +28,8 @@ const double sixth = 1.0/6.0;
 
 struct parameters
 {
-	gsl_vector *v,*f,*b;
-	double *x,*y,*z,*ucvx,*ucvy,*ucvz;	
+    gsl_vector *v,*f,*b;
+    double *x,*y,*z,*ucvx,*ucvy,*ucvz;	
 };
 
 
@@ -52,9 +52,10 @@ struct knotpoint
     double ax;       //grad vector x coord
     double ay;       //grad vector y coord
     double az;       //grad vector z coord
-	double vx;       // x velocity
+    double vx;       // x velocity
     double vy;       //y velocity
     double vz;       //z velocity
+    double spinrate; // spinrate
     double curvature;        // curvature
     double torsion;        // torsion
     double twist;    //local twist value
