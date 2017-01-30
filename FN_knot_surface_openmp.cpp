@@ -1556,7 +1556,18 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             for(c=0;c<knotcurvesold.size();c++)
             {
                 // this code should associate knotcurveold component c with knotcurve component d
-{// insert idea here!}
+                // okay as a super hacky first pass, I'll just compare the sizes of the vector. if this doesnt work, use more summary stats for each curve. If that doesn't work , more involved compariosn needed
+                int d = 0;
+                double mindiff = -1;
+                for(int q=0;q<knotcurves.size();q++)
+                {
+                    double diff = abs(knotcurvesold[c].size() - knotcurves[d].size()); 
+                    if(diff < mindiff) 
+                        mindiff = diff;
+                    d = q;
+                }
+
+
                 int NP = knotcurves[d].size();
                 int NPold = knotcurvesold[c].size();
 
