@@ -44,11 +44,11 @@ int option = FROM_UV_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
-string knot_filename = "whitehead";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+string knot_filename = "tiltedunknot";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot50.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 300;   //No. points in x,y and z
@@ -56,7 +56,7 @@ const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
 const double skiptime = 1;       //print out every # unit of time (simulation units)
-const double starttime = 50;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -432,6 +432,11 @@ double init_from_surface_file(void)
         s = (r10+r20+r21)/2;
         knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
         A += knotsurface[i].area;
+
+        // apply any rotations and displacements  of the initial coniditions the user has specified
+       // for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],0,0,0,0,0);
+       // rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],0,0,0,0,0);
+       // rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],0,0,0,0,0);
     }
 
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
@@ -1526,7 +1531,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 totlength += knotcurves[c][s].length;
                 tottwist  += knotcurves[c][s].twist*ds;
             }
-    /***Write values to file*******/
+            /***Write values to file*******/
             stringstream ss;
             ss << "writhe" << "_" << c <<  ".txt";
             ofstream wrout (ss.str().c_str());
@@ -2160,6 +2165,18 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
     gsl_vector_set(product, 0, p1);
     gsl_vector_set(product, 1, p2);
     gsl_vector_set(product, 2, p3);
+}
+void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz)
+{
+
+    double xprime = cos(phi)*cos(theta)*x + sin(phi)*cos(theta)*y - sin(theta)*z;
+    double yprime = -sin(phi)*x +cos(phi)*y ;
+    double zprime = cos(phi)*sin(theta)*x + sin(phi)*sin(theta)*y + cos(theta)*z;
+
+    x = xprime;
+    y = yprime;
+    z = zprime; 
+
 }
 /*******Erase some points********/
 
