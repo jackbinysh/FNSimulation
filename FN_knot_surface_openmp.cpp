@@ -44,7 +44,7 @@ int option = FROM_UV_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
-string knot_filename = "tiltedunknot";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
@@ -57,7 +57,7 @@ const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
 const double skiptime = 1;       //print out every # unit of time (simulation units)
 const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
-const double dtime = 0.02;         //size of each time step
+const double dtime = 0.04;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
@@ -1328,18 +1328,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
+                double cutoff = M_PI*(totlength/lambda);
                 for (i = 0; i < NP; ++i)
                 {
-                    if (i < M_PI*(totlength/lambda))
-                    {
-                        // passband
-                        filter = 1.0;
-                    }
-                    else
-                    {
-                        // stopband
-                        filter = 0.0;
-                    }
+                    filter = 1/(1+pow((i/cutoff),4));
                     data[i] *= filter;
                 };
                 // transform back
@@ -1423,19 +1415,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // plug in above. im doing a rough length calc below, this might be overkill.
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
-                double filter;
                 for (i = 0; i < NP; ++i)
                 {
-                    if (i < M_PI*(totlength/lambda))
-                    {
-                        // passband
-                        filter = 1.0;
-                    }
-                    else
-                    {
-                        // stopband
-                        filter = 0.0;
-                    }
+                    filter = 1/(1+pow((i/cutoff),4));
                     data[i] *= filter;
                 };
                 // transform back
