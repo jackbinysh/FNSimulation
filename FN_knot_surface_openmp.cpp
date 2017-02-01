@@ -2153,7 +2153,7 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
 void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz)
 {
 
-    double xprime = cos(phi)*cos(theta)*x -sin(phi)*y + cos(phi)sin*(theta) z;
+    double xprime = cos(phi)*cos(theta)*x -sin(phi)*y + cos(phi)*sin(theta)* z;
     double yprime = sin(phi)*cos(theta)*x +cos(phi)*y + sin(phi)*sin(theta)*z ;
     double zprime = -sin(theta)*x  + cos(theta)*z;
     x = xprime;
