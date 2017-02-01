@@ -40,7 +40,7 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_UV_FILE;         //unknot default option
+int option = FROM_SURFACE_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -48,16 +48,16 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 300;   //No. points in x,y and z
 const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
-const double skiptime = 1;       //print out every # unit of time (simulation units)
+const double skiptime = 10;       //print out every # unit of time (simulation units)
 const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
-const double dtime = 0.04;         //size of each time step
+const double dtime = 0.02;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
@@ -434,9 +434,9 @@ double init_from_surface_file(void)
         A += knotsurface[i].area;
 
         // apply any rotations and displacements  of the initial coniditions the user has specified
-       // for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],0,0,0,0,0);
-       // rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],0,0,0,0,0);
-       // rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],0,0,0,0,0);
+        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],0.5,0.5,0,0,0);
+        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],0.5,0.5,0,0,0);
+        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],0.5,0.5,0,0,0);
     }
 
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
@@ -1254,7 +1254,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 xdiff = knotcurves[c][0].xcoord - knotcurves[c][s].xcoord;     //distance from start/end point
                 ydiff = knotcurves[c][0].ycoord - knotcurves[c][s].ycoord;
                 zdiff = knotcurves[c][0].zcoord - knotcurves[c][s].zcoord;
-                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 10) finish = true;
+                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <3*h  && s > 10) finish = true;
                 if(s>50000) finish = true;
                 s++;
             }
@@ -1262,13 +1262,13 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
             double dx = xdiff/16.0;
             double dy = ydiff/16.0;
             double dz = zdiff/16.0;
-            for(m=0; m<15; m++)
-            {
-                knotcurves[c].push_back(knotpoint());
-                knotcurves[c][s+m].xcoord = knotcurves[c][s+m-1].xcoord + dx;
-                knotcurves[c][s+m].ycoord = knotcurves[c][s+m-1].ycoord + dy;
-                knotcurves[c][s+m].zcoord = knotcurves[c][s+m-1].zcoord + dz;
-            }
+            //for(m=0; m<15; m++)
+            //{
+            //    knotcurves[c].push_back(knotpoint());
+            //    knotcurves[c][s+m].xcoord = knotcurves[c][s+m-1].xcoord + dx;
+            //    knotcurves[c][s+m].ycoord = knotcurves[c][s+m-1].ycoord + dy;
+            //    knotcurves[c][s+m].zcoord = knotcurves[c][s+m-1].zcoord + dz;
+            //}
 
             int NP = knotcurves[c].size();  //store number of points in knot curve
 
@@ -1328,7 +1328,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                double cutoff = M_PI*(totlength/lambda);
+                const double cutoff = M_PI*(totlength/lambda);
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/(1+pow((i/cutoff),4));
@@ -1415,6 +1415,8 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // plug in above. im doing a rough length calc below, this might be overkill.
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
+                double filter;
+                const double cutoff = M_PI*(totlength/lambda);
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/(1+pow((i/cutoff),4));
@@ -2151,10 +2153,9 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
 void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz)
 {
 
-    double xprime = cos(phi)*cos(theta)*x + sin(phi)*cos(theta)*y - sin(theta)*z;
-    double yprime = -sin(phi)*x +cos(phi)*y ;
-    double zprime = cos(phi)*sin(theta)*x + sin(phi)*sin(theta)*y + cos(theta)*z;
-
+    double xprime = cos(phi)*cos(theta)*x -sin(phi)*y + cos(phi)sin*(theta) z;
+    double yprime = sin(phi)*cos(theta)*x +cos(phi)*y + sin(phi)*sin(theta)*z ;
+    double zprime = -sin(theta)*x  + cos(theta)*z;
     x = xprime;
     y = yprime;
     z = zprime; 
