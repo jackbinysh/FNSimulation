@@ -40,7 +40,7 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_SURFACE_FILE;         //unknot default option
+int option = FROM_UV_FILE;         //unknot default option
 const bool periodic = false;                //enable periodic boundaries in z
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -56,7 +56,7 @@ const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
 const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime = 10;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -1328,10 +1328,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = M_PI*(totlength/lambda);
+                const double cutoff = 2*M_PI*(totlength/(12*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/(1+pow((i/cutoff),4));
+                    filter = 1/(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
@@ -1416,10 +1416,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = M_PI*(totlength/lambda);
+                const double cutoff = 2*M_PI*(totlength/(12*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/(1+pow((i/cutoff),4));
+                    filter = 1/(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
