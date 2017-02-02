@@ -41,7 +41,7 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 
 int option = FROM_UV_FILE;         //unknot default option
-const bool periodic = false;                //enable periodic boundaries in z
+const bool periodic = false;
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
 string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
@@ -56,7 +56,7 @@ const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
 const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime = 10;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime =10;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -1328,7 +1328,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(12*lambda));
+                const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/(1+pow((i/cutoff),8));
@@ -1416,7 +1416,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(12*lambda));
+                const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/(1+pow((i/cutoff),8));
