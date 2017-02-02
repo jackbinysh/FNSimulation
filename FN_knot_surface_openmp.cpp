@@ -40,15 +40,15 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_SURFACE_FILE;         //unknot default option
-const bool periodic = false;                //enable periodic boundaries in z
+int option = FROM_UV_FILE;         //unknot default option
+const bool periodic = false;
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
 string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot50.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 300;   //No. points in x,y and z
@@ -433,6 +433,11 @@ double init_from_surface_file(void)
         s = (r10+r20+r21)/2;
         knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
         A += knotsurface[i].area;
+
+        // apply any rotations and displacements  of the initial coniditions the user has specified
+        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],0.5,0.5,0,0,0);
+        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],0.5,0.5,0,0,0);
+        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],0.5,0.5,0,0,0);
     }
 
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
@@ -1250,7 +1255,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 xdiff = knotcurves[c][0].xcoord - knotcurves[c][s].xcoord;     //distance from start/end point
                 ydiff = knotcurves[c][0].ycoord - knotcurves[c][s].ycoord;
                 zdiff = knotcurves[c][0].zcoord - knotcurves[c][s].zcoord;
-                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) < lambda/(2*M_PI) && s > 10) finish = true;
+                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <3*h  && s > 10) finish = true;
                 if(s>50000) finish = true;
                 s++;
             }
@@ -1324,18 +1329,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
+                const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    if (i < M_PI*(totlength/lambda))
-                    {
-                        // passband
-                        filter = 1.0;
-                    }
-                    else
-                    {
-                        // stopband
-                        filter = 0.0;
-                    }
+                    filter = 1/(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
@@ -1420,18 +1417,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
+                const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    if (i < M_PI*(totlength/lambda))
-                    {
-                        // passband
-                        filter = 1.0;
-                    }
-                    else
-                    {
-                        // stopband
-                        filter = 0.0;
-                    }
+                    filter = 1/(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
@@ -2270,6 +2259,17 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
     gsl_vector_set(product, 0, p1);
     gsl_vector_set(product, 1, p2);
     gsl_vector_set(product, 2, p3);
+}
+void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz)
+{
+
+    double xprime = cos(phi)*cos(theta)*x -sin(phi)*y + cos(phi)*sin(theta)* z;
+    double yprime = sin(phi)*cos(theta)*x +cos(phi)*y + sin(phi)*sin(theta)*z ;
+    double zprime = -sin(theta)*x  + cos(theta)*z;
+    x = xprime;
+    y = yprime;
+    z = zprime; 
+
 }
 /*******Erase some points********/
 

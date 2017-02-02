@@ -86,6 +86,7 @@ inline int sign(int i)
 
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
+void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot();
