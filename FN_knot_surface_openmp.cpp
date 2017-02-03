@@ -1258,24 +1258,13 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 if(s>50000) finish = true;
                 s++;
             }
-            /*Fill in remaining points*/
-            double dx = xdiff/16.0;
-            double dy = ydiff/16.0;
-            double dz = zdiff/16.0;
-            //for(m=0; m<15; m++)
-            //{
-            //    knotcurves[c].push_back(knotpoint());
-            //    knotcurves[c][s+m].xcoord = knotcurves[c][s+m-1].xcoord + dx;
-            //    knotcurves[c][s+m].ycoord = knotcurves[c][s+m-1].ycoord + dy;
-            //    knotcurves[c][s+m].zcoord = knotcurves[c][s+m-1].zcoord + dz;
-            //}
 
             int NP = knotcurves[c].size();  //store number of points in knot curve
 
 
             /*******Vertex averaging*********/
 
-            double totlength, dl;
+            double totlength, dl, dx,dy,dz;
             for(i=0;i<3;i++)   //repeat a couple of times because of end point
             {
                 totlength=0;
