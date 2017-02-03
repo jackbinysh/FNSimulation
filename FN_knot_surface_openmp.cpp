@@ -1331,7 +1331,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/(1+pow((i/cutoff),8));
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
@@ -1419,7 +1419,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 const double cutoff = 2*M_PI*(totlength/(4*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/(1+pow((i/cutoff),8));
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
