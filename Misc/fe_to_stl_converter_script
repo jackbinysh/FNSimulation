@@ -1,0 +1,9 @@
+#!/bin/bash
+for f in *.fe 
+do
+    filename=`echo $f | sed 's/.fe//'`
+    # change the surfaceevolver input to have the right name
+    sed s/INSERTNAMEHERE/${filename}.stl/ surfaceevolvercommands.txt > mycommands.txt
+    evolver -f mycommands.txt $f
+    rm mycommands.txt
+done

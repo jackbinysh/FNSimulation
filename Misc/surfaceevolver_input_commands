@@ -1,0 +1,4 @@
+g; V 2; u; r; g 5; u; V 10; u; r; g 10; u; V 20; u; V 20; u; V 100; K 10; V 100; u 100; V 200;
+read "/home/jackbinysh/surfaceevolver/fe/stl.cmd";
+stl>>>"INSERTNAMEHERE";
+exit 0;
