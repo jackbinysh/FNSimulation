@@ -1317,7 +1317,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(4*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
@@ -1405,7 +1405,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(4*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
@@ -1469,11 +1469,8 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     N[i][1] /=curvature[i];
                     N[i][2] /=curvature[i];
                 }
-
-                bx= (N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0];
-                by= (N[1][1]-N[0][1])/deltas[0] + curvature[0]*T[0][1];
-                bz= (N[1][2]-N[0][2])/deltas[0] + curvature[0]*T[0][2];
-                torsion = sqrt(bx*bx + by*by+ bz*bz);
+                // lets get the torsion by computing the x component of the binomral, and looking at the scale factor between it and dn/ds+kn
+                torsion= ((N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0])/(T[0][1]*N[0][2] - N[0][1]*T[0][2]);
 
                 knotcurves[c][s].curvature = curvature[0];
                 knotcurves[c][s].torsion = torsion;
