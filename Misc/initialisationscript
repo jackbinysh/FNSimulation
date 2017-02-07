@@ -1,0 +1,20 @@
+#!/bin/bash
+# read in the stl filenames 
+while read filename; do
+	echo $filename
+	# make a directory for the run, copy everything relevant into it, then cd in	
+	mkdir $filename 
+	cp mysubscript.pbs FN_knot_surface_openmp.cpp FN_knot_surface.h  $filename 
+	# grab the relevant file from the stl files Gareth made
+	cp ./KnotUnknot/{$filename}.stl $filename
+	cd $filename 
+	# replace the filename with whatever the relevant filename is
+	sed s/zero1/$filename/ FN_knot_surface_openmp.cpp > test.cpp 
+	mv test.cpp FN_knot_surface_openmp.cpp
+	# compile the code with this filename
+	module load intel impi GSL 
+	icpc -O3 -qopenmp FN_knot_surface_openmp.cpp -lgsl -lgslcblas -lm 
+	# submit the compiled code to the cluster
+	#msub mysubscript.pbs \
+	cd .. \ 
+done < inputnames.txt
