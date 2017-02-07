@@ -40,7 +40,7 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_UV_FILE;         //unknot default option
+int option = FROM_SURFACE_FILE;         //unknot default option
 const bool periodic = false;
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
@@ -48,14 +48,15 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot10_whitehead.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 300;   //No. points in x,y and z
 const int Ny = 300;
 const int Nz = 300;
 const double TTime = 50;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double uvskiptime = 10;       //print out every # unit of time (simulation units)
+const double knotcurvesskiptime = 1;       // how often we want to recompute the knot curve properties, do a difference to get velocities and print out
 const double starttime = 0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
@@ -232,21 +233,19 @@ int main (void)
         {
 #pragma omp single
             {
-                if(n*dtime >= q)  //Do this every unit T
+                if(round(n) >= round(q*knotcurvesskiptime/dtime) ||  round(n) >= round(p*uvskiptime/dtime)) crossgrad_calc(x,y,z,u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
+                if(round(n) >= round(q*knotcurvesskiptime/dtime))  //Do this every unit knotcurveskiptime
                 {
-                    crossgrad_calc(x,y,z,u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
                     cout << "T = " << n*dtime + starttime << endl;
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
-                    if(n*dtime+starttime>=10 )
-                    {
-                        find_knot_properties(x,y,z,ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
-                    }
+
+                    find_knot_properties(x,y,z,ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
                     q++;
                 }
 
-                if(n*dtime >= p*skiptime)
+                if(n>= round(p*uvskiptime/dtime)) // do this every unit uvskiptime
                 {
 
                     print_uv(x,y,z,u,v,ucvx,ucvy,ucvz,n*dtime+starttime);
@@ -1318,7 +1317,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(4*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
@@ -1406,7 +1405,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(4*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
@@ -1470,11 +1469,8 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     N[i][1] /=curvature[i];
                     N[i][2] /=curvature[i];
                 }
-
-                bx= (N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0];
-                by= (N[1][1]-N[0][1])/deltas[0] + curvature[0]*T[0][1];
-                bz= (N[1][2]-N[0][2])/deltas[0] + curvature[0]*T[0][2];
-                torsion = sqrt(bx*bx + by*by+ bz*bz);
+                // lets get the torsion by computing the x component of the binomral, and looking at the scale factor between it and dn/ds+kn
+                torsion= ((N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0])/(T[0][1]*N[0][2] - N[0][1]*T[0][2]);
 
                 knotcurves[c][s].curvature = curvature[0];
                 knotcurves[c][s].torsion = torsion;
@@ -1603,17 +1599,16 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     azinterpolated = azinterpolated/norm;
 
                     // work out velocity and twist rate
-                    knotcurvesold[c][s].vx = (IntersectionPoint[0] - knotcurvesold[c][s].xcoord )/ dtime;
-                    knotcurvesold[c][s].vy = (IntersectionPoint[1] - knotcurvesold[c][s].ycoord )/ dtime;
-                    knotcurvesold[c][s].vz = (IntersectionPoint[2] - knotcurvesold[c][s].zcoord )/ dtime;
+                    knotcurvesold[c][s].vx = (IntersectionPoint[0] - knotcurvesold[c][s].xcoord )/ knotcurvesskiptime;
+                    knotcurvesold[c][s].vy = (IntersectionPoint[1] - knotcurvesold[c][s].ycoord )/ knotcurvesskiptime;
+                    knotcurvesold[c][s].vz = (IntersectionPoint[2] - knotcurvesold[c][s].zcoord )/ knotcurvesskiptime;
 
-                    knotcurvesold[c][s].spinrate = sqrt(((axinterpolated - knotcurvesold[c][s].ax)/dtime)*((axinterpolated - knotcurvesold[c][s].ax)/dtime) + ((ayinterpolated - knotcurvesold[c][s].ay)/dtime)*((ayinterpolated - knotcurvesold[c][s].ay)/dtime) + ((azinterpolated - knotcurvesold[c][s].az)/dtime)*((azinterpolated - knotcurvesold[c][s].az)/dtime));
+                    knotcurvesold[c][s].spinrate = sqrt(((axinterpolated - knotcurvesold[c][s].ax)/knotcurvesskiptime)*((axinterpolated - knotcurvesold[c][s].ax)/knotcurvesskiptime) + ((ayinterpolated - knotcurvesold[c][s].ay)/knotcurvesskiptime)*((ayinterpolated - knotcurvesold[c][s].ay)/knotcurvesskiptime) + ((azinterpolated - knotcurvesold[c][s].az)/knotcurvesskiptime)*((azinterpolated - knotcurvesold[c][s].az)/knotcurvesskiptime));
 
                 }
             }
+        print_knot(x,y,z,t-knotcurvesskiptime, knotcurvesold);
         }
-
-        if(!first)print_knot(x,y,z,t-dtime, knotcurvesold);
         first = false;
 
         knotcurvesold = knotcurves;
