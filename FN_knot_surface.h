@@ -62,6 +62,14 @@ struct knotpoint
     double length;   //length of line
 };
 
+struct knotcurve
+{
+    std::vector<knotpoint> knotcurve; // the actual data of the curve
+    // global data for the knot component
+    double twist;    //total twist value
+    double writhe;   //total  writhe value
+    double length;   //total lengthh of line
+};
 /*************************General maths and integer functions*****************************/
 
 inline int incp(int i, int p, int N)    //increment i with p for periodic boundary
@@ -125,6 +133,6 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 void print_B_phi(double *x, double *y, double*z, double *phi, int *missed);
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
-void print_knot(double *x, double *y, double *z, double t, vector<vector< knotpoint > >& knotcurves);
+void print_knot(double *x, double *y, double *z, double t, vector<knotcurve >& knotcurves);
 int uvfile_read(double *u,double *v);
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);
