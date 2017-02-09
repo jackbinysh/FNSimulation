@@ -133,6 +133,6 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 void print_B_phi(double *x, double *y, double*z, double *phi, int *missed);
 void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
-void print_knot(double *x, double *y, double *z, double t, vector<knotcurve >& knotcurves);
+void print_knot(double *x, double *y, double *z, double t, vector<knotcurve >& knotcurves,vector<int>& permutation);
 int uvfile_read(double *u,double *v);
 void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);

@@ -1042,6 +1042,7 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
     static bool xmarked[Nx] = {false};
     static bool ymarked[Ny] = {false};
     static bool zmarked[Nz] = {false};
+    bool first = false;
     bool knotexists = true;
     bool cleanupneeded = false;
     while(knotexists)
@@ -1072,6 +1073,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
         {
             knotexists = true; 
             cleanupneeded = true;
+            // its the first time we enter here we know we are setting up the knot
+            static bool firsttimehere = true;
+            if(firsttimehere) first = true; firsttimehere = false;
         }
         if(knotexists)
         {
@@ -1497,23 +1501,61 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     }
                 }
                 /*Add on writhe, twist and length*/
-                totwrithe += knotcurves[c].knotcurve[s].writhe*ds;
-                totlength += knotcurves[c].knotcurve[s].length;
-                tottwist  += knotcurves[c].knotcurve[s].twist*ds;
+                knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
+                knotcurves[c].length += knotcurves[c].knotcurve[s].length;
+                knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
             }
-            /***Write values to file*******/
-            stringstream ss;
-            ss << "writhe" << "_" << c <<  ".txt";
-            ofstream wrout (ss.str().c_str());
-            wrout << t << '\t' << totwrithe << '\t' << tottwist << '\t' << totlength << '\n';
-            wrout.close();
 
             c++;
         }
 
     }
 
-    print_knot(x,y,z,t, knotcurves);
+    // the order of the components within the knotcurves vector is not guaranteed to remain fixed from timestep to timestep. thus, componenet 0 at one timtestep could be 
+    // components 1 at the next. the code needs a way of tracking which componenet is which.
+    // at the moment, im doing this by fuzzily comparing summary stats on the components - at this point, the length twist and writhe. 
+
+    // these variables have the summary stats from the last timestep
+
+    static vector<double> oldwrithe(knotcurves.size()); 
+    static vector<double> oldtwist(knotcurves.size());
+    static vector<double> oldlength(knotcurves.size());
+
+    vector<int> permutation(knotcurves.size());
+    if(first)
+    {
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            oldwrithe[i] = knotcurves[i].writhe;
+            oldlength[i] = knotcurves[i].length;
+            oldtwist[i] = knotcurves[i].twist;
+            permutation[i] = i;
+        }
+
+    }
+    else
+    {
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            double minscore = 0;
+            for(int j = 0; j<knotcurves.size();j++)
+            {    
+                double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]); 
+                if(score<minscore) permutation[i] = j; minscore = score; 
+            }
+        }
+        // apply the permutation to the list of lengths etc. It is now "correct" in the sense that index [0] really is component 0 etc. these labellings are arbitrarlly set at the simulations start and
+        // must be consistently carried forward
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            oldwrithe[i] = knotcurves[permutation[i]].writhe;
+            oldlength[i] = knotcurves[permutation[i]].length;
+            oldtwist[i] = knotcurves[permutation[i]].twist;
+
+        }
+    }
+    first = false;
+    print_knot(x,y,z,t, knotcurves, permutation);
 
     if(cleanupneeded)
     {
@@ -1808,23 +1850,33 @@ void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool perio
     infoout.close();
 }
 
-void print_knot(double *x, double *y, double *z, double t, vector<knotcurve>& knotcurves)
+void print_knot(double *x, double *y, double *z, double t, vector<knotcurve>& knotcurves, vector<int>& permutation)
 {
     for( int c=0; c <= (knotcurves.size()-1) ; c++)
     {
+
+        /***Write values to file*******/
         stringstream ss;
+        ss << "globaldata" << "_" << c <<  ".txt";
+        ofstream wrout (ss.str().c_str());
+        wrout << t << '\t' << knotcurves[permutation[c]].writhe << '\t' << knotcurves[permutation[c]].twist << '\t' << knotcurves[permutation[c]].length << '\n';
+        wrout.close();
+
+        ss.str("");
+        ss.clear();       
+
         ss << "knotplot" << t << "_" << c <<  ".vtk";
         ofstream knotout (ss.str().c_str());
 
         int i;
-        int n = knotcurves[c].knotcurve.size();
+        int n = knotcurves[permutation[c]].knotcurve.size();
 
         knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
         knotout << "POINTS " << n << " float\n";
 
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].xcoord << ' ' << knotcurves[c].knotcurve[i].ycoord << ' ' << knotcurves[c].knotcurve[i].zcoord << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].xcoord << ' ' << knotcurves[permutation[c]].knotcurve[i].ycoord << ' ' << knotcurves[permutation[c]].knotcurve[i].zcoord << '\n';
         }
 
         knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
@@ -1846,37 +1898,37 @@ void print_knot(double *x, double *y, double *z, double t, vector<knotcurve>& kn
         knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
+            knotout << knotcurves[permutation[c]].knotcurve[i].curvature << '\n'; }
 
         knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].torsion << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].torsion << '\n';
         }
 
         knotout << "\nVECTORS A float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].ax << ' ' << knotcurves[permutation[c]].knotcurve[i].ay << ' ' << knotcurves[permutation[c]].knotcurve[i].az << '\n';
         }
 
         knotout << "\n\nCELL_DATA " << n << "\n\n";
         knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].writhe << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].writhe << '\n';
         }
 
         knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].twist << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].twist << '\n';
         }
 
         knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].length << '\n';
+            knotout << knotcurves[permutation[c]].knotcurve[i].length << '\n';
         }
         knotout.close();
     }
