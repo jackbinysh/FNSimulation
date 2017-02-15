@@ -41,7 +41,13 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 
 int option = FROM_UV_FILE;         //unknot default option
-const bool periodic = false;
+const bool periodic=false;
+/** two rotation angles for the initial stl file, and a displacement vector for the file **/
+const double initialthetarotation = 0;
+const double initialphirotation = 0;
+const double initialxdisplacement = 0;
+const double initialydisplacement = 0;
+const double initialzdisplacement = 0;
 
 /**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
 string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
