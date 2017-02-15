@@ -222,11 +222,6 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-    ofstream wrout;
-    wrout.open("writhe.txt");
-    wrout << "Time\tWrithe\tTwist\tLength\n";
-    wrout.close();
-
 #if RK4
 #pragma omp parallel default(none) shared ( x, y, z, u, v, uold, vold, n,ku,kv,kut,kvt,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,   minimizerstate)
 #else
@@ -1864,14 +1859,14 @@ void print_knot(double *x, double *y, double *z, double t, vector<knotcurve>& kn
         /***Write values to file*******/
         stringstream ss;
         ss << "globaldata" << "_" << c <<  ".txt";
-        ofstream wrout (ss.str().c_str());
+        ofstream wrout (ss.str().c_str(), std::ofstream::app);
         wrout << t << '\t' << knotcurves[permutation[c]].writhe << '\t' << knotcurves[permutation[c]].twist << '\t' << knotcurves[permutation[c]].length << '\n';
         wrout.close();
 
         ss.str("");
         ss.clear();       
 
-        ss << "knotplot" << t << "_" << c <<  ".vtk";
+        ss << "knotplot" << c << "_" << t <<  ".vtk";
         ofstream knotout (ss.str().c_str());
 
         int i;
