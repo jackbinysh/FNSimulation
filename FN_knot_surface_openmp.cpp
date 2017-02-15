@@ -435,9 +435,9 @@ double init_from_surface_file(void)
         A += knotsurface[i].area;
 
         // apply any rotations and displacements  of the initial coniditions the user has specified
-        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],0.5,0.5,0,0,0);
-        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],0.5,0.5,0,0,0);
-        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],0.5,0.5,0,0,0);
+        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
+        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
+        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
     }
 
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
@@ -1538,8 +1538,10 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
     {
         for(int i = 0; i<knotcurves.size();i++)
         {
-            double minscore = 0;
-            for(int j = 0; j<knotcurves.size();j++)
+			// do j=0 manually to ensure minscore gets written to.
+            double minscore = ((knotcurves[0].length - oldlength[i])/oldlength[i])*((knotcurves[0].length - oldlength[i])/oldlength[i]) +((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[0].twist - oldtwist[i])/oldtwist[i])*((knotcurves[0].twist - oldtwist[i])/oldtwist[i]); 
+            permutation[i] = 0;
+            for(int j = 1; j<knotcurves.size();j++)
             {    
                 double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]); 
                 if(score<minscore) permutation[i] = j; minscore = score; 
