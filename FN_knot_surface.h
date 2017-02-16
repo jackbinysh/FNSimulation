@@ -31,7 +31,7 @@ enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
 struct parameters
 {
 	gsl_vector *v,*f,*b;
-	double *x,*y,*z,*ucvx,*ucvy,*ucvz;	
+	double *ucvx,*ucvy,*ucvz;	
 };
 
 struct triangle
@@ -74,18 +74,22 @@ struct knotcurve
 
 
 
+inline double x(int i);
+inline double y(int i);
+inline double z(int i);
 inline int sign(int i)
 {
     if(i==0) return 0;
     else return i/abs(i);
 }
 
+inline int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
 inline int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
 inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
-void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
+void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot();
@@ -98,22 +102,22 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *x, double *y, double *z, double *phi, int *missed);
+void initial_cond( double *phi, int *missed);
 
-void phi_calc(double *x, double *y, double *z, double *phi);
+void phi_calc( double *phi);
 
-void B_field_calc(double *x, double *y, double *z, double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed);
+void B_field_calc( double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed);
 
 void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi);
 
-void phi_calc_manual(double *x, double *y, double *z, double *phi);
+void phi_calc_manual( double *phi);
 
 int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag);
 
 //FitzHugh Nagumo functions
 void uv_initialise(double *phi, double *u, double *v, int* missed);
-void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
-void find_knot_properties(double *x, double *y, double *z, double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
+void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
+void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
 void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold);
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
@@ -122,8 +126,8 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi(double *x, double *y, double*z, double *phi, int *missed);
-void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
+void print_B_phi( double *phi, int *missed);
+void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
-void print_knot(double *x, double *y, double *z, double t, vector<knotcurve >& knotcurves,vector<int>& permutation);
+void print_knot( double t, vector<knotcurve >& knotcurves,vector<int>& permutation);
 int uvfile_read(double *u,double *v);
