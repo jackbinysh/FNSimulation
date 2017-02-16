@@ -26,13 +26,13 @@ using namespace std;
 #define FROM_FUNCTION 4
 const double sixth = 1.0/6.0;
 
+enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
+
 struct parameters
 {
 	gsl_vector *v,*f,*b;
 	double *x,*y,*z,*ucvx,*ucvy,*ucvz;	
 };
-
-
 
 struct triangle
 {
@@ -72,18 +72,7 @@ struct knotcurve
 };
 /*************************General maths and integer functions*****************************/
 
-inline int incp(int i, int p, int N)    //increment i with p for periodic boundary
-{
-    if(i+p<0) return (N+i+p);
-    else return ((i+p)%N);
-}
 
-inline int incw(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
-{
-    if(i+p<0) return (-(i+p+1));
-    if(i+p>N-1) return (2*N-(i+p+1));
-    return (i+p);
-}
 
 inline int sign(int i)
 {
@@ -91,6 +80,9 @@ inline int sign(int i)
     else return i/abs(i);
 }
 
+inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
+inline int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
+inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
 void rotatedisplace(double& x, double& y, double& z, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
@@ -135,4 +127,3 @@ void print_uv(double *x, double *y, double *z, double *u, double *v, double *ucv
 int phi_file_read(double *phi);
 void print_knot(double *x, double *y, double *z, double t, vector<knotcurve >& knotcurves,vector<int>& permutation);
 int uvfile_read(double *u,double *v);
-void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename);

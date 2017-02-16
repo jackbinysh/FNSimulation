@@ -41,10 +41,11 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 
 int option = FROM_UV_FILE;         //unknot default option
-const bool periodic=false;
+const BoundaryType BoundaryType=ALLPERIODIC;
+
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
-const double initialthetarotation = 0;
-const double initialphirotation = 0;
+const double initialthetarotation = 0.5;
+const double initialphirotation = 0.5;
 const double initialxdisplacement = 0;
 const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
@@ -57,17 +58,17 @@ int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename 
 string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 300;   //No. points in x,y and z
-const int Ny = 300;
-const int Nz = 300;
-const double TTime = 50;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime =10;        //Time at start of simulation (non-zero if continuing from UV file)
+const int Nx = 260;   //No. points in x,y and z
+const int Ny = 260;
+const int Nz = 260;
+const double TTime = 1000;       //total time of simulation (simulation units)
+const double skiptime = 50;       //print out every # unit of time (simulation units)
+const double starttime =510;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
-const double size = 5*lambda;   //box size
+const double size = 9*lambda;   //box size
 const double h = size/(Nx-1);            //grid spacing
 const double oneoverhsq = 1.0/(h*h);
 const double epsilon = 0.3;                //parameters for F-N eqns
@@ -76,9 +77,9 @@ const double beta = 0.7;
 const double gam = 0.5;
 
 //Size boundaries of knot (now autoscaled)
-double xmax = 3*Nx*h/4.0;
-double ymax = 3*Ny*h/4.0;
-double zmax = 3*Nz*h/4.0;
+double xmax = 1*Nx*h/2.0;
+double ymax = 1*Ny*h/2.0;
+double zmax = 1*Nz*h/2.0;
 int NK;   //number of surface points
 
 //Unallocated matrices
@@ -109,9 +110,6 @@ int main (void)
         missed = new int [Nx*Ny*Nz];
         fill(missed,missed+Nx*Ny*Nz,0);
     }
-
-    // output an info file on the run
-    print_info(Nx, Ny, Nz, dtime, h, periodic, option, knot_filename, B_filename);
 
     // GSL initialization
     const gsl_multimin_fminimizer_type *Type;
@@ -1012,20 +1010,12 @@ void crossgrad_calc(double *x, double *y, double *z, double *u, double *v, doubl
         {
             for(k=0; k<Nz; k++)   //Central difference
             {
-                if(periodic)   //check for periodic boundaries
-                {
-                    kup = incp(k,1,Nz);
-                    kdwn = incp(k,-1,Nz);
-                }
-                else
-                {
-                    kup = incw(k,1,Nz);
-                    kdwn = incw(k,-1,Nz);
-                }
-                dxu = 0.5*(u[pt(incw(i,1,Nx),j,k)]-u[pt(incw(i,-1,Nx),j,k)])/h;
-                dxv = 0.5*(v[pt(incw(i,1,Nx),j,k)]-v[pt(incw(i,-1,Nx),j,k)])/h;
-                dyu = 0.5*(u[pt(i,incw(j,1,Ny),k)]-u[pt(i,incw(j,-1,Ny),k)])/h;
-                dyv = 0.5*(v[pt(i,incw(j,1,Ny),k)]-v[pt(i,incw(j,-1,Ny),k)])/h;
+                kup = gridinc(k,1,Nz,2);
+                kdwn = gridinc(k,-1,Nz,2);
+                dxu = 0.5*(u[pt(gridinc(i,1,Nx,0),j,k)]-u[pt(gridinc(i,-1,Nx,0),j,k)])/h;
+                dxv = 0.5*(v[pt(gridinc(i,1,Nx,0),j,k)]-v[pt(gridinc(i,-1,Nx,0),j,k)])/h;
+                dyu = 0.5*(u[pt(i,gridinc(j,1,Ny,1),k)]-u[pt(i,gridinc(j,-1,Ny,1),k)])/h;
+                dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k)]-v[pt(i,gridinc(j,-1,Ny,1),k)])/h;
                 dzu = 0.5*(u[pt(i,j,kup)]-u[pt(i,j,kdwn)])/h;
                 dzv = 0.5*(v[pt(i,j,kup)]-v[pt(i,j,kdwn)])/h;
                 n = pt(i,j,k);
@@ -1105,9 +1095,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                 for(int q = - delta; q <= delta; q++)
                 {
 
-                    xmarked[incw(idwn,q,Nx)] = true;
-                    ymarked[incw(jdwn,q,Ny)] = true;
-                    zmarked[incw(kdwn,q,Nz)] = true;
+                    xmarked[gridinc(idwn,q,Nx,0)] = true;
+                    ymarked[gridinc(jdwn,q,Ny,1)] = true;
+                    zmarked[gridinc(kdwn,q,Nz,2)] = true;
 
                 }
                 pts=0;
@@ -1125,10 +1115,9 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     jinc = (m/2)%2;
                     kinc = (m/4)%2;
                     /*Loop over nearest points*/
-                    i = incw(idwn, iinc, Nx);
-                    j = incw(jdwn, jinc, Ny);
-                    if(periodic) k = incp(kdwn,kinc, Nz);
-                    else k = incw(kdwn,kinc, Nz);
+                    i = gridinc(idwn, iinc, Nx,0);
+                    j = gridinc(jdwn, jinc, Ny,1);
+                    k = gridinc(kdwn,kinc, Nz,2);
                     prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
                     /*interpolate grad u x grad v over nearest points*/
                     ucvxs += prefactor*ucvx[pt(i,j,k)];
@@ -1165,16 +1154,14 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     jinc = (m/2)%2;
                     kinc = (m/4)%2;
                     /*Loop over nearest points*/
-                    i = incw(idwn, iinc, Nx);
-                    j = incw(jdwn, jinc, Ny);
-                    if(periodic) k = incp(kdwn,kinc, Nz);
-                    else k = incw(kdwn,kinc, Nz);
+                    i = gridinc(idwn, iinc, Nx,0);
+                    j = gridinc(jdwn, jinc, Ny,1);
+                    k = gridinc(kdwn,kinc, Nz,2);
                     prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
                     /*interpolate gradients of |grad u x grad v|*/
-                    graducvx += prefactor*(sqrt(ucvx[pt(incw(i,1,Nx),j,k)]*ucvx[pt(incw(i,1,Nx),j,k)] + ucvy[pt(incw(i,1,Nx),j,k)]*ucvy[pt(incw(i,1,Nx),j,k)] + ucvz[pt(incw(i,1,Nx),j,k)]*ucvz[pt(incw(i,1,Nx),j,k)]) - sqrt(ucvx[pt(incw(i,-1,Nx),j,k)]*ucvx[pt(incw(i,-1,Nx),j,k)] + ucvy[pt(incw(i,-1,Nx),j,k)]*ucvy[pt(incw(i,-1,Nx),j,k)] + ucvz[pt(incw(i,-1,Nx),j,k)]*ucvz[pt(incw(i,-1,Nx),j,k)]))/(2*h);
-                    graducvy += prefactor*(sqrt(ucvx[pt(i,incw(j,1,Ny),k)]*ucvx[pt(i,incw(j,1,Ny),k)] + ucvy[pt(i,incw(j,1,Ny),k)]*ucvy[pt(i,incw(j,1,Ny),k)] + ucvz[pt(i,incw(j,1,Ny),k)]*ucvz[pt(i,incw(j,1,Ny),k)]) - sqrt(ucvx[pt(i,incw(j,-1,Ny),k)]*ucvx[pt(i,incw(j,-1,Ny),k)] + ucvy[pt(i,incw(j,-1,Ny),k)]*ucvy[pt(i,incw(j,-1,Ny),k)] + ucvz[pt(i,incw(j,-1,Ny),k)]*ucvz[pt(i,incw(j,-1,Ny),k)]))/(2*h);
-                    if(periodic) graducvz += prefactor*(sqrt(ucvx[pt(i,j,incp(k,1,Nz))]*ucvx[pt(i,j,incp(k,1,Nz))] + ucvy[pt(i,j,incp(k,1,Nz))]*ucvy[pt(i,j,incp(k,1,Nz))] + ucvz[pt(i,j,incp(k,1,Nz))]*ucvz[pt(i,j,incp(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incp(k,-1,Nz))]*ucvx[pt(i,j,incp(k,-1,Nz))] + ucvy[pt(i,j,incp(k,-1,Nz))]*ucvy[pt(i,j,incp(k,-1,Nz))] + ucvz[pt(i,j,incp(k,-1,Nz))]*ucvz[pt(i,j,incp(k,-1,Nz))]))/(2*h);
-                    else graducvz += prefactor*(sqrt(ucvx[pt(i,j,incw(k,1,Nz))]*ucvx[pt(i,j,incw(k,1,Nz))] + ucvy[pt(i,j,incw(k,1,Nz))]*ucvy[pt(i,j,incw(k,1,Nz))] + ucvz[pt(i,j,incw(k,1,Nz))]*ucvz[pt(i,j,incw(k,1,Nz))]) - sqrt(ucvx[pt(i,j,incw(k,-1,Nz))]*ucvx[pt(i,j,incw(k,-1,Nz))] + ucvy[pt(i,j,incw(k,-1,Nz))]*ucvy[pt(i,j,incw(k,-1,Nz))] + ucvz[pt(i,j,incw(k,-1,Nz))]*ucvz[pt(i,j,incw(k,-1,Nz))]))/(2*h);
+                    graducvx += prefactor*(sqrt(ucvx[pt(gridinc(i,1,Nx,0),j,k)]*ucvx[pt(gridinc(i,1,Nx,0),j,k)] + ucvy[pt(gridinc(i,1,Nx,0),j,k)]*ucvy[pt(gridinc(i,1,Nx,0),j,k)] + ucvz[pt(gridinc(i,1,Nx,0),j,k)]*ucvz[pt(gridinc(i,1,Nx,0),j,k)]) - sqrt(ucvx[pt(gridinc(i,-1,Nx,0),j,k)]*ucvx[pt(gridinc(i,-1,Nx,0),j,k)] + ucvy[pt(gridinc(i,-1,Nx,0),j,k)]*ucvy[pt(gridinc(i,-1,Nx,0),j,k)] + ucvz[pt(gridinc(i,-1,Nx,0),j,k)]*ucvz[pt(gridinc(i,-1,Nx,0),j,k)]))/(2*h);
+                    graducvy += prefactor*(sqrt(ucvx[pt(i,gridinc(j,1,Ny,1),k)]*ucvx[pt(i,gridinc(j,1,Ny,1),k)] + ucvy[pt(i,gridinc(j,1,Ny,1),k)]*ucvy[pt(i,gridinc(j,1,Ny,1),k)] + ucvz[pt(i,gridinc(j,1,Ny,1),k)]*ucvz[pt(i,gridinc(j,1,Ny,1),k)]) - sqrt(ucvx[pt(i,gridinc(j,-1,Ny,1),k)]*ucvx[pt(i,gridinc(j,-1,Ny,1),k)] + ucvy[pt(i,gridinc(j,-1,Ny,1),k)]*ucvy[pt(i,gridinc(j,-1,Ny,1),k)] + ucvz[pt(i,gridinc(j,-1,Ny,1),k)]*ucvz[pt(i,gridinc(j,-1,Ny,1),k)]))/(2*h);
+                    graducvz += prefactor*(sqrt(ucvx[pt(i,j,gridinc(k,1,Nz,2))]*ucvx[pt(i,j,gridinc(k,1,Nz,2))] + ucvy[pt(i,j,gridinc(k,1,Nz,2))]*ucvy[pt(i,j,gridinc(k,1,Nz,2))] + ucvz[pt(i,j,gridinc(k,1,Nz,2))]*ucvz[pt(i,j,gridinc(k,1,Nz,2))]) - sqrt(ucvx[pt(i,j,gridinc(k,-1,Nz,2))]*ucvx[pt(i,j,gridinc(k,-1,Nz,2))] + ucvy[pt(i,j,gridinc(k,-1,Nz,2))]*ucvy[pt(i,j,gridinc(k,-1,Nz,2))] + ucvz[pt(i,j,gridinc(k,-1,Nz,2))]*ucvz[pt(i,j,gridinc(k,-1,Nz,2))]))/(2*h);
 
                 }
                 knotcurves[c].knotcurve.push_back(knotpoint());
@@ -1364,16 +1351,14 @@ void find_knot_properties(double *x, double *y, double *z, double *ucvx, double 
                     jinc = (m/2)%2;
                     kinc = (m/4)%2;
                     /*Loop over nearest points*/
-                    i = incw(idwn, iinc, Nx);
-                    j = incw(jdwn, jinc, Ny);
-                    if(periodic) k = incp(kdwn,kinc, Nz);
-                    else k = incw(kdwn,kinc, Nz);
+                    i = gridinc(idwn, iinc, Nx,0);
+                    j = gridinc(jdwn, jinc, Ny,1);
+                    k = gridinc(kdwn,kinc, Nz,2);
                     prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);   //terms of the form (1-xd)(1-yd)zd etc. (interpolation coefficient)
                     /*interpolate grad u over nearest points*/
-                    dxu += prefactor*0.5*(u[pt(incw(i,1,Nx),j,k)] -  u[pt(incw(i,-1,Nx),j,k)])/h;  //central diff
-                    dyu += prefactor*0.5*(u[pt(i,incw(j,1,Ny),k)] -  u[pt(i,incw(j,-1,Ny),k)])/h;
-                    if(periodic) prefactor*0.5*(u[pt(i,j,incp(k,1,Nz))] -  u[pt(i,j,incp(k,-1,Nz))])/h;
-                    else  dzu += prefactor*0.5*(u[pt(i,j,incw(k,1,Nz))] -  u[pt(i,j,incw(k,-1,Nz))])/h;
+                    dxu += prefactor*0.5*(u[pt(gridinc(i,1,Nx,0),j,k)] -  u[pt(gridinc(i,-1,Nx,0),j,k)])/h;  //central diff
+                    dyu += prefactor*0.5*(u[pt(i,gridinc(j,1,Ny,1),k)] -  u[pt(i,gridinc(j,-1,Ny,1),k)])/h;
+                    dzu += prefactor*0.5*(u[pt(i,j,gridinc(k,1,Nz,2))] -  u[pt(i,j,gridinc(k,-1,Nz,2))])/h;
                 }
                 //project du onto perp of tangent direction first
                 dx = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,-1,NP)].xcoord);   //central diff as a is defined on the points
@@ -1600,17 +1585,9 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
                 for(k=0; k<Nz; k++)   //Central difference
                 {
                     n = pt(i,j,k);
-                    if(periodic)   //check for periodic boundaries
-                    {
-                        kup = incp(k,1,Nz);
-                        kdwn = incp(k,-1,Nz);
-                    }
-                    else
-                    {
-                        kup = incw(k,1,Nz);
-                        kdwn = incw(k,-1,Nz);
-                    }
-                    D2u = oneoverhsq*(u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6.0*u[n]);
+                    kup = gridinc(k,1,Nz,2);
+                    kdwn = gridinc(k,-1,Nz,2);
+                    D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k)] + u[pt(gridinc(i,-1,Nx,0),j,k)] + u[pt(i,gridinc(j,1,Ny,1),k)] + u[pt(i,gridinc(j,-1,Ny,1),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6.0*u[n]);
                     ku[n] = oneoverepsilon*(u[n] - u[n]*u[n]*u[n]/3.0 - v[n]) + D2u;
                     kv[n] = epsilon*(u[n] + beta - gam*v[n]);
                 }
@@ -1695,17 +1672,9 @@ void uv_update_euler(double *u, double *v, double *D2u)
             for(k=0; k<Nz; k++)
             {
                 n = pt(i,j,k);
-                if(periodic)   //check for periodic boundaries
-                {
-                    kup = incp(k,1,Nz);
-                    kdwn = incp(k,-1,Nz);
-                }
-                else
-                {
-                    kup = incw(k,1,Nz);
-                    kdwn = incw(k,-1,Nz);
-                }
-                D2u[n] = (u[pt(incw(i,1,Nx),j,k)] + u[pt(incw(i,-1,Nx),j,k)] + u[pt(i,incw(j,1,Ny),k)] + u[pt(i,incw(j,-1,Ny),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6*u[n])/(h*h);
+                kup = gridinc(k,1,Nz,2);
+                kdwn = gridinc(k,-1,Nz,2);
+                D2u[n] = (u[pt(gridinc(i,1,Nx,0),j,k)] + u[pt(gridinc(i,-1,Nx,0),j,k)] + u[pt(i,gridinc(j,1,Ny,1),k)] + u[pt(i,gridinc(j,-1,Ny,1),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6*u[n])/(h*h);
             }
         }
     }
@@ -1830,28 +1799,6 @@ void print_B_phi(double *x, double *y, double*z, double *phi, int* missed)
     Bout.close();
 }
 
-void print_info(int Nx, int Ny, int Nz, double dtime, double h, const bool periodic,  int option, string knot_filename, string B_filename)
-{
-    string fn = "info.txt";
-
-    time_t rawtime;
-    struct tm * timeinfo;
-
-    time (&rawtime);
-    timeinfo = localtime (&rawtime);
-
-    ofstream infoout (fn.c_str());
-
-    infoout << "run started at\t" << asctime(timeinfo) << "\n";
-    infoout << "Number of grid points\t" << Nx << '\t' << Ny << '\t' << Nz << '\n';
-    infoout << "timestep\t" << dtime << '\n';
-    infoout << "Spacing\t" << h << '\n';
-    infoout << "Periodic\t" << periodic << '\n';
-    infoout << "initoptions\t" << option << '\n';
-    infoout << "knot filename\t" << knot_filename << '\n';
-    infoout << "B or uv filename\t" << B_filename << '\n';
-    infoout.close();
-}
 
 void print_knot(double *x, double *y, double *z, double t, vector<knotcurve>& knotcurves, vector<int>& permutation)
 {
@@ -2163,10 +2110,9 @@ double my_f(const gsl_vector* minimum, void* params)
         jinc = (m/2)%2;
         kinc = (m/4)%2;
         /*Loop over nearest points*/
-        i = incw(idwn, iinc, Nx);
-        j = incw(jdwn, jinc, Ny);
-        if(periodic) k = incp(kdwn,kinc, Nz);
-        else k = incw(kdwn,kinc, Nz);
+        i = gridinc(idwn, iinc, Nx,0);
+        j = gridinc(jdwn, jinc, Ny,1);
+        k = gridinc(kdwn,kinc, Nz,1);
         prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
         /*interpolate grad u x grad v over nearest points*/
         ucvxs += prefactor*ucvx[pt(i,j,k)];
@@ -2201,6 +2147,42 @@ void rotatedisplace(double& x, double& y, double& z, const double theta, const d
     y = yprime;
     z = zprime; 
 
+}
+
+// inlined functions for incrementing things respecting boundaries
+inline int incp(int i, int p, int N)    //increment i with p for periodic boundary
+{
+    if(i+p<0) return (N+i+p);
+    else return ((i+p)%N);
+}
+
+inline int incw(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+{
+    if(i+p<0) return (-(i+p+1));
+    if(i+p>N-1) return (2*N-(i+p+1));
+    return (i+p);
+}
+
+// this function is specifically designed to incremenet, in the direction specified, respecting the boundary conditions, which are global enums
+inline int gridinc(int i, int p, int N, int direction )    //increment with reflecting boundary between -1 and 0 and N-1 and N
+{
+
+    if(BoundaryType == ALLREFLECTING)
+    {
+        return incw(i,p,N);
+    }
+
+    if(BoundaryType == ALLPERIODIC)
+    {
+        return incp(i,p,N);
+    }
+
+    if(BoundaryType == ZPERIODIC)
+    {
+        if(direction ==2) return incp(i,p,N);
+        else return incw(i,p,N);
+    }
+return 0;
 }
 /*******Erase some points********/
 
