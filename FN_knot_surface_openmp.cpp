@@ -40,12 +40,12 @@ FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotp
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-int option = FROM_UV_FILE;         //unknot default option
+const int option = FROM_UV_FILE;         //unknot default option
 const BoundaryType BoundaryType=ALLPERIODIC;
 
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
-const double initialthetarotation = 0.5;
-const double initialphirotation = 0.5;
+const double initialthetarotation = 0;
+const double initialphirotation = 0;
 const double initialxdisplacement = 0;
 const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
@@ -55,15 +55,15 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot358.vtk";    //filename for phi field or uv field
 
 //Grid points
 const int Nx = 260;   //No. points in x,y and z
 const int Ny = 260;
 const int Nz = 260;
 const double TTime = 1000;       //total time of simulation (simulation units)
-const double skiptime = 50;       //print out every # unit of time (simulation units)
-const double starttime =510;        //Time at start of simulation (non-zero if continuing from UV file)
+const double skiptime = 20;       //print out every # unit of time (simulation units)
+const double starttime =358;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
@@ -77,9 +77,9 @@ const double beta = 0.7;
 const double gam = 0.5;
 
 //Size boundaries of knot (now autoscaled)
-double xmax = 1*Nx*h/2.0;
-double ymax = 1*Ny*h/2.0;
-double zmax = 1*Nz*h/2.0;
+double xmax = 1*Nx*h/4.0;
+double ymax = 1*Ny*h/4.0;
+double zmax = 1*Nz*h/4.0;
 int NK;   //number of surface points
 
 //Unallocated matrices
@@ -1035,7 +1035,7 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
                 }
             }
         }
-        if(ucvmax<0.7) knotexists = false;
+        if(ucvmax<0.1) knotexists = false;
         else
         {
             knotexists = true; 
@@ -1070,8 +1070,8 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
                 modidwn = circularmod(idwn,Nx);
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
-            
-                   //if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 // mark these points , up to roughly a core radius in all directions, in the "marked" array
                 int delta = ceil((lambda/(2*M_PI))/h);
                 for(int q = - delta; q <= delta; q++)
@@ -1124,7 +1124,8 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
                 // again, bear in mind these numbers can be into the "ghost" grids
-                //if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 pts=0;
                 graducvx=0;
                 graducvy=0;
@@ -1324,7 +1325,8 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
                 modidwn = circularmod(idwn,Nx);
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
-                //if(idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1) break;
+               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 dxu=0;
                 dyu=0;
                 dzu=0;
