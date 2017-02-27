@@ -55,20 +55,20 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot358.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot7500.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 260;   //No. points in x,y and z
-const int Ny = 260;
-const int Nz = 260;
+const int Nx = 325;   //No. points in x,y and z
+const int Ny = 325;
+const int Nz = 325;
 const double TTime = 1000;       //total time of simulation (simulation units)
 const double skiptime = 20;       //print out every # unit of time (simulation units)
-const double starttime =358;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime =7500;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
-const double size = 9*lambda;   //box size
+const double size = 10*lambda;   //box size
 const double h = size/(Nx-1);            //grid spacing
 const double oneoverhsq = 1.0/(h*h);
 const double epsilon = 0.3;                //parameters for F-N eqns
@@ -2140,7 +2140,7 @@ void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double
 }
 inline int circularmod(int i, int N)    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 {
-    if(i<0) return N - (i%N);
+    if(i<0) return N - ((-i)%N);
     else return i%N;
 }
 // inlined functions for incrementing things respecting boundaries
