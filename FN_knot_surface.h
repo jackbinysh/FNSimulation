@@ -118,7 +118,7 @@ int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, i
 void uv_initialise(double *phi, double *u, double *v, int* missed);
 void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
 void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
-void uv_update(double *u, double *v,  double *kut, double *kvt, double *testu, double *testv);
+void uv_update(double *u, double *v,  double *kut, double *kvt );
 //void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
 void uv_update_euler(double *u, double *v, double *D2u);
 // 3d geometry functions
