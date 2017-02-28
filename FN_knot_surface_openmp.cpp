@@ -55,20 +55,20 @@ string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filena
 int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot7500.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int Nx = 325;   //No. points in x,y and z
-const int Ny = 325;
-const int Nz = 325;
+const int Nx = 201;   //No. points in x,y and z
+const int Ny = 201;
+const int Nz = 201;
 const double TTime = 1000;       //total time of simulation (simulation units)
 const double skiptime = 20;       //print out every # unit of time (simulation units)
-const double starttime =7500;        //Time at start of simulation (non-zero if continuing from UV file)
+const double starttime =0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
-const double size = 10*lambda;   //box size
+const double size = 6*lambda;   //box size
 const double h = size/(Nx-1);            //grid spacing
 const double oneoverhsq = 1.0/(h*h);
 const double epsilon = 0.3;                //parameters for F-N eqns
@@ -173,13 +173,11 @@ int main (void)
     ucvy = new double [Nx*Ny*Nz];
     ucvz = new double [Nx*Ny*Nz];
 #if RK4
-    double *ku, *kv, *kut, *kvt, *uold, *vold;
-    ku = new double [Nx*Ny*Nz];
-    kv = new double [Nx*Ny*Nz];
+    double  *kut, *kvt, *testu, *testv;
     kut = new double [Nx*Ny*Nz];
     kvt = new double [Nx*Ny*Nz];
-    uold = new double [Nx*Ny*Nz];
-    vold = new double [Nx*Ny*Nz];
+    testu = new double [Nx*Ny*Nz];
+    testv = new double [Nx*Ny*Nz];
 
 #else
     double *D2u;
@@ -200,7 +198,7 @@ int main (void)
     time (&rawtime);
     struct tm * timeinfo;
 #if RK4
-#pragma omp parallel default(none) shared (  u, v, uold, vold, n,ku,kv,kut,kvt,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,   minimizerstate)
+#pragma omp parallel default(none) shared (  u, v, testu, testv, n,kut,kvt,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,   minimizerstate)
 #else
 #pragma omp parallel default(none) shared (  u, v, n, D2u, p, q,ucvx, ucvy, ucvz, cout, rawtime, timeinfo, knotcurves,  minimizerstate)
 #endif
@@ -233,7 +231,7 @@ int main (void)
                 n++;
             }
 #if RK4
-            uv_update(u,v,ku,kv,kut,kvt,uold,vold);
+            uv_update(u,v,kut,kvt,testu,testv);
 #else
             uv_update_euler(u,v,D2u);
 #endif
@@ -243,10 +241,8 @@ int main (void)
     cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
 
 #if RK4
-    delete [] uold;
-    delete [] vold;
-    delete [] ku;
-    delete [] kv;
+    delete [] testu;
+    delete [] testv;
     delete [] kut;
     delete [] kvt;
 #else
@@ -1544,30 +1540,15 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
     }
 }
 
-void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double *kvt, double *uold, double *vold)
+void uv_update(double *u, double *v,  double *kut, double *kvt, double *testu, double *testv)
 {
     int i,j,k,l,n,kup,kdwn;
-    double D2u;
+    double D2u,ku,kv;
 
-#pragma omp for
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)
-            {
-                n = pt(i,j,k);
-                uold[n] = u[n];  //old value of u
-                vold[n] = v[n];  //old value of v
-                kut[n] = 0;
-                kvt[n] = 0;
-            }
-        }
-    }
 
-    for(l=0;l<4;l++)  //u and v update for each fractional time step
-    {
-#pragma omp for
+// first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
+    double inc = 0.5;double coeff=1.0;   
+    #pragma omp for
         for(i=0;i<Nx;i++)
         {
             for(j=0; j<Ny; j++)
@@ -1578,54 +1559,78 @@ void uv_update(double *u, double *v, double *ku, double *kv, double *kut, double
                     kup = gridinc(k,1,Nz,2);
                     kdwn = gridinc(k,-1,Nz,2);
                     D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k)] + u[pt(gridinc(i,-1,Nx,0),j,k)] + u[pt(i,gridinc(j,1,Ny,1),k)] + u[pt(i,gridinc(j,-1,Ny,1),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdwn)] - 6.0*u[n]);
-                    ku[n] = oneoverepsilon*(u[n] - u[n]*u[n]*u[n]/3.0 - v[n]) + D2u;
-                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+
+                    ku = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
+                    kv = epsilon*(u[n] + beta - gam*v[n]);
+
+                   testu[n] = u[n] + dtime*inc*ku;
+                    testv[n] = v[n] + dtime*inc*kv;
+                    kut[n] = coeff*ku;
+                    kvt[n] = coeff*kv;
                 }
             }
         }
-
+// 2nd and 3rd loops
+    for(l=1;l<3;l++)  //u and v update for each fractional time step
+    {
         switch (l)
         {
-            case 0:
-                {
-                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,1.0);   //add k1 to uv and add to total k
-                }
-                break;
-
             case 1:
                 {
-                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,0.5,2.0);   //add k2 to uv and add to total k
+                    inc=0.5;coeff=2.0;   //add k1 to uv and add to total k
                 }
                 break;
 
             case 2:
                 {
-                    uv_add(u,v,uold,vold,ku,kv,kut,kvt,1.0,2.0);      //add k3 to uv and add to total k
+                    inc=1 ;coeff=2.0;   //add k1 to uv and add to total k
                 }
                 break;
-
-            case 3:
+        }   
+        #pragma omp for
+        for(i=0;i<Nx;i++)
+        {
+            for(j=0; j<Ny; j++)
+            {
+                for(k=0; k<Nz; k++)   //Central difference
                 {
-#pragma omp for
-                    for(i=0;i<Nx;i++)
-                    {
-                        for(j=0; j<Ny; j++)
-                        {
-                            for(k=0; k<Nz; k++)  //update
-                            {
-                                n = pt(i,j,k);
-                                u[n] = uold[n] + dtime*sixth*(kut[n]+ku[n]);
-                                v[n] = vold[n] + dtime*sixth*(kvt[n]+kv[n]);
-                            }
-                        }
-                    }
-                }
-                break;
+                    n = pt(i,j,k);
+                    kup = gridinc(k,1,Nz,2);
+                    kdwn = gridinc(k,-1,Nz,2);
+                    D2u = oneoverhsq*(testu[pt(gridinc(i,1,Nx,0),j,k)] + testu[pt(gridinc(i,-1,Nx,0),j,k)] + testu[pt(i,gridinc(j,1,Ny,1),k)] + testu[pt(i,gridinc(j,-1,Ny,1),k)] + testu[pt(i,j,kup)] + testu[pt(i,j,kdwn)] - 6.0*testu[n]);
 
-            default:
-                break;
+                    ku = oneoverepsilon*(testu[n] - (ONETHIRD*testu[n])*(testu[n]*testu[n]) - testv[n]) + D2u;
+                    kv = epsilon*(testu[n] + beta - gam*testv[n]);
+
+                    testu[n] = u[n] + dtime*inc*ku;
+                    testv[n] = v[n] + dtime*inc*kv;
+                    kut[n] += coeff*ku;
+                    kvt[n] += coeff*kv;
+                }
+            }
         }
     }
+
+#pragma omp for
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)  //update
+            {
+                n = pt(i,j,k);
+                    kup = gridinc(k,1,Nz,2);
+                    kdwn = gridinc(k,-1,Nz,2);
+                    D2u = oneoverhsq*(testu[pt(gridinc(i,1,Nx,0),j,k)] + testu[pt(gridinc(i,-1,Nx,0),j,k)] + testu[pt(i,gridinc(j,1,Ny,1),k)] + testu[pt(i,gridinc(j,-1,Ny,1),k)] + testu[pt(i,j,kup)] + testu[pt(i,j,kdwn)] - 6.0*testu[n]);
+
+                ku = oneoverepsilon*(testu[n] - (ONETHIRD*testu[n])*(testu[n]*testu[n]) - testv[n]) + D2u;
+                kv = epsilon*(testu[n] + beta - gam*testv[n]);
+                u[n] = u[n] + dtime*sixth*(kut[n]+ku);
+                v[n] = v[n] + dtime*sixth*(kvt[n]+kv);
+            }
+        }
+    }
+
 }
 
 void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff)
