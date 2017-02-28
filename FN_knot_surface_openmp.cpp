@@ -1542,7 +1542,7 @@ void uv_update(double *u, double *v,  double *ku, double *kv)
     double D2u;
     const int arraysize = Nx*Ny*Nz;
 // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
-    #pragma omp for
+    #pragma omp for 
         for(i=0;i<Nx;i++)
         {
             for(j=0; j<Ny; j++)
@@ -1581,7 +1581,7 @@ void uv_update(double *u, double *v,  double *ku, double *kv)
                 }
                 break;
         }   
-        #pragma omp for
+        #pragma omp for 
         for(i=0;i<Nx;i++)
         {
             for(j=0; j<Ny; j++)
@@ -1596,10 +1596,11 @@ void uv_update(double *u, double *v,  double *ku, double *kv)
                     jdown =pt(i,gridinc(j,-1,Ny,1),k);
                     kup = pt(i,j,gridinc(k,1,Nz,2));
                     kdown = pt(i,j,gridinc(k,-1,Nz,2));
-                    D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(u[n]+dtime*inc*ku[(l-1)*arraysize+n]));
-
                     double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
                     double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
+
+                    D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
+
 
                     ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
                     kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
@@ -1607,9 +1608,7 @@ void uv_update(double *u, double *v,  double *ku, double *kv)
             }
         }
     }
-
-
-    #pragma omp for
+    #pragma omp for 
     for(n=0;n<Nx*Ny*Nz;n++)
     {
 
