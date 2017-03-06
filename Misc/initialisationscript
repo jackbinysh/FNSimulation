@@ -1,13 +1,16 @@
 #!/bin/bash
 # read in the stl filenames 
-while read filename; do
-	echo $filename
+for filepath in ~/Knot_Surface/Knot_surface_calc/Knotplot_Evolver_files/stl/{three1,three1alt,six2t,six3t,four1,four1_alt,five2,five2b,five1,five1_alt}.stl 
+do
+	filename=`echo $filepath | sed 's/.*\///'`
+	filename=`echo $filename | sed 's/.stl//'`
 	# make a directory for the run, copy everything relevant into it, then cd in	
-	mkdir $filename 
-	cp mysubscript.pbs FN_knot_surface_openmp.cpp FN_knot_surface.h  $filename 
+	directoryname=${filename}	
+	mkdir ${directoryname}
+	cp myscript.pbs FN_knot_surface_openmp.cpp FN_knot_surface.h  $directoryname 
 	# grab the relevant file from the stl files Gareth made
-	cp ./KnotUnknot/{$filename}.stl $filename
-	cd $filename 
+	cp $filepath $directoryname
+	cd $directoryname
 	# replace the filename with whatever the relevant filename is
 	sed s/zero1/$filename/ FN_knot_surface_openmp.cpp > test.cpp 
 	mv test.cpp FN_knot_surface_openmp.cpp
@@ -15,6 +18,6 @@ while read filename; do
 	module load intel impi GSL 
 	icpc -O3 -qopenmp FN_knot_surface_openmp.cpp -lgsl -lgslcblas -lm 
 	# submit the compiled code to the cluster
-	#msub mysubscript.pbs \
-	cd .. \ 
-done < inputnames.txt
+	msub myscript.pbs 
+	cd ..  
+done 
