@@ -124,10 +124,16 @@ void uv_update_euler(double *u, double *v, double *D2u);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
+/**** burnin functions ****/
+
+void find_knot_properties_burnin(bool *markedpoints, double *ucvx, double *ucvy, double *ucvz, gsl_multimin_fminimizer* minimizerstate);
+void uv_update_burnin(double *u, double *v,  double *ku, double *kv,bool* markedpoints);
+void burnin(double* u,double* v,double *ucvx,double* ucvy,double* ucvz,double* ku, double* kv,gsl_multimin_fminimizer* minimizerstate);
+
 /*************************File reading and writing*****************************/
 
 void print_B_phi( double *phi, int *missed);
-void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
+void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t, bool *markedpoints=NULL);
 int phi_file_read(double *phi);
 void print_knot( double t, vector<knotcurve >& knotcurves,vector<int>& permutation);
 int uvfile_read(double *u,double *v);
