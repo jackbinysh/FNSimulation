@@ -91,15 +91,14 @@ int main (void)
     int Nz = griddata.Nz;
     // all major allocations are here
     // the main data storage arrays, contain info associated with the grid
-    double  *phi, *u, *v, *ucvx, *ucvy, *ucvz,*ku,*kv;
-    phi = new double [Nx*Ny*Nz];  //scalar potential
-    u = new double [Nx*Ny*Nz];
-    v = new double [Nx*Ny*Nz];
-    ucvx = new double [Nx*Ny*Nz];
-    ucvy = new double [Nx*Ny*Nz];
-    ucvz = new double [Nx*Ny*Nz];
-    ku = new double [4*Nx*Ny*Nz];
-    kv = new double [4*Nx*Ny*Nz];
+    vector<double>phi(Nx*Ny*Nz);  //scalar potential
+    vector<double>u(Nx*Ny*Nz);
+    vector<double>v(Nx*Ny*Nz);
+    vector<double>ucvx(Nx*Ny*Nz);
+    vector<double>ucvy(Nx*Ny*Nz);
+    vector<double>ucvz(Nx*Ny*Nz);
+    vector<double>ku(4*Nx*Ny*Nz);
+    vector<double>kv(4*Nx*Ny*Nz);
     // objects to hold information about the knotcurve we find, andthe surface we read in
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<triangle> knotsurface;    //structure for storing knot surface coordinates
@@ -150,7 +149,6 @@ int main (void)
         cout << "Calculating u and v...\n";
         uv_initialise(phi,u,v,griddata);
     }
-    delete [] phi;
 
     cout << "Updating u and v...\n";
     // initilialising counters
@@ -195,14 +193,6 @@ int main (void)
             uv_update(u,v,ku,kv,griddata);
         }
     }
-    delete [] ku;
-    delete [] kv;
-    delete [] u;
-    delete [] v;
-    delete [] ucvx;
-    delete [] ucvy;
-    delete [] ucvz;
-
     return 0;
 }
 
@@ -394,7 +384,7 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc(double *phi,vector<triangle>& knotsurface, const griddata& griddata)
+void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -431,7 +421,7 @@ void phi_calc(double *phi,vector<triangle>& knotsurface, const griddata& griddat
     print_B_phi(phi,griddata);
 
 }
-void phi_calc_manual(double *phi, griddata& griddata)
+void phi_calc_manual(vector<double>&phi, griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -458,7 +448,7 @@ void phi_calc_manual(double *phi, griddata& griddata)
 
 /*************************Functions for FN dynamics*****************************/
 
-void uv_initialise(double *phi, double *u, double *v, const griddata& griddata)
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -472,7 +462,7 @@ void uv_initialise(double *phi, double *u, double *v, const griddata& griddata)
     }
 }
 
-void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, const griddata& griddata)
+void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -502,7 +492,7 @@ void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *u
     }
 }
 
-void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
+void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&u, vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -687,7 +677,7 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
                 gsl_vector_set (minimum, 0, 0);
                 gsl_vector_set (minimum, 1, 0);
                 struct parameters params; struct parameters* pparams = &params;
-                pparams->ucvx=ucvx;pparams->ucvy=ucvy; pparams->ucvz = ucvz;
+                pparams->ucvx=&ucvx;pparams->ucvy=&ucvy; pparams->ucvz =&ucvz;
                 pparams->v = v; pparams->f = f;pparams->b=b;
                 pparams->mygriddata = griddata;
                 // some initial values
@@ -1047,7 +1037,7 @@ void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, 
     }
 }
 
-void uv_update(double *u, double *v,  double *ku, double *kv,const griddata& griddata)
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1134,7 +1124,7 @@ void uv_update(double *u, double *v,  double *ku, double *kv,const griddata& gri
 
 /*************************File reading and writing*****************************/
 
-void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t, const griddata& griddata)
+void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1196,7 +1186,7 @@ void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, d
     uvout.close();
 }
 
-void print_B_phi( double *phi, const griddata& griddata)
+void print_B_phi( vector<double>&phi, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1311,7 +1301,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutati
     }
 }
 
-int phi_file_read(double *phi,const griddata& griddata)
+int phi_file_read(vector<double>&phi,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1365,7 +1355,7 @@ int phi_file_read(double *phi,const griddata& griddata)
     return 0;
 }
 
-int uvfile_read(double *u, double *v,const griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1497,9 +1487,9 @@ double my_f(const gsl_vector* minimum, void* params)
     int i,j,k,idwn,jdwn,kdwn,modidwn,modjdwn,modkdwn,m,pts,iinc,jinc,kinc;
     double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
     struct parameters* myparameters = (struct parameters *) params;
-    double* ucvx= myparameters->ucvx;
-    double* ucvy= myparameters->ucvy;
-    double* ucvz= myparameters->ucvz;
+    vector<double>* ucvx= myparameters->ucvx;
+    vector<double>* ucvy= myparameters->ucvy;
+   vector<double>* ucvz= myparameters->ucvz;
     griddata griddata = myparameters->mygriddata;
     double Nx = myparameters->mygriddata.Nx;
     double Ny = myparameters->mygriddata.Ny;
@@ -1551,9 +1541,9 @@ double my_f(const gsl_vector* minimum, void* params)
         k = gridinc(modkdwn,kinc, Nz,1);
         prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
         /*interpolate grad u x grad v over nearest points*/
-        ucvxs += prefactor*ucvx[pt(i,j,k,griddata)];
-        ucvys += prefactor*ucvy[pt(i,j,k,griddata)];
-        ucvzs += prefactor*ucvz[pt(i,j,k,griddata)];
+        ucvxs += prefactor*(*ucvx)[pt(i,j,k,griddata)];
+        ucvys += prefactor*(*ucvy)[pt(i,j,k,griddata)];
+        ucvzs += prefactor*(*ucvz)[pt(i,j,k,griddata)];
     }
     double ans = -1*sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
     return  ans;
