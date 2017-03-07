@@ -71,42 +71,38 @@ struct knotcurve
 };
 /*************************General maths and integer functions*****************************/
 
-
-
+// little inline guys
 inline double x(int i);
 inline double y(int i);
 inline double z(int i);
-inline int sign(int i)
-{
-    if(i==0) return 0;
-    else return i/abs(i);
-}
-
+inline int sign(int i);
+inline  int pt( int i,  int j,  int k);       //convert i,j,k to single index
 inline int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
 inline int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
 inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
+
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
 void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
 /*************************Functions for knot initialisation*****************************/
 
-double initialise_knot();
+double initialise_knot(std::vector<triangle>& knotsurface);
 
-double init_from_surface_file(void);
+double init_from_surface_file(std::vector<triangle>& knotsurface);
 
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc( double *phi);
+void phi_calc( double *phi,std::vector<triangle>& knotsurface);
 
 void phi_calc_manual( double *phi);
 
 //FitzHugh Nagumo functions
 void uv_initialise(double *phi, double *u, double *v);
 void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
-void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
+void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,std::vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer *minimizerstate);
 void uv_update(double *u, double *v,  double *ku, double *kv);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );

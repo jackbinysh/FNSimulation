@@ -77,27 +77,26 @@ const double gam = 0.5;
 double xmax = 1*Nx*h/4.0;
 double ymax = 1*Ny*h/4.0;
 double zmax = 1*Nz*h/4.0;
-int NK;   //number of surface points
 
-//Unallocated matrices
-vector<triangle> knotsurface;    //structure for storing knot surface coordinates
-vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
 
-double area;   //initial knot area
-inline  int pt( int i,  int j,  int k)       //convert i,j,k to single index
-{
-    return (i*Ny*Nz+j*Nz+k);
-}
+
 
 int main (void)
 {
-    double  *phi, *u, *v, *ucvx, *ucvy, *ucvz;
-    int i,j,k,n,l;
-
+    // all major allocations are here
+    // the main data storage arrays, contain info associated with the grid
+    double  *phi, *u, *v, *ucvx, *ucvy, *ucvz,*ku,*kv;
     phi = new double [Nx*Ny*Nz];  //scalar potential
     u = new double [Nx*Ny*Nz];
     v = new double [Nx*Ny*Nz];
-
+    ucvx = new double [Nx*Ny*Nz];
+    ucvy = new double [Nx*Ny*Nz];
+    ucvz = new double [Nx*Ny*Nz];
+    ku = new double [4*Nx*Ny*Nz];
+    kv = new double [4*Nx*Ny*Nz];
+    // objects to hold information about the knotcurve we find, andthe surface we read in
+    vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
+    vector<triangle> knotsurface;    //structure for storing knot surface coordinates
     // GSL initialization
     const gsl_multimin_fminimizer_type *Type;
     gsl_multimin_fminimizer *minimizerstate;
@@ -125,68 +124,55 @@ int main (void)
             else
             {
                 //Initialise knot
-                area = initialise_knot();
-                if(area==0)
+                if(initialise_knot(knotsurface)==0)
                 {
                     cout << "Error reading input option. Aborting...\n";
                     return 1;
                 }
 
                 if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-                cout << NK << '\n';
+                cout << knotsurface.size() << '\n';
 
                 //Calculate phi for initial conditions
-                phi_calc(phi);
+                phi_calc(phi,knotsurface);
             }
         }
     }
-
     vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
-
     if(option!=FROM_UV_FILE)
     {
         cout << "Calculating u and v...\n";
         uv_initialise(phi,u,v);
     }
-
     delete [] phi;
 
-    ucvx = new double [Nx*Ny*Nz];
-    ucvy = new double [Nx*Ny*Nz];
-    ucvz = new double [Nx*Ny*Nz];
-    double  *ku, *kv; 
-    ku = new double [4*Nx*Ny*Nz];
-    kv = new double [4*Nx*Ny*Nz];
-
-
     cout << "Updating u and v...\n";
-
     // initilialising counters
     int p=0;
     int q=0;
-    n=0;
-
+    int n=0;
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (  u, v,  n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,   minimizerstate)
+#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,minimizerstate)
     {
         while(n*dtime <= TTime)
         {
 #pragma omp single
             {
                 if(n*dtime >= q)  //Do this every unit T
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
+                {   // let us know how things are going
                     cout << "T = " << n*dtime + starttime << endl;
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
+
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz); //find Grad u cross Grad v
                     if(n*dtime+starttime>=10 )
                     {
-                        find_knot_properties(ucvx,ucvy,ucvz,u,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
+                        find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate );      //find knot curve and twist and writhe
                     }
                     q++;
                 }
@@ -203,9 +189,6 @@ int main (void)
             uv_update(u,v,ku,kv);
         }
     }
-    time_t now = time(NULL);
-    cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
-
     delete [] ku;
     delete [] kv;
     delete [] u;
@@ -218,12 +201,12 @@ int main (void)
 }
 
 /*************************Functions for knot initialisation*****************************/
-double initialise_knot()
+double initialise_knot(vector<triangle>& knotsurface)
 {
     double L;
     switch (option)
     {
-        case FROM_SURFACE_FILE: L = init_from_surface_file();
+        case FROM_SURFACE_FILE: L = init_from_surface_file(knotsurface);
                                 break;
 
         default: L=0;
@@ -233,7 +216,7 @@ double initialise_knot()
     return L;
 }
 
-double init_from_surface_file(void)
+double init_from_surface_file(vector<triangle>& knotsurface)
 {
     string filename, buff;
     stringstream ss;
@@ -311,7 +294,7 @@ double init_from_surface_file(void)
         i++;
     }
 
-    NK = i;
+    
     /* Work out space scaling for knot surface */
     double scale[3];
     double midpoint[3];
@@ -319,7 +302,7 @@ double init_from_surface_file(void)
     scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin);
 
     /*Rescale points and normals to fit grid properly*/
-    for(i=0;i<NK;i++)
+    for(i=0;i<knotsurface.size();i++)
     {
         for(j=0;j<3;j++)
         {
@@ -405,12 +388,12 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc(double *phi)
+void phi_calc(double *phi,vector<triangle>& knotsurface)
 {
     int i,j,k,n,s;
     double rx,ry,rz,r;
         cout << "Calculating scalar potential...\n";
-#pragma omp parallel default(none) shared ( knotsurface, phi, NK ) private ( i, j, k, n, s, rx, ry, rz , r)
+#pragma omp parallel default(none) shared ( knotsurface, phi ) private ( i, j, k, n, s, rx, ry, rz , r)
     {
 #pragma omp for
         for(i=0;i<Nx;i++)
@@ -421,7 +404,7 @@ void phi_calc(double *phi)
                 {
                     n = pt(i,j,k);
                     phi[n] = 0;
-                    for(s=0;s<NK;s++)
+                    for(s=0;s<knotsurface.size();s++)
                     {
                         rx = knotsurface[s].centre[0]-x(i);
                         ry = knotsurface[s].centre[1]-y(j);
@@ -501,7 +484,7 @@ void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *u
     }
 }
 
-void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, double t, gsl_multimin_fminimizer* minimizerstate)
+void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double *u, vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate)
 {
     int c =0;
     static bool xmarked[Nx] = {false};
@@ -1612,4 +1595,13 @@ inline double y(int i)
 inline double z(int i)
 {
     return (i+0.5-Nz/2.0)*h;
+}
+inline  int pt( int i,  int j,  int k)       //convert i,j,k to single index
+{
+    return (i*Ny*Nz+j*Nz+k);
+}
+inline int sign(int i)
+{
+    if(i==0) return 0;
+    else return i/abs(i);
 }
