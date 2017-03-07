@@ -34,7 +34,7 @@ struct griddata
 struct parameters
 {
 	gsl_vector *v,*f,*b;
-	double *ucvx,*ucvy,*ucvz;	
+	vector<double> *ucvx,*ucvy,*ucvz;	
     griddata mygriddata;
 };
 
@@ -100,22 +100,22 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc( double *phi,std::vector<triangle>& knotsurface,const griddata& griddata);
+void phi_calc( vector<double>&phi,std::vector<triangle>& knotsurface,const griddata& griddata);
 
-void phi_calc_manual( double *phi,const griddata& griddata);
+void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v,const griddata& griddata);
-void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz,const griddata& griddata);
-void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,std::vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer *minimizerstate,const griddata& griddata);
-void uv_update(double *u, double *v,  double *ku, double *kv,const griddata& griddata);
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
+void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,const griddata& griddata);
+void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& u,std::vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer *minimizerstate,const griddata& griddata);
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi( double *phi,const griddata& griddata);
-void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t,const griddata& griddata);
-int phi_file_read(double *phi,const griddata& griddata);
+void print_B_phi( vector<double>&phi,const griddata& griddata);
+void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t,const griddata& griddata);
+int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,vector<int>& permutation,const griddata& griddata);
-int uvfile_read(double *u,double *v,const griddata& griddata);
+int uvfile_read(vector<double>&u,vector<double>&v,const griddata& griddata);
