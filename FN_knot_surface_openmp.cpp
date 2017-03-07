@@ -82,7 +82,6 @@ int NK;   //number of surface points
 //Unallocated matrices
 vector<triangle> knotsurface;    //structure for storing knot surface coordinates
 vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
-vector<double> X, Y, Z, dlx, dly,dlz;
 
 double area;   //initial knot area
 inline  int pt( int i,  int j,  int k)       //convert i,j,k to single index
@@ -143,12 +142,6 @@ int main (void)
     }
 
     vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
-    vector<double> ().swap(X);   //empty initial knot curve memory
-    vector<double> ().swap(Y);
-    vector<double> ().swap(Z);
-    vector<double> ().swap(dlx);
-    vector<double> ().swap(dly);
-    vector<double> ().swap(dlz);
 
     if(option!=FROM_UV_FILE)
     {
