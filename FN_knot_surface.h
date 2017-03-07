@@ -22,8 +22,7 @@ using namespace std;
 #define FROM_PHI_FILE 0
 #define FROM_SURFACE_FILE 1
 #define FROM_UV_FILE 2
-#define FROM_KNOT_FILE 3
-#define FROM_FUNCTION 4
+#define FROM_FUNCTION 3
 const double sixth = 1.0/6.0;
 const double ONETHIRD = 1.0/3.0;
 enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
@@ -96,37 +95,25 @@ double initialise_knot();
 
 double init_from_surface_file(void);
 
-double init_from_knot_file(void);
-
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond( double *phi, int *missed);
-
 void phi_calc( double *phi);
-
-void B_field_calc( double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed);
-
-void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi);
 
 void phi_calc_manual( double *phi);
 
-int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag);
-
 //FitzHugh Nagumo functions
-void uv_initialise(double *phi, double *u, double *v, int* missed);
+void uv_initialise(double *phi, double *u, double *v);
 void crossgrad_calc( double *u, double *v, double *ucvx, double *ucvy, double *ucvz);
 void find_knot_properties( double *ucvx, double *ucvy, double *ucvz, double* u,double t, gsl_multimin_fminimizer *minimizerstate);
-void uv_update(double *u, double *v,  double *kut, double *kvt );
-//void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff);
-void uv_update_euler(double *u, double *v, double *D2u);
+void uv_update(double *u, double *v,  double *ku, double *kv);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
 /*************************File reading and writing*****************************/
 
-void print_B_phi( double *phi, int *missed);
+void print_B_phi( double *phi);
 void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t);
 int phi_file_read(double *phi);
 void print_knot( double t, vector<knotcurve >& knotcurves,vector<int>& permutation);

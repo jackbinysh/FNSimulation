@@ -25,7 +25,6 @@
 #include <omp.h>
 #include <math.h>
 #include <string.h>
-#define RK4 1         //1 to use Runge Kutta 4th order method, 0 for euler forward method
 #define PRESERVE_RATIOS 1  //1 to scale input file preserving the aspect ratio
 //includes for the signal processing
 #include <gsl/gsl_errno.h>
@@ -36,11 +35,10 @@
 FROM_PHI_FILE: Skip initialisation, input from previous run.
 FROM_SURFACE_FILE: Initialise from input file(s) generated in surface evolver.
 FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
-FROM_KNOT_FILE: Initialise from parametric knot curve in .txt format (e.g. knotplot output)
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-const int option = FROM_UV_FILE;         //unknot default option
+const int option = FROM_SURFACE_FILE;         //unknot default option
 const BoundaryType BoundaryType=ALLPERIODIC;
 
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
@@ -50,9 +48,8 @@ const double initialxdisplacement = 0;
 const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
 
-/**If FROM_SURFACE_FILE or FROM_KNOT_FILE chosen**/
+/**If FROM_SURFACE_FILE chosen**/
 string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
-int ncomp = 1;                       //if FROM_KNOT_FILE assumed input filename format of "XXXXX.txt"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
 string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
@@ -97,16 +94,10 @@ int main (void)
 {
     double  *phi, *u, *v, *ucvx, *ucvy, *ucvz;
     int i,j,k,n,l;
-    int *missed;
 
     phi = new double [Nx*Ny*Nz];  //scalar potential
     u = new double [Nx*Ny*Nz];
     v = new double [Nx*Ny*Nz];
-    if(option==FROM_KNOT_FILE)
-    {
-        missed = new int [Nx*Ny*Nz];
-        fill(missed,missed+Nx*Ny*Nz,0);
-    }
 
     // GSL initialization
     const gsl_multimin_fminimizer_type *Type;
@@ -143,11 +134,10 @@ int main (void)
                 }
 
                 if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-                else cout << "Total no. of knot points: ";
                 cout << NK << '\n';
 
                 //Calculate phi for initial conditions
-                initial_cond(phi,missed);
+                phi_calc(phi);
             }
         }
     }
@@ -163,25 +153,18 @@ int main (void)
     if(option!=FROM_UV_FILE)
     {
         cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,missed);
+        uv_initialise(phi,u,v);
     }
 
     delete [] phi;
-    if(option==FROM_KNOT_FILE) delete [] missed;
 
     ucvx = new double [Nx*Ny*Nz];
     ucvy = new double [Nx*Ny*Nz];
     ucvz = new double [Nx*Ny*Nz];
-#if RK4
     double  *ku, *kv; 
     ku = new double [4*Nx*Ny*Nz];
     kv = new double [4*Nx*Ny*Nz];
 
-#else
-    double *D2u;
-
-    D2u = new double [Nx*Ny*Nz];
-#endif
 
     cout << "Updating u and v...\n";
 
@@ -195,11 +178,7 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#if RK4
 #pragma omp parallel default(none) shared (  u, v,  n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,   minimizerstate)
-#else
-#pragma omp parallel default(none) shared (  u, v, n, D2u, p, q,ucvx, ucvy, ucvz, cout, rawtime, timeinfo, knotcurves,  minimizerstate)
-#endif
     {
         while(n*dtime <= TTime)
         {
@@ -228,22 +207,14 @@ int main (void)
 
                 n++;
             }
-#if RK4
             uv_update(u,v,ku,kv);
-#else
-            uv_update_euler(u,v,D2u);
-#endif
         }
     }
     time_t now = time(NULL);
     cout << "Time taken to complete uv part: " << now - then << " seconds.\n";
 
-#if RK4
     delete [] ku;
     delete [] kv;
-#else
-    delete [] D2u;
-#endif
     delete [] u;
     delete [] v;
     delete [] ucvx;
@@ -261,9 +232,6 @@ double initialise_knot()
     {
         case FROM_SURFACE_FILE: L = init_from_surface_file();
                                 break;
-
-        case FROM_KNOT_FILE: L = init_from_knot_file();
-                             break;
 
         default: L=0;
                  break;
@@ -410,178 +378,6 @@ double init_from_surface_file(void)
 
     return A;
 }
-
-double init_from_knot_file(void)
-{
-    double xt,yt,zt,dx,dy,dz,dl,lseg,Lh;    //temporary variables
-    vector<double> px,py,pz,dr,ntx,nty,ntz;  //points, distances and tangents
-    int npts;  //counter
-    string temp;
-    double L=0;
-    int i,n,m,t,s,NKh;
-    ifstream knotin;   //knot file(s)
-    string filename, buff;
-    stringstream ss;
-    double maxxin = 0;
-    double maxyin = 0;
-    double maxzin = 0;
-    double minxin = 0;
-    double minyin = 0;
-    double minzin = 0;
-
-    NK=0;    //count total no. of points
-
-    for (m=1; m<=ncomp; m++)
-    {
-        npts=0;
-
-        ss.clear();
-        ss.str("");
-        if (ncomp==1) ss << knot_filename << ".txt";
-        else ss << knot_filename << m << ".txt";
-
-        filename = ss.str();
-        knotin.open(filename.c_str());
-
-        while(knotin.good())   //read in points for knot
-        {
-            if(getline(knotin,buff))
-            {
-                ss.clear();
-                ss.str("");
-                ss << buff;
-                ss >> xt >> yt >> zt;
-            }
-            else break;
-            /*needs changing*/
-            px.push_back(xt);
-            py.push_back(yt);             //store points
-            pz.push_back(zt);
-
-            if(xt > maxxin) maxxin = xt;  //find max and min points
-            if(yt > maxyin) maxyin = yt;
-            if(zt > maxzin) maxzin = zt;
-            if(xt < minxin) minxin = xt;
-            if(yt < minyin) minyin = yt;
-            if(zt < minzin) minzin = zt;
-
-            npts++;
-        }
-
-        knotin.close();
-
-        /*rescale knot*/
-        double scale[3];
-        double midpoint[3];
-        scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin); //function for calculating scale and midpoint
-
-        Lh=0;
-        for(t=0; t<npts; t++)
-        {
-            px[t] = scale[0]*(px[t]-midpoint[0]);
-            py[t] = scale[1]*(py[t]-midpoint[1]);
-            pz[t] = scale[2]*(pz[t]-midpoint[2]);
-            if(t>0)
-            {
-                dx = px[t] - px[t-1];
-                dy = py[t] - py[t-1];     //distance between points
-                dz = pz[t] - pz[t-1];
-                dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
-                ntx.push_back(dx/dr[t-1]);    //tangent direction to next pt, goes from 0:npts-1
-                nty.push_back(dy/dr[t-1]);
-                ntz.push_back(dz/dr[t-1]);
-                Lh += dr[t-1];                //total length of link component
-            }
-        }
-        /*Do final point*/
-        dx = px[0] - px[npts-1];
-        dy = py[0] - py[npts-1];     //distance between points
-        dz = pz[0] - pz[npts-1];
-        dr.push_back(sqrt(dx*dx + dy*dy + dz*dz));
-        ntx.push_back(dx/dr[npts-1]);    //tangent direction to next pt, goes from 0:npts-1
-        nty.push_back(dy/dr[npts-1]);
-        ntz.push_back(dz/dr[npts-1]);
-        Lh += dr[npts-1];                //total length of link component
-
-        NKh = ((int) (2*Lh/h));  //Number of points to define knot with ~h/2 spacing
-        dl = Lh/NKh;       //Actual spacing ~h/2
-
-        //Start at p0
-        X.push_back(px[0]);
-        Y.push_back(py[0]);
-        Z.push_back(pz[0]);
-
-        n = 0; //input pt counter
-
-        for(t=1;t<NKh;t++)
-        {
-            s = NK+t;
-            X.push_back(X[s-1] + dl*ntx[n]);     //interpolate between input points
-            Y.push_back(Y[s-1] + dl*nty[n]);
-            Z.push_back(Z[s-1] + dl*ntz[n]);
-            lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] -               pz[n])*(Z[s] - pz[n]));     //distance from last input point
-            while(lseg>dr[n])   //if we have passed next input point
-            {
-                n=n+1;     //move to next input point
-                X[s] = px[n] + (lseg-dr[n-1])*ntx[n];    //add extra bit in next direction
-                Y[s] = py[n] + (lseg-dr[n-1])*nty[n];
-                Z[s] = pz[n] + (lseg-dr[n-1])*ntz[n];
-                lseg = sqrt((X[s] - px[n])*(X[s] - px[n]) + (Y[s] - py[n])*(Y[s] - py[n]) + (Z[s] - pz[n])*(Z[s] - pz[n]));    //recalculate segment length
-            }
-            //cout << X[s] << ' ' << Y[s] << ' ' << Z[s] << '\n';
-        }
-
-        px.clear();
-        py.clear();
-        pz.clear();
-        ntx.clear();
-        nty.clear();
-        ntz.clear();
-        dr.clear();
-
-        //smooth curve
-        /*double *Xnew,*Ynew,*Znew;
-          double d2x,d2y,d2z;
-
-          for(n=0;n<10000;n++)
-          {
-          for(t=0;t<NKh;t++)
-          {
-          d2x = X[NK+incp(t,1,NKh)] - 2*X[NK+t] + X[NK+incp(t,-1,NKh)];
-          d2y = Y[NK+incp(t,1,NKh)] - 2*Y[NK+t] + Y[NK+incp(t,-1,NKh)];
-          d2z = Z[NK+incp(t,1,NKh)] - 2*Z[NK+t] + Z[NK+incp(t,-1,NKh)];
-          X[NK+t] += 0.01*d2x;
-          Y[NK+t] += 0.01*d2y;
-          Z[NK+t] += 0.01*d2z;
-          }
-          }*/
-
-        for(t=0;t<NKh;t++)
-        {
-            dlx.push_back(0.5*(X[NK+incp(t,1,NKh)] - X[NK+incp(t,-1,NKh)]));   //central diff for tangent
-            dly.push_back(0.5*(Y[NK+incp(t,1,NKh)] - Y[NK+incp(t,-1,NKh)]));
-            dlz.push_back(0.5*(Z[NK+incp(t,1,NKh)] - Z[NK+incp(t,-1,NKh)]));
-        }
-        NK += NKh;
-        L += Lh;    //keep track of total length and npts to define link
-    }
-
-    ofstream oknotfile;
-
-    oknotfile.open("knotfile.vtk");
-
-    oknotfile << "# vtk DataFile Version 3.0\nKnotin\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-    oknotfile << "POINTS " << NK << " float\n";
-
-    for(t=0; t<NK; t++)
-    {
-        oknotfile << X[t] << ' ' << Y[t] << ' ' << Z[t] << '\n';
-    }
-
-    oknotfile.close();
-
-    return L;
-}
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
 {
     int i;
@@ -616,62 +412,11 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void initial_cond(double *phi, int* missed)
-{
-    if(option == FROM_KNOT_FILE)
-    {
-        int *ignore;  //Points to ignore
-        int *ignore1;
-        double *Bx;  //Mag field
-        double *By;
-        double *Bz;
-        double *Bmag;
-
-        ignore = new int [Nx*Ny*Nz];
-        ignore1 = new int [Nx*Ny*Nz];
-        Bx = new double [Nx*Ny*Nz];
-        By = new double [Nx*Ny*Nz];
-        Bz = new double [Nx*Ny*Nz];
-        Bmag = new double [Nx*Ny*Nz];
-
-        cout << "Calculating B field...\n";
-        time_t then = time(NULL);
-        B_field_calc(Bx, By, Bz, Bmag, ignore, ignore1, missed);
-        time_t now = time(NULL);
-        cout << "B field calc took " << now - then << " seconds.\n";
-        cout << "Calculating scalar potential...\n";
-        then = time(NULL);
-        phi_calc_B(Bx, By, Bz, Bmag, ignore, ignore1, missed, phi);
-        now = time(NULL);
-        cout << "Phi field calc took " << now - then << " seconds.\n";
-        cout << "Printing B and phi...\n";
-        print_B_phi(phi, missed);
-
-        delete [] ignore;
-        delete [] ignore1;
-        delete [] Bx;
-        delete [] By;
-        delete [] Bz;
-        delete [] Bmag;
-    }
-    else
-    {
-        cout << "Calculating scalar potential...\n";
-        time_t then = time(NULL);
-        phi_calc(phi);
-        time_t now = time(NULL);
-        cout << "Initialisation took " << now - then << " seconds.\n";
-        cout << "Printing B and phi...\n";
-        print_B_phi(phi, missed);
-    }
-}
-
 void phi_calc(double *phi)
 {
     int i,j,k,n,s;
     double rx,ry,rz,r;
-
-
+        cout << "Calculating scalar potential...\n";
 #pragma omp parallel default(none) shared ( knotsurface, phi, NK ) private ( i, j, k, n, s, rx, ry, rz , r)
     {
 #pragma omp for
@@ -697,6 +442,8 @@ void phi_calc(double *phi)
             }
         }
     }
+    cout << "Printing B and phi...\n";
+    print_B_phi(phi);
 
 }
 void phi_calc_manual(double *phi)
@@ -717,242 +464,13 @@ void phi_calc_manual(double *phi)
             }
         }
     }
-}
-void B_field_calc( double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed)
-{
-    int i,j,k,n,t;
-    double lx,ly,lz,lmag;
-    double coresize = lambda/(2*M_PI);
-
-#pragma omp parallel default(none) shared (  X, Y, Z, Bx, By, Bz, missed, Bmag, NK, coresize, ignore, ignore1, dlx, dly, dlz ) private ( i, j, k, n, t, lx, ly ,lz, lmag)
-    {
-#pragma omp for
-        for(i=0;i<Nx;i++)
-        {
-            for(j=0;j<Ny;j++)
-            {
-                for(k=0;k<Nz;k++)
-                {
-                    n = pt(i,j,k);    //3D counter
-                    Bx[n] = 0;
-                    By[n] = 0;
-                    Bz[n] = 0;
-                    missed[n] = 1;   //intialise
-                    for(t=0;t<NK;t++)  //integrate over line
-                    {
-                        lx = x(i)-X[t];    //distance to point on line
-                        ly = y(j)-Y[t];
-                        lz = z(k)-Z[t];
-                        lmag = sqrt(lx*lx + ly*ly + lz*lz);
-                        if (lmag < 2*coresize) ignore[n]=1;   //do not use these points first time
-                        if (lmag < 0.5*coresize) ignore1[n]=1; //do not use these at all
-                        Bx[n] += (ly*dlz[t] - lz*dly[t])/(2*lmag*lmag*lmag);
-                        By[n] += (lz*dlx[t] - lx*dlz[t])/(2*lmag*lmag*lmag);
-                        Bz[n] += (lx*dly[t] - ly*dlx[t])/(2*lmag*lmag*lmag);
-                    }
-                    Bmag[n] = sqrt(Bx[n]*Bx[n] + By[n]*By[n] + Bz[n]*Bz[n]);
-                }
-            }
-        }
-    }
-}
-
-void phi_calc_B(double *Bx, double *By, double *Bz, double *Bmag, int *ignore, int *ignore1, int *missed, double *phi)
-{
-    int i0=(Nx+1)/2;
-    int j0=(Ny+1)/2;   //base point for path integral
-    int k0=(Nz+1)/2;
-    int i[2],j[2],k[2],id,jd,kd,c1,c2,c3,pathlength,t,nt,ntm;
-    double Bxmid,Bymid,Bzmid;
-    int *pi,*pj,*pk;
-    int n = pt(i0,j0,k0);
-
-    missed[n]=0;  //matrix to store points where phi is not calculated
-    phi[n]=0;
-
-    pi = new int [Nx+Ny+Nz];
-    pj = new int [Nx+Ny+Nz];
-    pk = new int [Nx+Ny+Nz];
-
-    //#pragma omp parallel default(none) shared ( X, Y, Z, Bx, By, Bz, phi, ignore, ignore1, missed, Bmag, pi, pj, pk) private ( i, j, k, i0, j0, k0, id, jd, kd, n, c1, c2, c3, Bxmid, Bymid, Bzmid, t, nt, ntm, pathlength )
-    {
-        //#pragma omp for
-        for(id=0; id<(Nx+1)/2; id++)    //from zero to half grid points
-        {
-            for(jd=0; jd<(Ny+1)/2; jd++)
-            {
-                for(kd=0; kd<(Nz+1)/2; kd++)
-                {
-                    i[0] = id;
-                    i[1] = Nx-1-id;
-                    j[0] = jd;
-                    j[1] = Ny-1-jd;
-                    k[0] = kd;
-                    k[1] = Nz-1-kd;
-                    for(c1=0;c1<2;c1++)    //count inwards from corners
-                    {
-                        for(c2=0;c2<2;c2++)
-                        {
-                            for(c3=0;c3<2;c3++)
-                            {
-                                n = pt(i[c1],j[c2],k[c3]);
-
-                                if(missed[n]==1 && ignore[n]==0)
-                                {
-                                    pathlength = pathfind(i0,j0,k0,i[c1],j[c2],k[c3],pi,pj,pk,ignore,Bx,By,Bz,Bmag);  //find path to current point
-                                    for (t=1;t<=pathlength;t++)   //travel along path
-                                    {
-                                        nt = pt(pi[t],pj[t],pk[t]);     //this point
-                                        ntm = pt(pi[t-1],pj[t-1],pk[t-1]); //prev pt
-                                        Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
-                                        Bymid = 0.5*(By[nt]+By[ntm]);   //midpoint
-                                        Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
-                                        phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));    //integrate along
-                                        missed[nt]=0;
-                                        while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
-                                        while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        //#pragma omp for
-        for(id=0; id<Nx; id++)    //fill in ignore points but not ignore1
-        {
-            for(jd=0; jd<Ny; jd++)
-            {
-                for(kd=0; kd<Nz; kd++)
-                {
-                    n = pt(id,jd,kd);
-                    if(ignore1[n]==0 && missed[n]==1)
-                    {
-                        pathlength = pathfind(i0,j0,k0,id,jd,kd,pi,pj,pk,ignore1,Bx,By,Bz,Bmag);
-                        for (t=1;t<=pathlength;t++)
-                        {
-                            nt = pt(pi[t],pj[t],pk[t]);
-                            ntm = pt(pi[t-1],pj[t-1],pk[t-1]);
-                            Bxmid = 0.5*(Bx[nt]+Bx[ntm]);
-                            Bymid = 0.5*(By[nt]+By[ntm]);
-                            Bzmid = 0.5*(Bz[nt]+Bz[ntm]);
-                            phi[nt] = phi[ntm] + h*(Bxmid*(pi[t]-pi[t-1]) + Bymid*(pj[t]-pj[t-1]) + Bzmid*(pk[t]-pk[t-1]));
-                            missed[nt]=0;
-                            while(phi[nt]>M_PI) phi[nt] -= 2*M_PI;
-                            while(phi[nt]<-M_PI) phi[nt] += 2*M_PI;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    delete [] pi;
-    delete [] pj;
-    delete [] pk;
-}
-int pathfind(int i0, int j0, int k0, int ie, int je, int ke, int *pi, int *pj, int *pk, int *ignore, double *Bx, double *By, double *Bz, double *Bmag)
-{
-    int io,jo,ko,ip,jp,kp,n,np,nu,go,stop,t=0;
-    int *track;
-    double MAX,weight1,weight2;
-    track = new int [Nx*Ny*Nz];
-
-    fill(track,track+Nx*Ny*Nz,0);
-
-    pi[0] = i0;    //starting point for path
-    pj[0] = j0;
-    pk[0] = k0;
-    int di = ie - i0;
-    int dj = je - j0;
-    int dk = ke - k0;   //distance to go to final point
-
-    while (t<Nx+Ny+Nz && (abs(di)>0 || abs(dj)>0 || abs(dk)>0))  //until reaches end of path or path too long
-    {
-        n = pt(pi[t],pj[t],pk[t]);
-        nu = pt(pi[t]+sign(di),pj[t]+sign(dj),pk[t]+sign(dk));  //check direct route
-        if(ignore[nu] + track[nu]==0)  //if next space is available
-        {
-            pi[t+1] = pi[t] + sign(di);
-            pj[t+1] = pj[t] + sign(dj);
-            pk[t+1] = pk[t] + sign(dk);
-            t++;   //move to next point
-            n = pt(pi[t],pj[t],pk[t]);
-            track[n]=1;
-        }
-        else
-        {
-            MAX = -10;    //compare point values
-            go = 0;
-            for(ip=-1; ip<2; ip++)
-            {
-                for(jp=-1; jp<2; jp++)
-                {
-                    for(kp=-1; kp<2; kp++)  //check all neighbours
-                    {
-                        np = pt(pi[t]+ip,pj[t]+jp,pk[t]+kp);
-                        if(pi[t]+ip<Nx && pi[t]+ip>0 && pj[t]+jp<Ny && pj[t]+jp>0 && pk[t]+kp<Nz && pk[t]+kp>0) //If it is in the simulation box
-                        {
-                            stop = ignore[np] + track[np];  //not allowed to visit ignore points or previously visited points
-                        }
-                        else stop = 1;
-                        if(stop==0)
-                        {
-                            go=1;
-                            //weigting for which point to favour
-                            //direction of final point weighting
-                            weight1 = (di*ip + dj*jp + dk*kp)/(sqrt(di*di + dj*dj + dk*dk)*sqrt(ip*ip + jp*jp + kp*kp));
-                            //direction of B field weighting (helps to choose a direction around a barrier)
-                            weight2 = (Bx[np]*ip + By[np]*jp + Bz[np]*kp)/(Bmag[np]*sqrt(ip*ip + jp*jp + kp*kp));
-                            if(weight1 + weight2 > MAX)
-                            {
-                                MAX = weight1+weight2;
-                                io = ip;
-                                jo = jp;    //store the most favourable point
-                                ko = kp;
-                                n = pt(pi[t],pj[t],pk[t]);
-                                track[n]=1;  //track points visited
-                            }
-                        }
-                    }
-                }
-            }
-            if(go==1)   //found a point to move to
-            {
-                pi[t+1] = pi[t]+io;
-                pj[t+1] = pj[t]+jo;
-                pk[t+1] = pk[t]+ko;
-                t++;   //move to next point
-            }
-            else
-            {
-                if(t==0)
-                {
-                    cout << "Could not find path to" << ie << ' ' << je << ' ' << ke << endl;
-                    return 0;
-                }
-                else
-                {
-                    t--;  //go back to refind previous point
-                }
-            }
-        }
-        di = ie - pi[t];
-        dj = je - pj[t];
-        dk = ke - pk[t];
-    }
-
-    if (t==Nx+Ny+Nz) t=0; //couldn't find path
-
-    delete [] track;
-
-    return t;
+    cout << "Printing B and phi...\n";
+    print_B_phi(phi);
 }
 
 /*************************Functions for FN dynamics*****************************/
 
-void uv_initialise(double *phi, double *u, double *v, int* missed)
+void uv_initialise(double *phi, double *u, double *v)
 {
     int n;
 
@@ -960,11 +478,6 @@ void uv_initialise(double *phi, double *u, double *v, int* missed)
     {
         u[n] = (2*cos(phi[n]) - 0.4);
         v[n] = (sin(phi[n]) - 0.4);
-        if(option==FROM_KNOT_FILE && missed[n]==1)
-        {
-            u[n] = -0.4;
-            v[n] = -0.4;
-        }
     }
 }
 
@@ -1618,62 +1131,6 @@ void uv_update(double *u, double *v,  double *ku, double *kv)
 
 }
 
-void uv_add(double *u, double *v, double* uold, double *vold, double *ku, double *kv, double *kut, double *kvt, double inc, double coeff)
-{
-    int i,j,k,n;
-
-#pragma omp for
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)  //update
-            {
-                n = pt(i,j,k);
-                u[n] = uold[n] + dtime*inc*ku[n];
-                v[n] = vold[n] + dtime*inc*kv[n];
-                kut[n] += coeff*ku[n];
-                kvt[n] += coeff*kv[n];
-            }
-        }
-    }
-
-}
-
-void uv_update_euler(double *u, double *v, double *D2u)
-{
-    int i,j,k,l,n,kup,kdown;
-
-#pragma omp for
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)
-            {
-                n = pt(i,j,k);
-                kup = gridinc(k,1,Nz,2);
-                kdown = gridinc(k,-1,Nz,2);
-                D2u[n] = (u[pt(gridinc(i,1,Nx,0),j,k)] + u[pt(gridinc(i,-1,Nx,0),j,k)] + u[pt(i,gridinc(j,1,Ny,1),k)] + u[pt(i,gridinc(j,-1,Ny,1),k)] + u[pt(i,j,kup)] + u[pt(i,j,kdown)] - 6*u[n])/(h*h);
-            }
-        }
-    }
-
-#pragma omp for
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)
-            {
-                n = pt(i,j,k);
-                u[n] = u[n] + dtime*((u[n] - u[n]*u[n]*u[n]/3 - v[n])/epsilon + D2u[n]);
-                v[n] = v[n] + dtime*(epsilon*(u[n] + beta - gam*v[n]));
-            }
-        }
-    }
-}
-
 /*************************File reading and writing*****************************/
 
 void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, double t)
@@ -1735,7 +1192,7 @@ void print_uv( double *u, double *v, double *ucvx, double *ucvy, double *ucvz, d
     uvout.close();
 }
 
-void print_B_phi( double *phi, int* missed)
+void print_B_phi( double *phi)
 {
     int i,j,k,n;
     string fn = "phi.vtk";
@@ -1759,23 +1216,6 @@ void print_B_phi( double *phi, int* missed)
             }
         }
     }
-
-    if(option==FROM_KNOT_FILE)
-    {
-        Bout << "\n\nSCALARS Missed int\nLOOKUP_TABLE default\n";
-        for(k=0; k<Nz; k++)
-        {
-            for(j=0; j<Ny; j++)
-            {
-                for(i=0; i<Nx; i++)
-                {
-                    n = pt(i,j,k);
-                    Bout << missed[n] << '\n';
-                }
-            }
-        }
-    }
-
     Bout.close();
 }
 
@@ -2180,185 +1620,3 @@ inline double z(int i)
 {
     return (i+0.5-Nz/2.0)*h;
 }
-/*******Erase some points********/
-
-// for(s=0; s<NP%8; s++) knotcurve.pop_back();    //delete last couple of elements
-// for(s=0; s<NP/8; s++)                          //delete 7 of every 8 elements
-// {
-//     knotcurve.erase(knotcurve.end()-s-8,knotcurve.end()-s-1);
-// }
-
-/********************************/
-
-//NP = knotcurves[c].size();  //update number of points in knot curve
-// intersect3D_SegmentPlane(): find the 3D intersection of a segment and a plane
-//    Input:  S = a segment, and Pn = a plane = {Point V0;  Vector n;}
-//    Output: *I0 = the intersect point (when it exists)
-//    Return: 0 = disjoint (no intersection)
-//            1 =  intersection in the unique point *I0
-//            2 = the  segment lies in the plane
-//~ int
-//~ intersect3D_SegmentPlane( Segment S, Plane Pn, Point* I )
-//~ {
-//~ Vector    u = S.P1 - S.P0;
-//~ Vector    w = S.P0 - Pn.V0;
-//~ float     D = dot(Pn.n, u);
-//~ float     N = -dot(Pn.n, w);
-//~ if (fabs(D) < SMALL_NUM) {           // segment is parallel to plane
-//~ if (N == 0)                      // segment lies in plane
-//~ return 2;
-//~ else
-//~ return 0;                    // no intersection
-//~ }
-//~ // they are not parallel
-//~ // compute intersect param
-//~ float sI = N / D;
-//~ if (sI < 0 || sI > 1)
-//~ return 0;                        // no intersection
-//~ *I = S.P0 + sI * u;                  // compute segment intersect point
-//~ return 1;
-//~ }
-/*********Naive FT doesn't work**********/
-/*double *kxp, *kyp, *kzp, *kxpi, *kypi, *kzpi;
-  int kmax;
-
-  if(0.5*lambda/M_PI > totlength/NP)
-  {
-  kmax = ((int) (totlength*2*M_PI/lambda));  //Ignore oscillations of higher freq than 2pi/core diameter
-  cout << "kmax: " << kmax << " NP: " << NP << '\n';
-  kxp = new double [NP];
-  kyp = new double [NP];
-  kzp = new double [NP];
-  kxpi = new double [NP];
-  kypi = new double [NP];
-  kzpi = new double [NP];
-  for(k=0; k<kmax; k++)
-  {
-  kxp[k] = 0;
-  kxpi[k] = 0;
-  kyp[k] = 0;
-  kypi[k] = 0;
-  kzp[k] = 0;
-  kzpi[k] = 0;
-  for(s=0; s<NP; s++)
-  {
-  kxp[k] += knotcurve[s].xcoord*cos(2*M_PI*s*k/NP);
-  kxpi[k] += knotcurve[s].xcoord*sin(2*M_PI*s*k/NP);
-  kyp[k] += knotcurve[s].ycoord*cos(2*M_PI*s*k/NP);
-  kypi[k] += knotcurve[s].ycoord*sin(2*M_PI*s*k/NP);
-  kzp[k] += knotcurve[s].zcoord*cos(2*M_PI*s*k/NP);
-  kzpi[k] += knotcurve[s].zcoord*sin(2*M_PI*s*k/NP);
-  }
-  }
-
-  double px, py, pz;
-
-  for(s=0; s<NP; s++)
-  {
-  px = 0;
-  py = 0;
-  pz = 0;
-  for(k=0; k<kmax; k++)
-  {
-  px += (kxp[k]*cos(2*M_PI*s*k/NP) + kxpi[k]*sin(2*M_PI*s*k/NP))/kmax;
-  py += (kyp[k]*cos(2*M_PI*s*k/NP) + kypi[k]*sin(2*M_PI*s*k/NP))/kmax;
-  pz += (kzp[k]*cos(2*M_PI*s*k/NP) + kzpi[k]*sin(2*M_PI*s*k/NP))/kmax;
-  }
-  knotcurve[s].xcoord = px;
-  knotcurve[s].ycoord = py;
-  knotcurve[s].zcoord = pz;
-  }
-
-  cout << knotcurve.size() << '\n';
-
-  delete [] kxp;
-  delete [] kyp;
-  delete [] kzp;
-  delete [] kxpi;
-  delete [] kypi;
-  delete [] kzpi;
-  }/*
-
-/*******************************/
-/* compute velocity vector, spin rate */
-// Following Winfree (1990) review, we take the current arc, and look for where it punctures the local normal of the previous arc - this connects the two slightly
-// displaced curves together, and tells us how to compute spin rate, and velocity of the filament with finite differences between these pairs.
-// Practically, we have two vectors of possibly different lengths, representing an ordered bunch of segments forming the filaments.
-// We know the curves are very similar - by aligning them initially (ie finding the same "start point" on each curve), then  travelling fractions of total arc length along them,
-// we know we will be in roughly the same on each - thus we only need test a few segments for the desired interesection.
-/*
-   static bool first = true;
-
-   if (!first)
-   {
-
-   int NPold = knotcurveold.size();
-
-// align the two curves. minlocation will give the offset on the new curve.
-double minlength =  (knotcurve[0].xcoord - knotcurveold[0].xcoord)*(knotcurve[0].xcoord - knotcurveold[0].xcoord) + (knotcurve[0].ycoord - knotcurveold[0].ycoord) * (knotcurve[0].ycoord - knotcurveold[0].ycoord) +  (knotcurve[0].zcoord - knotcurveold[0].zcoord) * (knotcurve[0].zcoord - knotcurveold[0].zcoord);
-double templength = -1;
-int offset = 0;
-for(s = 1; s< NP; s++)
-{
-templength = (knotcurve[s].xcoord - knotcurveold[0].xcoord)*(knotcurve[s].xcoord - knotcurveold[0].xcoord) + (knotcurve[s].ycoord - knotcurveold[0].ycoord) * (knotcurve[s].ycoord - knotcurveold[0].ycoord) +  (knotcurve[s].zcoord - knotcurveold[0].zcoord) * (knotcurve[s].zcoord - knotcurveold[0].zcoord);
-if (templength < minlength)
-{
-minlength = templength;
-offset = s;
-}
-}
-
-bool intersection = false;
-double IntersectionFraction =-1;
-std::vector<double> IntersectionPoint(3);
-for(s = 0; s< knotcurveold.size(); s++)
-{
-intersection = false;
-m = s + offset;
-int stepnum = 0;
-while(!intersection)
-{
-intersection = intersect3D_SegmentPlane( knotcurve[m%NP], knotcurve[(m+1)%NP], knotcurveold[s%NPold], knotcurveold[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
-if(intersection) break;
-stepnum++;
-stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
-
-}
-// linear interpolation of twist rate
-double axinterpolated = knotcurve[(m+1)%NP].ax*IntersectionFraction + knotcurve[m%NP].ax*(1-IntersectionFraction);
-double ayinterpolated = knotcurve[(m+1)%NP].ay*IntersectionFraction + knotcurve[m%NP].ay*(1-IntersectionFraction);
-double azinterpolated = knotcurve[(m+1)%NP].az*IntersectionFraction + knotcurve[m%NP].az*(1-IntersectionFraction);
-
-// remove tangential part of a
-
-double ax = (axinterpolated - knotcurveold[s].ax);
-double ay = (axinterpolated - knotcurveold[s].ay);
-double az = (axinterpolated - knotcurveold[s].az);
-
-double nx  =  knotcurveold[(s+1)%NPold].xcoord - knotcurveold[s%NPold].xcoord;
-double ny  =  knotcurveold[(s+1)%NPold].ycoord - knotcurveold[s%NPold].ycoord;
-double nz  =  knotcurveold[(s+1)%NPold].zcoord - knotcurveold[s%NPold].zcoord;
-
-double proj = (ax*nx+ay*ny+az*nz)/(nx*nx+ny*ny+nz*nz);
-
-ax = ax - proj*nx;
-ay = ay - proj*ny;
-az = ax - proj*nz;
-
-norm = sqrt(ax*ax+ay*ay+az*az);
-
-ax = ax/norm;
-ay = ay/norm;
-az = az/norm;
-
-// work out velocity and twist rate
-knotcurveold[s].vx = (IntersectionPoint[0] - knotcurveold[s].xcoord )/ dtime;
-knotcurveold[s].vy = (IntersectionPoint[1] - knotcurveold[s].ycoord )/ dtime;
-knotcurveold[s].vz = (IntersectionPoint[2] - knotcurveold[s].zcoord )/ dtime;
-
-knotcurveold[s].spinrate = ((ax - knotcurveold[s].ax)/dtime)*((ax - knotcurveold[s].ax)/dtime) + ((ay - knotcurveold[s].ay)/dtime)*((ay - knotcurveold[s].ay)/dtime) + ((az - knotcurveold[s].az)/dtime)*((az - knotcurveold[s].az)/dtime);
-
-}
-}
-first = false;
-* */
