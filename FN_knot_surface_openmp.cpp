@@ -57,8 +57,8 @@ string B_filename = "uv_plot1000.vtk";    //filename for phi field or uv field
 const int initialNx = 325;   //No. points in x,y and z
 const int initialNy = 325;
 const int initialNz = 325;
-const double TTime = 1000;       //total time of simulation (simulation units)
-const double skiptime = 30;       //print out every # unit of time (simulation units)
+const double TTime = 1010;       //total time of simulation (simulation units)
+const double skiptime = 1;       //print out every # unit of time (simulation units)
 const double starttime =1000;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
@@ -1491,9 +1491,9 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
     int imidpoint = (imin+imax)/2;
     int jmidpoint = (jmin+jmax)/2;
     int kmidpoint = (kmin+kmax)/2;
-// this scale factor scales the distance from the midpoint that we cut out. a scale factor of 1 gives -N/2 to N/2, ie just capturing the knot
-// we want it bigger than that really
-    double scale = 1.7;
+    // this scale factor scales the distance from the midpoint that we cut out. a scale factor of 1 gives -N/2 to N/2, ie just capturing the knot
+    // we want it bigger than that really
+    double scale = 2.4;
     int distance = int( ceil(scale*(((double)N)/2.0)) );
     imax = imidpoint+distance;
     imin = imidpoint-distance;
@@ -1536,7 +1536,93 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
     v = vtemp;
     // finally, reset the grid data to the new griddata
     oldgriddata = newgriddata;
+    print_uv(u,v,ucvx,ucvy,ucvz,-2,oldgriddata);
+    extractinnershell(u,v,oldgriddata);
     print_uv(u,v,ucvx,ucvy,ucvz,-1,oldgriddata);
+}
+void extractinnershell(vector<double>&u,vector<double>&v,const griddata& griddata)
+{
+    // the marked array has the following values
+    // 0 - not evaluated 
+    // 1 - a boundary, to be grown 
+    // 2 - the interrior, already grown
+    // 3 - a temporary state, marked as a boundary during the update
+
+    // the critical value of u we will make the boundary
+    double ucrit = 1;
+
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    std::vector<int>marked(u.size(),0);
+    for(int i=0;i<Nx;i++)
+    {
+        for(int j=0; j<Ny; j++)
+        {
+            for(int k=0; k<Nz; k++)   //Central difference
+            {
+                int n = pt(i,j,k,griddata);
+                if(i==0||i==Nx-1||j==0||j==Ny-1||k==0||k==Nz-1 && u[n]>ucrit) marked[n] =1;
+            }
+        }
+    }
+    bool stillboundaryleft = true;
+    while(stillboundaryleft)
+    {
+        grow(u,marked,ucrit,griddata);
+        stillboundaryleft = false;
+        for(int n = 0; n<u.size();n++)
+        {
+            if(marked[n]==1) stillboundaryleft =true;
+        }
+
+    }
+    for(int n = 0; n<u.size();n++)
+    {
+        if(marked[n]==2) u[n] = -1.03; v[n] = -0.66;
+    }
+// okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
+}
+void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
+{
+// the marked array has the following values
+// 0 - not evaluated 
+// 1 - a boundary, to be grown 
+// 2 - the interrior, already grown
+// 3 - a temporary state, marked as a boundary during the update
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    for(int i=0;i<Nx;i++)
+    {
+        for(int j=0; j<Ny; j++)
+        {
+            for(int k=0; k<Nz; k++)   //Central difference
+            {
+                int n = pt(i,j,k,griddata);
+                if(marked[n] ==1)
+                {
+
+                    for(int iinc=-1;iinc<=1;iinc++)
+                    {
+                        for(int jinc=-1; jinc<=1; jinc++)
+                        {
+                            for(int kinc=-1; kinc<=1; kinc++)   //Central difference
+                            {
+                                    int neighboringn = pt(incabsorb(i,iinc,Nx),incabsorb(j,jinc,Ny),incabsorb(k,kinc,Nz),griddata);
+                                    if(marked[neighboringn] == 0 && u[neighboringn] > ucrit) marked[neighboringn] = 3;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for(int n = 0; n<u.size();n++)
+    {
+        if(marked[n]==1)marked[n] =2;
+        if(marked[n]==3)marked[n] =1;
+    }
 }
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
@@ -1687,6 +1773,12 @@ inline int incw(int i, int p, int N)    //increment with reflecting boundary bet
     return (i+p);
 }
 
+inline int incabsorb(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+{
+    if(i+p<0) return (0);
+    if(i+p>N-1) return (N-1);
+    return (i+p);
+}
 // this function is specifically designed to incremenet, in the direction specified, respecting the boundary conditions, which are global enums
 inline int gridinc(int i, int p, int N, int direction )    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {

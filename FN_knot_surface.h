@@ -120,3 +120,9 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
 int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,vector<int>& permutation,const griddata& griddata);
 int uvfile_read(vector<double>&u,vector<double>&v,const griddata& griddata);
+
+// things for the grown function
+
+inline int incabsorb(int i, int p, int N);
+void extractinnershell(vector<double>&u,vector<double>&v,const griddata& griddata);
+void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata);
