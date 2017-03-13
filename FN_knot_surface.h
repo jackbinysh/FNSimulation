@@ -115,6 +115,7 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
 
 /*************************File reading and writing*****************************/
 
+void print_marked( vector<int>&marked, const griddata& griddata);
 void print_B_phi( vector<double>&phi,const griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t,const griddata& griddata);
 int phi_file_read(vector<double>&phi,const griddata& griddata);

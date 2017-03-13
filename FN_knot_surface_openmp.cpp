@@ -57,8 +57,8 @@ string B_filename = "uv_plot1000.vtk";    //filename for phi field or uv field
 const int initialNx = 325;   //No. points in x,y and z
 const int initialNy = 325;
 const int initialNz = 325;
-const double TTime = 1010;       //total time of simulation (simulation units)
-const double skiptime = 1;       //print out every # unit of time (simulation units)
+const double TTime = 1050;       //total time of simulation (simulation units)
+const double skiptime = 10;       //print out every # unit of time (simulation units)
 const double starttime =1000;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
@@ -1129,6 +1129,37 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 
 /*************************File reading and writing*****************************/
 
+void print_marked( vector<int>&marked, const griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    int i,j,k,n;
+    stringstream ss;
+    ss << "marked.vtk";
+    ofstream uvout (ss.str().c_str());
+
+    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
+    uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
+    uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
+    uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
+    uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
+    uvout << "SCALARS marked float\nLOOKUP_TABLE default\n";
+
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k,griddata);
+                uvout << marked[n] << '\n';
+            }
+        }
+    }
+    uvout.close();
+}
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t, const griddata& griddata)
 {
     int Nx = griddata.Nx;
@@ -1549,7 +1580,7 @@ void extractinnershell(vector<double>&u,vector<double>&v,const griddata& griddat
     // 3 - a temporary state, marked as a boundary during the update
 
     // the critical value of u we will make the boundary
-    double ucrit = 1;
+    double ucrit = -0.5;
 
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1579,9 +1610,10 @@ void extractinnershell(vector<double>&u,vector<double>&v,const griddata& griddat
     }
     for(int n = 0; n<u.size();n++)
     {
-        if(marked[n]==2) u[n] = -1.03; v[n] = -0.66;
+        if(marked[n]==2){ u[n] = -1.03; v[n] = -0.66;}
     }
 // okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
+    print_marked(marked,griddata);
 }
 void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
 {
@@ -1620,8 +1652,8 @@ void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata&
     }
     for(int n = 0; n<u.size();n++)
     {
-        if(marked[n]==1)marked[n] =2;
-        if(marked[n]==3)marked[n] =1;
+        if(marked[n]==1){marked[n] =2;}
+        if(marked[n]==3){marked[n] =1;}
     }
 }
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
