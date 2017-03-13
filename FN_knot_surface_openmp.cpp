@@ -58,7 +58,7 @@ const int initialNx = 325;   //No. points in x,y and z
 const int initialNy = 325;
 const int initialNz = 325;
 const double TTime = 1050;       //total time of simulation (simulation units)
-const double skiptime = 5;       //print out every # unit of time (simulation units)
+const double skiptime = 100;       //print out every # unit of time (simulation units)
 const double starttime =1000;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
@@ -157,8 +157,7 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-    bool resizeflag = false;
-#pragma omp parallel default(none) shared (resizeflag,u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,minimizerstate,griddata)
     {
         while(n*dtime <= TTime)
         {
@@ -172,14 +171,13 @@ int main (void)
                     cout << "current time \t" << asctime(timeinfo) << "\n";
 
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
-                    if(n*dtime+starttime>=5 && !resizeflag )
+                    if(n*dtime+starttime>=1601)
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
-                    if(abs(n*dtime+starttime -1000)<0.0001)
+                    if( ( abs(n*dtime+starttime) < 1501 && (int)abs(n*dtime+starttime))%100 == 0) 
                     {
                         resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
-                        resizeflag = true;
                     }
                     q++;
                 }
@@ -1506,7 +1504,6 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
     {
         if(marked[n]==-2){marked[n]=shelllabel; }
     }
-    print_marked(marked,shelllabel,oldgriddata);
     shelllabel++;
 
     bool hitinnershell = false;
@@ -1540,7 +1537,6 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
                 if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
             }
         }
-        print_marked(marked,shelllabel,oldgriddata);
         if(!hitinnershell)shelllabel++;
     }
     // at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
@@ -1611,7 +1607,6 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
     v = vtemp;
     // finally, reset the grid data to the new griddata
     oldgriddata = newgriddata;
-    print_uv(u,v,ucvx,ucvy,ucvz,-1,oldgriddata);
 }
 void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata)
 {
