@@ -58,7 +58,7 @@ const int initialNx = 325;   //No. points in x,y and z
 const int initialNy = 325;
 const int initialNz = 325;
 const double TTime = 1050;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double skiptime = 5;       //print out every # unit of time (simulation units)
 const double starttime =1000;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
 
@@ -1129,14 +1129,14 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 
 /*************************File reading and writing*****************************/
 
-void print_marked( vector<int>&marked, const griddata& griddata)
+void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
     int i,j,k,n;
     stringstream ss;
-    ss << "marked.vtk";
+    ss << shelllabel<< "marked.vtk";
     ofstream uvout (ss.str().c_str());
 
     uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
@@ -1480,12 +1480,12 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
 
     return 0;
 }
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& griddata)
+void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata)
 {
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    double ucrit = -0.5;
+    int Nx = oldgriddata.Nx;
+    int Ny = oldgriddata.Ny;
+    int Nz = oldgriddata.Nz;
+    double ucrit = -1.2;
     // first of all, take off the boundary; we set up the marked array to have 1's on the boudary of the box 
     std::vector<int>marked(u.size(),0);
     int shelllabel=1;
@@ -1495,91 +1495,125 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
         {
             for(int k=0; k<Nz; k++)   //Central difference
             {
-                int n = pt(i,j,k,griddata);
+                int n = pt(i,j,k,oldgriddata);
                 if(i==0||i==Nx-1||j==0||j==Ny-1||k==0||k==Nz-1 && u[n]>ucrit) marked[n] =-1;
             }
         }
     }
     // okay , grow the shell
-    growshell(u,marked,ucrit, griddata);
+    growshell(u,marked,ucrit, oldgriddata);
     for(int n = 0; n<u.size();n++)
     {
         if(marked[n]==-2){marked[n]=shelllabel; }
     }
+    print_marked(marked,shelllabel,oldgriddata);
     shelllabel++;
 
-bool hitinnershell = false;
-while(!hitinnershell)
-{
-    // now we have no shells intersecting the boundary, but there may still be multiple shells before the knot; lets remove them one by one
-    // to begin with , just grab some point on the outer shell
-    int imax = -1;
-    int jmax = -1;
-    int kmax = -1;
-    for(int i=0;i<Nx;i++)
+    bool hitinnershell = false;
+    while(!hitinnershell)
     {
-        for(int j=0; j<Ny; j++)
+        int imax,jmax,kmax;
+         imax = -1;
+         jmax = -1;
+         kmax = -1;
+        // now we have no shells intersecting the boundary, but there may still be multiple shells before the knot; lets remove them one by one
+        // to begin with , just grab some point on the outer shell
+        for(int i=0;i<Nx;i++)
         {
-            for(int k=0; k<Nz; k++)   //Central difference
+            for(int j=0; j<Ny; j++)
             {
-                int n = pt(i,j,k,griddata);
-                if(u[n]>ucrit &&marked[n]==0 && i>imax && j>jmax && kmax) {imax = i ; jmax = j; kmax = k;}
+                for(int k=0; k<Nz; k++)   //Central difference
+                {
+                    int n = pt(i,j,k,oldgriddata);
+                    if(u[n]>ucrit &&marked[n]==0 && i>imax && j>jmax && k> kmax) {imax = i ; jmax = j; kmax = k;}
+                }
+            }
+        }
+        marked[pt(imax,jmax,kmax,oldgriddata)] = -1;
+        // now grow the shell from here
+        growshell(u,marked,ucrit, oldgriddata);
+        for(int n = 0; n<u.size();n++)
+        {
+            if(marked[n]==-2)
+            {
+                marked[n]=shelllabel;
+                if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
+            }
+        }
+        print_marked(marked,shelllabel,oldgriddata);
+        if(!hitinnershell)shelllabel++;
+    }
+    // at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
+    // we want to stip off all but the innermost shell
+    // set everything outside this inner shell to the fixed point values 
+    for(int n = 0; n<u.size();n++)
+    {
+        if(marked[n]>0 &&marked[n]<shelllabel){ u[n] = -1.03; v[n] = -0.66;}
+    }
+    // find the hull of the inner shell
+    int imax = 0;
+    int jmax = 0; 
+    int kmax =0;
+    int imin = Nx;
+    int jmin =Ny; 
+    int kmin =Nz; 
+    for(int i = 0; i<Nx;i++)
+    {
+        for(int j = 0; j<Ny;j++)
+        {
+            for(int k = 0; k<Nz;k++)
+            {
+                if(marked[pt(i,j,k,oldgriddata)] == shelllabel)
+                {
+                    if(i>imax) imax = i;
+                    if(j>jmax) jmax = j;
+                    if(k>kmax) kmax = k;
+                    if(i<imin) imin = i;
+                    if(j<jmin) jmin = j;
+                    if(k<kmin) kmin = k;
+                }
             }
         }
     }
-    marked[pt(imax,jmax,kmax,griddata)] = -1;
-    // now grow the shell from here
-    growshell(u,marked,ucrit, griddata);
-    for(int n = 0; n<u.size();n++)
+    // we have our box dimensions in the ijk max min values already
+    int deltai = imax - imin;
+    int deltaj = jmax - jmin;
+    int deltak = kmax - kmin;
+    int N = (deltai<deltaj) ? deltaj:deltai;
+    N = (N < deltak) ? deltak:N;
+
+    griddata newgriddata;
+    newgriddata.Nx = newgriddata.Ny = newgriddata.Nz = N;
+    vector<double>utemp(N*N*N);
+    vector<double>vtemp(N*N*N);
+    for(int i = 0; i<N;i++)
     {
-        if(marked[n]==-2)
+        for(int j = 0; j<N;j++)
         {
-            marked[n]=shelllabel;
-            if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
-         }
-    }
-    if(!hitinnershell)shelllabel++;
-}
-
-// at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
-// we want to stip off all but the two innermost shells.
-        for(int n = 0; n<u.size();n++)
-        {
-            if(marked[n]>0 &&marked[n]<shelllabel-1){ u[n] = -1.03; v[n] = -0.66;}
+            for(int k = 0; k<N;k++)
+            {
+                utemp[pt(i,j,k,newgriddata)] = u[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+                vtemp[pt(i,j,k,newgriddata)] = v[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+            }
         }
-
-//    // okay great, we have our box dimensions
-//    // first of all, we can simply resize the ucvx data, since it gets recalculated anyhow
-//    ucvx.resize(newarraysize*newarraysize*newarraysize);
-//    ucvy.resize(newarraysize*newarraysize*newarraysize);
-//    ucvz.resize(newarraysize*newarraysize*newarraysize);
-//    // better resize our scratchpad too
-//    ku.resize(4*newarraysize*newarraysize*newarraysize);
-//    kv.resize(4*newarraysize*newarraysize*newarraysize);
-//    // for the u v data, we cut out the region of interest
-//    vector<double>utemp(newarraysize*newarraysize*newarraysize);
-//    vector<double>vtemp(newarraysize*newarraysize*newarraysize);
-//    for(int i = 0; i<newarraysize;i++)
-//    {
-//        for(int j = 0; j<newarraysize;j++)
-//        {
-//            for(int k = 0; k<newarraysize;k++)
-//            {
-//                utemp[pt(i,j,k,newgriddata)] = u[pt(imin+i,jmin+j,kmin+k,griddata)] ;
-//                vtemp[pt(i,j,k,newgriddata)] = v[pt(imin+i,jmin+j,kmin+k,griddata)] ;
-//            }
-//        }
-//    }
-//    // okay the data is safely stored in the temp arrays, lets trash u and v
-//    u.resize(newarraysize*newarraysize*newarraysize);
-//    v.resize(newarraysize*newarraysize*newarraysize);
-//    u = utemp;
-//    v = vtemp;
-//    // finally, reset the grid data to the new griddata
-//    griddata = newgriddata;
-    print_uv(u,v,ucvx,ucvy,ucvz,-1,griddata);
+    }
+    // first of all, we can simply resize the ucvx data, since it gets recalculated anyhow
+    ucvx.resize(N*N*N);
+    ucvy.resize(N*N*N);
+    ucvz.resize(N*N*N);
+    // better resize our scratchpad too
+    ku.resize(4*N*N*N);
+    kv.resize(4*N*N*N);
+    // the data is safely stored in the temp arrays, lets trash u and v
+    u.resize(N*N*N);
+    v.resize(N*N*N);
+    u = utemp;
+    v = vtemp;
+    // finally, reset the grid data to the new griddata
+    oldgriddata = newgriddata;
+    print_uv(u,v,ucvx,ucvy,ucvz,-1,oldgriddata);
 }
-void growshell(vector<double>&u,vector<int> marked,double ucrit, const griddata& griddata)
+void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata)
 {
     bool stillboundaryleft = true;
     while(stillboundaryleft)
@@ -1588,21 +1622,20 @@ void growshell(vector<double>&u,vector<int> marked,double ucrit, const griddata&
         stillboundaryleft = false;
         for(int n = 0; n<u.size();n++)
         {
-            if(marked[n]==1) stillboundaryleft =true;
+            if(marked[n]==-1) stillboundaryleft =true;
         }
 
     }
-// okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
-    print_marked(marked,griddata);
+    // okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
 }
 void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
 {
-// the marked array has the following values
-// 0 - not evaluated 
-// -1 - a boundary, to be grown 
-// -2 - the interrior, already grown
-// -3 - a temporary state, marked as a boundary during the update
-// positive numbers - layers of shells already marked
+    // the marked array has the following values
+    // 0 - not evaluated 
+    // -1 - a boundary, to be grown 
+    // -2 - the interrior, already grown
+    // -3 - a temporary state, marked as a boundary during the update
+    // positive numbers - layers of shells already marked
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
@@ -1622,8 +1655,8 @@ void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata&
                         {
                             for(int kinc=-1; kinc<=1; kinc++)   //Central difference
                             {
-                                    int neighboringn = pt(incabsorb(i,iinc,Nx),incabsorb(j,jinc,Ny),incabsorb(k,kinc,Nz),griddata);
-                                    if(marked[neighboringn] == 0 && u[neighboringn] > ucrit) marked[neighboringn] = -3;
+                                int neighboringn = pt(incabsorb(i,iinc,Nx),incabsorb(j,jinc,Ny),incabsorb(k,kinc,Nz),griddata);
+                                if(marked[neighboringn] == 0 && u[neighboringn] > ucrit) marked[neighboringn] = -3;
                             }
                         }
                     }
