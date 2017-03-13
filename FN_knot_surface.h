@@ -111,7 +111,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
+void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& griddata);
 
 /*************************File reading and writing*****************************/
 
@@ -125,5 +125,5 @@ int uvfile_read(vector<double>&u,vector<double>&v,const griddata& griddata);
 // things for the grown function
 
 inline int incabsorb(int i, int p, int N);
-void extractinnershell(vector<double>&u,vector<double>&v,const griddata& griddata);
+void growshell(vector<double>&u,vector<int> marked,double ucrit, const griddata& griddata);
 void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata);
