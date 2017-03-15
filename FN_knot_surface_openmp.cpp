@@ -37,7 +37,7 @@ FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-const int option = FROM_UV_FILE;         //unknot default option
+const int option = FROM_SURFACE_FILE;         //unknot default option
 const BoundaryType BoundaryType=ALLPERIODIC;
 
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
@@ -48,7 +48,7 @@ const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
 
 /**If FROM_SURFACE_FILE chosen**/
-string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+string knot_filename = "six2t";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
 string B_filename = "uv_plot1000.vtk";    //filename for phi field or uv field
@@ -57,11 +57,11 @@ string B_filename = "uv_plot1000.vtk";    //filename for phi field or uv field
 const int initialNx = 325;   //No. points in x,y and z
 const int initialNy = 325;
 const int initialNz = 325;
-const double TTime = 1050;       //total time of simulation (simulation units)
-const double skiptime = 100;       //print out every # unit of time (simulation units)
-const double starttime =1000;        //Time at start of simulation (non-zero if continuing from UV file)
+const double TTime = 1600;       //total time of simulation (simulation units)
+const double skiptime = 50;       //print out every # unit of time (simulation units)
+const double starttime =0;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
-
+const int BOXRESIZETIME = 500;
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
 const double size = 10*lambda;   //box size
@@ -73,9 +73,9 @@ const double beta = 0.7;
 const double gam = 0.5;
 
 //Size boundaries of knot (now autoscaled)
-double xmax = 1*initialNx*h/4.0;
-double ymax = 1*initialNy*h/4.0;
-double zmax = 1*initialNz*h/4.0;
+double xmax = 3*initialNx*h/4.0;
+double ymax = 3*initialNy*h/4.0;
+double zmax = 3*initialNz*h/4.0;
 
 int main (void)
 {
@@ -169,13 +169,12 @@ int main (void)
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
-
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
-                    if(n*dtime+starttime>=1601)
+                    if(n*dtime+starttime>10 && ((n*dtime+starttime-BOXRESIZETIME >20) ||(n*dtime+starttime-BOXRESIZETIME <0) )) 
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
-                    if( ( abs(n*dtime+starttime) < 1501 && (int)abs(n*dtime+starttime))%100 == 0) 
+                    if( ( abs(n*dtime+starttime - BOXRESIZETIME) <0.001 )) 
                     {
                         resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
                     }
