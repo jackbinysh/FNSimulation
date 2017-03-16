@@ -19,7 +19,8 @@
    The parameters epsilon, beta and gam are set to give rise to scroll waves (see Sutcliffe, Winfree, PRE 2003 and Maucher Sutcliffe PRL 2016) which eminate from a closed curve, on initialisation this curve corresponds to the boundary of the surface in the stl file.
 
    See below for various options to start the code from previous outputted data.*/
-/**************************************************************************************/
+/**************************************************************************************
+*/
 #include "FN_knot_surface.h"    //contains some functions and all global variables
 #include <omp.h>
 #include <math.h>
@@ -37,7 +38,7 @@ FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 
-const int option = FROM_SURFACE_FILE;         //unknot default option
+const int option = FROM_UV_FILE;         //unknot default option
 const BoundaryType BoundaryType=ALLPERIODIC;
 
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
@@ -51,17 +52,17 @@ const double initialzdisplacement = 0;
 string knot_filename = "six2t";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 /**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot1000.vtk";    //filename for phi field or uv field
+string B_filename = "uv_plot400.vtk";    //filename for phi field or uv field
 
 //Grid points
-const int initialNx = 325;   //No. points in x,y and z
-const int initialNy = 325;
-const int initialNz = 325;
-const double TTime = 1600;       //total time of simulation (simulation units)
-const double skiptime = 50;       //print out every # unit of time (simulation units)
-const double starttime =0;        //Time at start of simulation (non-zero if continuing from UV file)
+const int initialNx = 333;   //No. points in x,y and z
+const int initialNy = 333;
+const int initialNz = 333;
+const double TTime = 500;       //total time of simulation (simulation units)
+const double skiptime = 1;       //print out every # unit of time (simulation units)
+const double starttime =400;        //Time at start of simulation (non-zero if continuing from UV file)
 const double dtime = 0.02;         //size of each time step
-const int BOXRESIZETIME = 500;
+const int BOXRESIZETIME = 400;
 //System size parameters
 const double lambda = 21.3;                //approx wavelength
 const double size = 10*lambda;   //box size
@@ -170,7 +171,7 @@ int main (void)
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
-                    if(n*dtime+starttime>10 && ((n*dtime+starttime-BOXRESIZETIME >20) ||(n*dtime+starttime-BOXRESIZETIME <0) )) 
+                    if(n*dtime+starttime>10 && ((n*dtime+starttime-BOXRESIZETIME >20) ||(n*dtime+starttime-BOXRESIZETIME <0)) &&( (n*dtime+starttime-2*BOXRESIZETIME >20) ||(n*dtime+starttime-2*BOXRESIZETIME <0))) 
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
@@ -1479,6 +1480,7 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
 }
 void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata)
 {
+    cout << "resizing box \n";
     int Nx = oldgriddata.Nx;
     int Ny = oldgriddata.Ny;
     int Nz = oldgriddata.Nz;
