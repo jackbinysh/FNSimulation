@@ -174,7 +174,7 @@ int main (void)
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
-                    if( ( abs(n*dtime+starttime - BOXRESIZETIME) <0.001 )) 
+                    if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
                     {
                         resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
                     }
