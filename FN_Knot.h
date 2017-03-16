@@ -19,13 +19,8 @@
 #include <gsl/gsl_vector.h>
 using namespace std;
 
-#define FROM_PHI_FILE 0
-#define FROM_SURFACE_FILE 1
-#define FROM_UV_FILE 2
-#define FROM_FUNCTION 3
 const double sixth = 1.0/6.0;
 const double ONETHIRD = 1.0/3.0;
-enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
 
 struct griddata 
 {

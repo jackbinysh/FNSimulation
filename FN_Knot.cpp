@@ -20,65 +20,15 @@
 
    See below for various options to start the code from previous outputted data.*/
 /**************************************************************************************/
-#include "FN_knot_surface.h"    //contains some functions and all global variables
+#include "FN_Constants.h"    //contains user defined variables for the simulation, and the parameters used 
+#include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
 #include <omp.h>
 #include <math.h>
-#include <string.h>
-#define PRESERVE_RATIOS 1  //1 to scale input file preserving the aspect ratio
+#define PRESERVE_RATIOS 0  //1 to scale input file preserving the aspect ratio
 //includes for the signal processing
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
 #include <gsl/gsl_fft_halfcomplex.h>
-
-/*Available options:
-FROM_PHI_FILE: Skip initialisation, input from previous run.
-FROM_SURFACE_FILE: Initialise from input file(s) generated in surface evolver.
-FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
-FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
- */
-
-const int option = FROM_SURFACE_FILE;         //unknot default option
-const BoundaryType BoundaryType=ALLPERIODIC;
-
-/** two rotation angles for the initial stl file, and a displacement vector for the file **/
-const double initialthetarotation = 0;
-const double initialphirotation = 0;
-const double initialxdisplacement = 0;
-const double initialydisplacement = 0;
-const double initialzdisplacement = 0;
-
-/**If FROM_SURFACE_FILE chosen**/
-string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
-//if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
-/**IF FROM_PHI_FILE or FROM_UV_FILE chosen**/
-string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
-
-//Grid points
-const int initialNx = 201;   //No. points in x,y and z
-const int initialNy = 201;
-const int initialNz = 201;
-const double TTime = 1000;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime =0;        //Time at start of simulation (non-zero if continuing from UV file)
-const double dtime = 0.02;         //size of each time step
-
-//System size parameters
-const double lambda = 21.3;                //approx wavelength
-const double size = 6*lambda;   //box size
-const double h = size/(initialNx-1);            //grid spacing
-const double oneoverhsq = 1.0/(h*h);
-const double epsilon = 0.3;                //parameters for F-N eqns
-const double oneoverepsilon = 1.0/epsilon;
-const double beta = 0.7;
-const double gam = 0.5;
-
-//Size boundaries of knot (now autoscaled)
-double xmax = 1*initialNx*h/4.0;
-double ymax = 1*initialNy*h/4.0;
-double zmax = 1*initialNz*h/4.0;
-
-
-
 
 int main (void)
 {
