@@ -26,12 +26,11 @@ std::string B_filename = "uv_plot10.vtk";    //filename for phi field or uv fiel
 const BoundaryType BoundaryType=ALLREFLECTING;
 
 //OPTION - do you want the geometry of the input file to be exactly preserved, or can it be scaled to fit the box better
-#define PRESERVE_RATIOS 0  //1 to scale input file preserving the aspect ratio
+#define PRESERVE_RATIOS 1  //1 to scale input file preserving the aspect ratio
 
 // OPTION - how long should it run, when do you want data printed, what time value should it start at 
 const double TTime = 10000;       //total time of simulation (simulation units)
 const double skiptime = 10;       //print out every # unit of time (simulation units)
-const double starttime =10;        //Time at start of simulation (non-zero if continuing from UV file)
 
 // OPTION - what grid values do you want/ timestep
 //Grid points

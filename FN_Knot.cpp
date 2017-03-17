@@ -56,6 +56,7 @@ int main (void)
     Type = gsl_multimin_fminimizer_nmsimplex2;
     minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
 
+
     if (option == FROM_PHI_FILE)
     {
         cout << "Reading input file...\n";
@@ -99,6 +100,17 @@ int main (void)
     }
 
     cout << "Updating u and v...\n";
+    // initialising the start time to 0. it gets overwritten if we use a uv file
+    int starttime = 0;
+    if(option == FROM_UV_FILE)
+    {
+        // we hack this together as so: the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
+        int startpos = B_filename.find('t');
+        int endpos = B_filename.find('.');
+        string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
+        starttime = atoi(number.c_str()); 
+    }
+
     // initilialising counters
     int p=0;
     int q=0;
@@ -108,7 +120,7 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, timeinfo, knotcurves,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, starttime, timeinfo, knotcurves,minimizerstate,griddata)
     {
         while(n*dtime <= TTime)
         {
