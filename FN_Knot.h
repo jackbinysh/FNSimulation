@@ -5,7 +5,7 @@
 //  Created by Carl Whitfield on 17/05/2016.
 //
 //  Last modified 3/11/16
-
+#include "FN_Constants.h"
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
@@ -21,6 +21,8 @@ using namespace std;
 
 const double sixth = 1.0/6.0;
 const double ONETHIRD = 1.0/3.0;
+const double oneoverepsilon = 1.0/epsilon;
+const double oneoverhsq = 1.0/(h*h);
 
 struct griddata 
 {

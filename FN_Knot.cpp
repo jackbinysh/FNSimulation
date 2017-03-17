@@ -20,11 +20,9 @@
 
    See below for various options to start the code from previous outputted data.*/
 /**************************************************************************************/
-#include "FN_Constants.h"    //contains user defined variables for the simulation, and the parameters used 
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
 #include <omp.h>
 #include <math.h>
-#define PRESERVE_RATIOS 0  //1 to scale input file preserving the aspect ratio
 //includes for the signal processing
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
@@ -126,7 +124,7 @@ int main (void)
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
                     if(n*dtime+starttime>=10 )
                     {
-                        find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                        //find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
                     q++;
                 }
