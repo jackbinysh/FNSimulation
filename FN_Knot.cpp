@@ -650,7 +650,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                         break;
 
                     minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
-                    status = gsl_multimin_test_size (size, 1e-2);
+                    status = gsl_multimin_test_size (minimizersize, 1e-2);
 
                 }
                 while (status == GSL_CONTINUE && iter < 500);
