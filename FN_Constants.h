@@ -20,7 +20,7 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 const int option = FROM_UV_FILE;         //unknot default option
 std::string knot_filename = "five1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
-std::string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
+std::string B_filename = "uv_plot0.vtk";    //filename for phi field or uv field
 
 // OPTION - what kind of boundary condition
 const BoundaryType BoundaryType=ALLREFLECTING;
@@ -30,7 +30,7 @@ const BoundaryType BoundaryType=ALLREFLECTING;
 
 // OPTION - how long should it run, when do you want data printed, what time value should it start at 
 const double TTime = 10000;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double skiptime = 1;       //print out every # unit of time (simulation units)
 
 // OPTION - what grid values do you want/ timestep
 //Grid points

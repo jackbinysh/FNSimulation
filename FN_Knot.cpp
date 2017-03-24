@@ -23,6 +23,7 @@
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
 #include <omp.h>
 #include <math.h>
+#include <string.h>
 //includes for the signal processing
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
@@ -136,7 +137,7 @@ int main (void)
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
                     if(n*dtime+starttime>=10 )
                     {
-                        find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                        //find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     }
                     q++;
                 }
@@ -1092,9 +1093,9 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
     int i,j,k,n;
     stringstream ss;
     ss << "uv_plot" << t << ".vtk";
-    ofstream uvout (ss.str().c_str());
+    ofstream uvout (ss.str().c_str(),std::ios::binary | std::ios::out);
 
-    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
+    uvout << "# vtk DataFile Version 3.0\nUV fields\nBINARY\nDATASET STRUCTURED_POINTS\n";
     uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
     uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
     uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
@@ -1109,12 +1110,13 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
             for(i=0; i<Nx; i++)
             {
                 n = pt(i,j,k,griddata);
-                uvout << u[n] << '\n';
+                float val =  FloatSwap(u[n]);
+                uvout.write((char*) &val, sizeof(float));
             }
         }
     }
 
-    uvout << "SCALARS v float\nLOOKUP_TABLE default\n";
+    uvout << "\n" << "SCALARS v float\nLOOKUP_TABLE default\n";
 
 
     for(k=0; k<Nz; k++)
@@ -1124,12 +1126,13 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
             for(i=0; i<Nx; i++)
             {
                 n = pt(i,j,k,griddata);
-                uvout << v[n] << '\n';
+                float val =  FloatSwap(v[n]);
+                uvout.write( (char*) &val, sizeof(float));
             }
         }
     }
 
-    uvout << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
+    uvout << "\n" << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
 
     for(k=0; k<Nz; k++)
     {
@@ -1138,7 +1141,8 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
             for(i=0; i<Nx; i++)
             {
                 n = pt(i,j,k,griddata);
-                uvout << sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]) << '\n';
+                float val = FloatSwap(sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]));
+                uvout.write( (char*) &val, sizeof(float));
             }
         }
     }
@@ -1322,7 +1326,7 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
     int Nz = griddata.Nz;
     string temp,buff;
     stringstream ss;
-    ifstream fin (B_filename.c_str());
+    ifstream fin (B_filename.c_str(), std::ios::in  | std::ios::binary);
     int i,j,k,n;
 
     for(i=0;i<10;i++)
@@ -1345,26 +1349,22 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
             for(i=0; i<Nx; i++)
             {
                 n=pt(i,j,k,griddata);
-                ss.clear();
-                ss.str("");
-                if(fin.good())
-                {
-                    if(getline(fin,buff))
-                    {
-                        ss << buff;
-                        ss >> u[n];
-                    }
-                }
-                else
-                {
-                    cout << "Something went wrong!\n";
-                    return 1;
-                }
+                char* memblock;
+                char* swapped;
+                memblock = new char [sizeof(float)];
+                swapped = new char [sizeof(float)];
+                fin.read(memblock,sizeof(float));
+                ByteSwap(memblock, swapped);
+                float value = 12;
+                memcpy(&value, swapped, 4);
+                u[n] = value;
+                delete[] memblock;
+                delete[] swapped;
             }
         }
     }
 
-    for(i=0;i<2;i++)
+    for(i=0;i<3;i++)
     {
         if(fin.good())
         {
@@ -1384,18 +1384,17 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
             for(i=0; i<Nx; i++)
             {
                 n=pt(i,j,k,griddata);
-                ss.clear();
-                ss.str("");
-                if(fin.good())
-                {
-                    if(getline(fin,buff)) ss << buff;
-                    ss >> v[n];
-                }
-                else
-                {
-                    cout << "Something went wrong!\n";
-                    return 1;
-                }
+                char* memblock;
+                char* swapped;
+                memblock = new char [sizeof(float)];
+                swapped = new char [sizeof(float)];
+                fin.read(memblock,sizeof(float));
+                ByteSwap(memblock, swapped);
+                float value = 12;
+                memcpy(&value, swapped, 4);
+                v[n] = value;
+                delete[] memblock;
+                delete[] swapped;
             }
         }
     }
@@ -1594,4 +1593,28 @@ inline int sign(int i)
 {
     if(i==0) return 0;
     else return i/abs(i);
+}
+float FloatSwap( float f )
+{    
+   union
+   {
+      float f;
+      char b[4];
+   } dat1, dat2;
+
+   dat1.f = f;
+   dat2.b[0] = dat1.b[3];
+   dat2.b[1] = dat1.b[2];
+   dat2.b[2] = dat1.b[1];
+   dat2.b[3] = dat1.b[0];
+   return dat2.f;
+}
+
+void ByteSwap(const char* TobeSwapped, char* swapped )
+{    
+   swapped[0] = TobeSwapped[3];
+   swapped[1] = TobeSwapped[2];
+   swapped[2] = TobeSwapped[1];
+   swapped[3] = TobeSwapped[0];
+   return; 
 }

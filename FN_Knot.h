@@ -116,3 +116,5 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
 int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,vector<int>& permutation,const griddata& griddata);
 int uvfile_read(vector<double>&u,vector<double>&v,const griddata& griddata);
+float FloatSwap( float f );
+void ByteSwap(const char* TobeSwapped, char* swapped );
