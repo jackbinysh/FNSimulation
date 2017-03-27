@@ -31,6 +31,7 @@ const BoundaryType BoundaryType=ALLREFLECTING;
 // OPTION - how long should it run, when do you want data printed, what time value should it start at 
 const double TTime = 10000;       //total time of simulation (simulation units)
 const double skiptime = 1;       //print out every # unit of time (simulation units)
+const int BOXRESIZETIME = 400;
 
 // OPTION - what grid values do you want/ timestep
 //Grid points
