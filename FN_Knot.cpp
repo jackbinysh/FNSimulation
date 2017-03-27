@@ -19,7 +19,6 @@
    The parameters epsilon, beta and gam are set to give rise to scroll waves (see Sutcliffe, Winfree, PRE 2003 and Maucher Sutcliffe PRL 2016) which eminate from a closed curve, on initialisation this curve corresponds to the boundary of the surface in the stl file.
 
    See below for various options to start the code from previous outputted data.*/
-/**************************************************************************************/
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
 #include <omp.h>
 #include <math.h>
@@ -133,11 +132,14 @@ int main (void)
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
-
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
-                    if(n*dtime+starttime>=10 )
+                    if(n*dtime+starttime>10 && ((n*dtime+starttime-BOXRESIZETIME >20) ||(n*dtime+starttime-BOXRESIZETIME <0)) &&( (n*dtime+starttime-2*BOXRESIZETIME >20) ||(n*dtime+starttime-2*BOXRESIZETIME <0))) 
                     {
-                        //find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                        find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                    }
+                    if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
+                    {
+                        resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
                     }
                     q++;
                 }
@@ -251,7 +253,7 @@ double init_from_surface_file(vector<triangle>& knotsurface)
         i++;
     }
 
-    
+
     /* Work out space scaling for knot surface */
     double scale[3];
     double midpoint[3];
@@ -352,7 +354,7 @@ void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const griddata& 
     int Nz = griddata.Nz;
     int i,j,k,n,s;
     double rx,ry,rz,r;
-        cout << "Calculating scalar potential...\n";
+    cout << "Calculating scalar potential...\n";
 #pragma omp parallel default(none) shared (Nx,Ny,Nz,griddata, knotsurface, phi ) private ( i, j, k, n, s, rx, ry, rz , r)
     {
 #pragma omp for
@@ -455,6 +457,9 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
 
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&u, vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
 {
+    // first thing, clear the knotcurve object before we begin writing a new one 
+    knotcurves.clear(); //empty vector with knot curve points
+
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
@@ -523,8 +528,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 modidwn = circularmod(idwn,Nx);
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
-               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 // mark these points , up to roughly a core radius in all directions, in the "marked" array
                 int delta = ceil((lambda/(2*M_PI))/h);
                 for(int q = - delta; q <= delta; q++)
@@ -577,8 +582,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
                 // again, bear in mind these numbers can be into the "ghost" grids
-               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 pts=0;
                 graducvx=0;
                 graducvy=0;
@@ -779,8 +784,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 modidwn = circularmod(idwn,Nx);
                 modjdwn = circularmod(jdwn,Ny);
                 modkdwn = circularmod(kdwn,Nz);
-               if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-               if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
                 dxu=0;
                 dyu=0;
                 dzu=0;
@@ -967,7 +972,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     {
         for(int i = 0; i<knotcurves.size();i++)
         {
-			// do j=0 manually to ensure minscore gets written to.
+            // do j=0 manually to ensure minscore gets written to.
             double minscore = ((knotcurves[0].length - oldlength[i])/oldlength[i])*((knotcurves[0].length - oldlength[i])/oldlength[i]) +((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[0].twist - oldtwist[i])/oldtwist[i])*((knotcurves[0].twist - oldtwist[i])/oldtwist[i]); 
             permutation[i] = 0;
             for(int j = 1; j<knotcurves.size();j++)
@@ -991,7 +996,6 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
     if(cleanupneeded)
     {
-        knotcurves.clear(); //empty vector with knot curve points
         std::fill(xmarked.begin(),xmarked.end(),0);
         std::fill(ymarked.begin(),ymarked.end(),0);
         std::fill(zmarked.begin(),zmarked.end(),0);
@@ -1006,11 +1010,13 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
     int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
     double D2u;
     const int arraysize = Nx*Ny*Nz;
-// first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
-    #pragma omp for 
-        for(i=0;i<Nx;i++)
+    // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
+#pragma omp for 
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
         {
-            for(j=0; j<Ny; j++)
+            for(k=0; k<Nz; k++)   //Central difference
             {
                 for(k=0; k<Nz; k++)   //Central difference
                 {
@@ -1023,7 +1029,8 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
                 }
             }
         }
-// 2nd and 3rd loops
+    }
+    // 2nd and 3rd loops
     double inc ;   
     for(l=1;l<=3;l++)  //u and v update for each fractional time step
     {
@@ -1046,7 +1053,7 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
                 }
                 break;
         }   
-        #pragma omp for 
+#pragma omp for 
         for(i=0;i<Nx;i++)
         {
             for(j=0; j<Ny; j++)
@@ -1073,18 +1080,49 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
             }
         }
     }
-    #pragma omp for 
+#pragma omp for 
     for(n=0;n<Nx*Ny*Nz;n++)
     {
 
-            u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
-            v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
+        u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
+        v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
     }
 
 }
 
 /*************************File reading and writing*****************************/
 
+void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    int i,j,k,n;
+    stringstream ss;
+    ss << shelllabel<< "marked.vtk";
+    ofstream uvout (ss.str().c_str());
+
+    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
+    uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
+    uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
+    uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
+    uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
+    uvout << "SCALARS marked float\nLOOKUP_TABLE default\n";
+
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n = pt(i,j,k,griddata);
+                uvout << marked[n] << '\n';
+            }
+        }
+    }
+    uvout.close();
+}
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t, const griddata& griddata)
 {
     int Nx = griddata.Nx;
@@ -1403,6 +1441,206 @@ int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
 
     return 0;
 }
+void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata)
+{
+    cout << "resizing box \n";
+    int Nx = oldgriddata.Nx;
+    int Ny = oldgriddata.Ny;
+    int Nz = oldgriddata.Nz;
+    double ucrit = -1.2;
+    // first of all, take off the boundary; we set up the marked array to have 1's on the boudary of the box 
+    std::vector<int>marked(u.size(),0);
+    int shelllabel=1;
+    for(int i=0;i<Nx;i++)
+    {
+        for(int j=0; j<Ny; j++)
+        {
+            for(int k=0; k<Nz; k++)   //Central difference
+            {
+                int n = pt(i,j,k,oldgriddata);
+                if(i==0||i==Nx-1||j==0||j==Ny-1||k==0||k==Nz-1 && u[n]>ucrit) marked[n] =-1;
+            }
+        }
+    }
+    // okay , grow the shell
+    growshell(u,marked,ucrit, oldgriddata);
+    bool dontresize = false;
+    for(int n = 0; n<u.size();n++)
+    {
+        if(marked[n]==-2)
+        {
+            marked[n]=shelllabel; 
+            if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) dontresize = true;
+        }
+    }
+    shelllabel++;
+
+    if (!dontresize)
+    {
+        bool hitinnershell = false;
+        while(!hitinnershell)
+        {
+            int imax,jmax,kmax;
+            imax = -1;
+            jmax = -1;
+            kmax = -1;
+            // now we have no shells intersecting the boundary, but there may still be multiple shells before the knot; lets remove them one by one
+            // to begin with , just grab some point on the outer shell
+            for(int i=0;i<Nx;i++)
+            {
+                for(int j=0; j<Ny; j++)
+                {
+                    for(int k=0; k<Nz; k++)   //Central difference
+                    {
+                        int n = pt(i,j,k,oldgriddata);
+                        if(u[n]>ucrit &&marked[n]==0 && i>imax && j>jmax && k> kmax) {imax = i ; jmax = j; kmax = k;}
+                    }
+                }
+            }
+            marked[pt(imax,jmax,kmax,oldgriddata)] = -1;
+            // now grow the shell from here
+            growshell(u,marked,ucrit, oldgriddata);
+            for(int n = 0; n<u.size();n++)
+            {
+                if(marked[n]==-2)
+                {
+                    marked[n]=shelllabel;
+                    if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
+                }
+            }
+            if(!hitinnershell)shelllabel++;
+        }
+        // at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
+        // we want to stip off all but the innermost shell
+        // set everything outside this inner shell to the fixed point values 
+        for(int n = 0; n<u.size();n++)
+        {
+            if(marked[n]>0 &&marked[n]<shelllabel){ u[n] = -1.03; v[n] = -0.66;}
+        }
+        // find the hull of the inner shell
+        int imax = 0;
+        int jmax = 0; 
+        int kmax =0;
+        int imin = Nx;
+        int jmin =Ny; 
+        int kmin =Nz; 
+        for(int i = 0; i<Nx;i++)
+        {
+            for(int j = 0; j<Ny;j++)
+            {
+                for(int k = 0; k<Nz;k++)
+                {
+                    if(marked[pt(i,j,k,oldgriddata)] == shelllabel)
+                    {
+                        if(i>imax) imax = i;
+                        if(j>jmax) jmax = j;
+                        if(k>kmax) kmax = k;
+                        if(i<imin) imin = i;
+                        if(j<jmin) jmin = j;
+                        if(k<kmin) kmin = k;
+                    }
+                }
+            }
+        }
+        // we have our box dimensions in the ijk max min values already
+        int deltai = imax - imin;
+        int deltaj = jmax - jmin;
+        int deltak = kmax - kmin;
+        int N = (deltai<deltaj) ? deltaj:deltai;
+        N = (N < deltak) ? deltak:N;
+
+        griddata newgriddata;
+        newgriddata.Nx = newgriddata.Ny = newgriddata.Nz = N;
+        vector<double>utemp(N*N*N);
+        vector<double>vtemp(N*N*N);
+        for(int i = 0; i<N;i++)
+        {
+            for(int j = 0; j<N;j++)
+            {
+                for(int k = 0; k<N;k++)
+                {
+                    utemp[pt(i,j,k,newgriddata)] = u[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+                    vtemp[pt(i,j,k,newgriddata)] = v[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+                }
+            }
+        }
+        // first of all, we can simply resize the ucvx data, since it gets recalculated anyhow
+        ucvx.resize(N*N*N);
+        ucvy.resize(N*N*N);
+        ucvz.resize(N*N*N);
+        // better resize our scratchpad too
+        ku.resize(4*N*N*N);
+        kv.resize(4*N*N*N);
+        // the data is safely stored in the temp arrays, lets trash u and v
+        u.resize(N*N*N);
+        v.resize(N*N*N);
+        u = utemp;
+        v = vtemp;
+        // finally, reset the grid data to the new griddata
+        oldgriddata = newgriddata;
+    }
+    if(dontresize)
+    {
+        cout << "the inner shell is touching the boundary. Either the knot is spanning the whole box, or its across/very close to the box  boundary. For now, just aborting the resize \n" ;
+    }
+}
+void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata)
+{
+    bool stillboundaryleft = true;
+    while(stillboundaryleft)
+    {
+        grow(u,marked,ucrit,griddata);
+        stillboundaryleft = false;
+        for(int n = 0; n<u.size();n++)
+        {
+            if(marked[n]==-1) stillboundaryleft =true;
+        }
+
+    }
+    // okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
+}
+void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
+{
+    // the marked array has the following values
+    // 0 - not evaluated 
+    // -1 - a boundary, to be grown 
+    // -2 - the interrior, already grown
+    // -3 - a temporary state, marked as a boundary during the update
+    // positive numbers - layers of shells already marked
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    for(int i=0;i<Nx;i++)
+    {
+        for(int j=0; j<Ny; j++)
+        {
+            for(int k=0; k<Nz; k++)   //Central difference
+            {
+                int n = pt(i,j,k,griddata);
+                if(marked[n] ==-1)
+                {
+
+                    for(int iinc=-1;iinc<=1;iinc++)
+                    {
+                        for(int jinc=-1; jinc<=1; jinc++)
+                        {
+                            for(int kinc=-1; kinc<=1; kinc++)   //Central difference
+                            {
+                                int neighboringn = pt(incabsorb(i,iinc,Nx),incabsorb(j,jinc,Ny),incabsorb(k,kinc,Nz),griddata);
+                                if(marked[neighboringn] == 0 && u[neighboringn] > ucrit) marked[neighboringn] = -3;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for(int n = 0; n<u.size();n++)
+    {
+        if(marked[n]==-1){marked[n] =-2;}
+        if(marked[n]==-3){marked[n] =-1;}
+    }
+}
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
@@ -1448,7 +1686,7 @@ double my_f(const gsl_vector* minimum, void* params)
     struct parameters* myparameters = (struct parameters *) params;
     vector<double>* ucvx= myparameters->ucvx;
     vector<double>* ucvy= myparameters->ucvy;
-   vector<double>* ucvz= myparameters->ucvz;
+    vector<double>* ucvz= myparameters->ucvz;
     griddata griddata = myparameters->mygriddata;
     double Nx = myparameters->mygriddata.Nx;
     double Ny = myparameters->mygriddata.Ny;
@@ -1552,6 +1790,12 @@ inline int incw(int i, int p, int N)    //increment with reflecting boundary bet
     return (i+p);
 }
 
+inline int incabsorb(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+{
+    if(i+p<0) return (0);
+    if(i+p>N-1) return (N-1);
+    return (i+p);
+}
 // this function is specifically designed to incremenet, in the direction specified, respecting the boundary conditions, which are global enums
 inline int gridinc(int i, int p, int N, int direction )    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {
@@ -1571,7 +1815,7 @@ inline int gridinc(int i, int p, int N, int direction )    //increment with refl
         if(direction ==2) return incp(i,p,N);
         else return incw(i,p,N);
     }
-return 0;
+    return 0;
 }
 inline double x(int i,const griddata& griddata)
 {
