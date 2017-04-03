@@ -139,6 +139,7 @@ int main (void)
                     }
                     if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
                     {
+                        cout << "resizingbox";
                         resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
                     }
                     q++;
@@ -875,6 +876,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             /***Do the integrals**/
             double T[3][3];
             double N[2][3];
+            double B[3];
             double deltas[3]; double ds;
             double curvature[2];double torsion;
             for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
@@ -908,11 +910,26 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                     N[i][1] /=curvature[i];
                     N[i][2] /=curvature[i];
                 }
-                // lets get the torsion by computing the x component of the binomral, and looking at the scale factor between it and dn/ds+kn
-                torsion= ((N[1][0]-N[0][0])/deltas[0] + curvature[0]*T[0][0])/(T[0][1]*N[0][2] - N[0][1]*T[0][2]);
+                //compute the binormal with a cross product 
+                B[0] = T[0][1]*N[0][2] - N[0][1]*T[0][2] ;
+                B[1] = T[0][2]*N[0][0] - N[0][2]*T[0][0] ;
+                B[2] = T[0][0]*N[0][1] - N[0][0]*T[0][1] ;
+                // this is dn/ds +kt
+                double vx= (N[1][0]-N[0][0])/deltas[0] +curvature[0]*T[0][0];
+                double vy= (N[1][1]-N[0][1])/deltas[0]+ curvature[0]*T[0][1];
+                double vz= (N[1][2]-N[0][2])/deltas[0] + curvature[0]*T[0][2];
+                // lets get the torsion by computing the x component of the binomral, and looking at the scale factor between it and dn/ds+kt
+               double torsion = sqrt(vx*vx +vy*vy +vz*vz);
+                // we have lost the sign of the torsion here. to get it , compare the signs of dn/dx+kt and the binromal
+                double sign = 1;
+                (vx*B[0] + vy*B[1] + vz*B[2] >0)? sign = 1: sign = -1;
+                torsion *=sign;
 
                 knotcurves[c].knotcurve[s].curvature = curvature[0];
-                knotcurves[c].knotcurve[s].torsion = torsion;
+                knotcurves[c].knotcurve[s].torsion = torsion ;
+
+                // okay curvature and torions done! lets get twist and writhe
+
                 /*These quantities defined on line connecting points s and s+1*/
                 knotcurves[c].knotcurve[s].writhe = 0;
                 bx = (knotcurves[c].knotcurve[incp(s,1,NP)].ax - knotcurves[c].knotcurve[s].ax)/ds;

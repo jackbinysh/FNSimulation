@@ -53,9 +53,6 @@ struct knotpoint
     double ax;       //grad vector x coord
     double ay;       //grad vector y coord
     double az;       //grad vector z coord
-	double vx;       // x velocity
-    double vy;       //y velocity
-    double vz;       //z velocity
     double curvature;        // curvature
     double torsion;        // torsion
     double twist;    //local twist value
