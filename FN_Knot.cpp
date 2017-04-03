@@ -67,7 +67,7 @@ int main (void)
         if(option == FROM_UV_FILE)
         {
             cout << "Reading input file...\n";
-            if(uvfile_read(u,v,griddata)) return 1;
+            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,griddata)) return 1;
         }
         else
         {
@@ -1374,7 +1374,155 @@ int phi_file_read(vector<double>&phi,const griddata& griddata)
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v,const griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata)
+{
+    string buff,datatype,dimensions,xdim,ydim,zdim;
+    ifstream fin (B_filename.c_str());
+    for(int i=0;i<4;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff) &&(i==2)) datatype = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
+    if(fin.good())
+    {
+        getline(fin,buff,' ' ); 
+        if(getline(fin,buff,' ')) xdim = buff;
+        if(getline(fin,buff,' ')) ydim = buff;
+        if(getline(fin,buff,'\n')) zdim = buff;
+    } 
+    fin.close();
+    int x = atoi(xdim.c_str()); 
+    int y= atoi(ydim.c_str()); 
+    int z = atoi(zdim.c_str()); 
+
+if(x!=griddata.Nx || y!=griddata.Ny ||z!=griddata.Nz)
+{
+        cout << "CAREFUL! the gridsize you read in from the uv file isnt equal to the one you set! resizing to the uv file values read in \n";
+        ucvx.resize(x*y*z);
+        ucvy.resize(x*y*z);
+        ucvz.resize(x*y*z);
+        // better resize our scratchpad too
+        ku.resize(4*x*y*z);
+        kv.resize(4*x*y*z);
+        u.resize(x*y*z);
+        v.resize(x*y*z);
+
+        griddata.Nx = x;
+        griddata.Ny = y;
+        griddata.Nz = z;
+}
+
+    // grab the dimensions read in, resize u and v, and warn the user if they dont match!
+
+    if(datatype.compare("ASCII")==0)
+    {
+        uvfile_read_ASCII(u,v,griddata);
+    }
+   else if(datatype.compare("BINARY")==0)
+    {
+        uvfile_read_BINARY(u,v,griddata);
+    }
+return 0;
+}
+
+int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    string temp,buff;
+    stringstream ss;
+    ifstream fin (B_filename.c_str());
+    int i,j,k,n;
+
+    for(i=0;i<10;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k,griddata);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff))
+                    {
+                        ss << buff;
+                        ss >> u[n];
+                    }
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
+
+    for(i=0;i<2;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k,griddata);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff)) ss << buff;
+                    ss >> v[n];
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
+
+    fin.close();
+
+    return 0;
+}
+
+int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
