@@ -845,7 +845,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(6*lambda));
+                const double cutoff = 2*M_PI*(totlength/(1*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
