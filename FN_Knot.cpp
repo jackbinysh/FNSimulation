@@ -49,6 +49,7 @@ int main (void)
     vector<double>kv(4*Nx*Ny*Nz);
     // objects to hold information about the knotcurve we find, andthe surface we read in
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
+    vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<triangle> knotsurface;    //structure for storing knot surface coordinates
     // GSL initialization
     const gsl_multimin_fminimizer_type *Type;
@@ -120,35 +121,40 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, starttime, timeinfo, knotcurves,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,cout, rawtime, starttime, timeinfo, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(n*dtime <= TTime)
         {
 #pragma omp single
             {
-                if(n*dtime >= q)  //Do this every unit T
+                if(fmod(starttime+n*dtime, 11.2)<0.01)  //Do this every unit T
                 {   // let us know how things are going
                     cout << "T = " << n*dtime + starttime << endl;
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,griddata); //find Grad u cross Grad v
-                    if(n*dtime+starttime>10 && ((n*dtime+starttime-BOXRESIZETIME >20) ||(n*dtime+starttime-BOXRESIZETIME <0)) &&( (n*dtime+starttime-2*BOXRESIZETIME >20) ||(n*dtime+starttime-2*BOXRESIZETIME <0))) 
+                    if(n*dtime+starttime>20) 
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                        find_knot_velocity(knotcurves,knotcurvesold,griddata);
+                        std::vector<int> permutation(1,0);
+                        print_knot(n*dtime+starttime-11.2, knotcurvesold, permutation, griddata);
+                        knotcurvesold = knotcurves;
+                        print_uv(u,v,ucvx,ucvy,ucvz,n*dtime+starttime,griddata);
                     }
-                    if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
-                    {
-                        cout << "resizingbox";
-                        resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
-                    }
+                   // if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
+                  //  {
+                   //     cout << "resizingbox";
+                    //    resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
+                   // }
                     q++;
                 }
 
                 if(n*dtime >= p*skiptime)
                 {
 
-                    print_uv(u,v,ucvx,ucvy,ucvz,n*dtime+starttime,griddata);
+                   // print_uv(u,v,ucvx,ucvy,ucvz,n*dtime+starttime,griddata);
                     p++;
                 }
 
@@ -305,9 +311,9 @@ double init_from_surface_file(vector<triangle>& knotsurface)
         A += knotsurface[i].area;
 
         // apply any rotations and displacements  of the initial coniditions the user has specified
-        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
-        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
-        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],initialthetarotation,initialphirotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
+        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
+        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
+        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
     }
 
     cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
@@ -494,7 +500,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 }
             }
         }
-        if(ucvmax<0.1) knotexists = false;
+        if(ucvmax<0.45) knotexists = false;
         else
         {
             knotexists = true; 
@@ -927,6 +933,15 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
                 knotcurves[c].knotcurve[s].curvature = curvature[0];
                 knotcurves[c].knotcurve[s].torsion = torsion ;
+                knotcurves[c].knotcurve[s].tx = T[0][0] ;
+                knotcurves[c].knotcurve[s].ty = T[0][1] ;
+                knotcurves[c].knotcurve[s].tz = T[0][2] ;
+                knotcurves[c].knotcurve[s].nx = N[0][0] ;
+                knotcurves[c].knotcurve[s].ny = N[0][1] ;
+                knotcurves[c].knotcurve[s].nz = N[0][2] ;
+                knotcurves[c].knotcurve[s].bx = B[0] ;
+                knotcurves[c].knotcurve[s].by = B[1] ;
+                knotcurves[c].knotcurve[s].bz = B[2] ;
 
                 // okay curvature and torions done! lets get twist and writhe
 
@@ -963,53 +978,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
     }
 
-    // the order of the components within the knotcurves vector is not guaranteed to remain fixed from timestep to timestep. thus, componenet 0 at one timtestep could be 
-    // components 1 at the next. the code needs a way of tracking which componenet is which.
-    // at the moment, im doing this by fuzzily comparing summary stats on the components - at this point, the length twist and writhe. 
-
-    // these variables have the summary stats from the last timestep
-
-    static vector<double> oldwrithe(knotcurves.size()); 
-    static vector<double> oldtwist(knotcurves.size());
-    static vector<double> oldlength(knotcurves.size());
-
-    vector<int> permutation(knotcurves.size());
-    if(first)
-    {
-        for(int i = 0; i<knotcurves.size();i++)
-        {
-            oldwrithe[i] = knotcurves[i].writhe;
-            oldlength[i] = knotcurves[i].length;
-            oldtwist[i] = knotcurves[i].twist;
-            permutation[i] = i;
-        }
-
-    }
-    else
-    {
-        for(int i = 0; i<knotcurves.size();i++)
-        {
-            // do j=0 manually to ensure minscore gets written to.
-            double minscore = ((knotcurves[0].length - oldlength[i])/oldlength[i])*((knotcurves[0].length - oldlength[i])/oldlength[i]) +((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[0].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[0].twist - oldtwist[i])/oldtwist[i])*((knotcurves[0].twist - oldtwist[i])/oldtwist[i]); 
-            permutation[i] = 0;
-            for(int j = 1; j<knotcurves.size();j++)
-            {    
-                double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]); 
-                if(score<minscore) permutation[i] = j; minscore = score; 
-            }
-        }
-        // apply the permutation to the list of lengths etc. It is now "correct" in the sense that index [0] really is component 0 etc. these labellings are arbitrarlly set at the simulations start and
-        // must be consistently carried forward
-        for(int i = 0; i<knotcurves.size();i++)
-        {
-            oldwrithe[i] = knotcurves[permutation[i]].writhe;
-            oldlength[i] = knotcurves[permutation[i]].length;
-            oldtwist[i] = knotcurves[permutation[i]].twist;
-
-        }
-    }
     first = false;
-    print_knot(t, knotcurves, permutation, griddata);
 
     if(cleanupneeded)
     {
@@ -1019,6 +988,73 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     }
 }
 
+void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata)
+{
+            for(int c=0;c<knotcurvesold.size();c++)
+            {
+                // this code should associate knotcurveold component c with knotcurve component d
+                // okay as a super hacky first pass, I'll just compare the sizes of the vector. if this doesnt work, use more summary stats for each curve. If that doesn't work , more involved compariosn needed
+                int d = 0;
+                double mindiff = -1;
+                for(int q=0;q<knotcurves.size();q++)
+                {
+                    double diff = abs(knotcurvesold[c].knotcurve.size() - knotcurves[d].knotcurve.size()); 
+                    if(diff < mindiff) 
+                        mindiff = diff;
+                    d = q;
+                }
+
+
+                int NP = knotcurves[d].knotcurve.size();
+                int NPold = knotcurvesold[c].knotcurve.size();
+
+                // align the two curves. minlocation will give the offset on the new curve.
+                double minlength =  (knotcurves[d].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[d].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[d].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[d].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[d].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[d].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
+                double templength = -1;
+                int offset = 0;
+                for(int s = 1; s< NP; s++)
+                {
+                    templength = (knotcurves[d].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[d].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[d].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[d].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[d].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[d].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
+                    if (templength < minlength)
+                    {
+                        minlength = templength;
+                        offset = s;
+                    }
+                }
+
+                bool intersection = false;
+                double IntersectionFraction =-1;
+                std::vector<double> IntersectionPoint(3);
+                for(int s = 0; s< knotcurvesold[c].knotcurve.size(); s++)
+                {
+                    intersection = false;
+                    int m = s + offset;
+                    int stepnum = 0;
+                    while(!intersection)
+                    {
+                        intersection = intersect3D_SegmentPlane( knotcurves[d].knotcurve[m%NP], knotcurves[d].knotcurve[(m+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
+                        if(intersection) break;
+                        stepnum++;
+                        stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
+
+                    }
+                    // work out velocity and twist rate
+                    knotcurvesold[c].knotcurve[s].vx = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )/ 11.2;
+                    knotcurvesold[c].knotcurve[s].vy = (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )/ 11.2;
+                    knotcurvesold[c].knotcurve[s].vz = (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )/ 11.2;
+                    // for convenience, lets also output the decomposition into normal and binormal
+                    double vdotn = knotcurvesold[c].knotcurve[s].nx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].ny*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].nz*knotcurvesold[c].knotcurve[s].vz;
+                    double vdotb = knotcurvesold[c].knotcurve[s].bx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].by*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].bz*knotcurvesold[c].knotcurve[s].vz;
+
+                    knotcurvesold[c].knotcurve[s].vdotnx = vdotn * knotcurvesold[c].knotcurve[s].nx ;
+                    knotcurvesold[c].knotcurve[s].vdotny = vdotn * knotcurvesold[c].knotcurve[s].ny ;
+                    knotcurvesold[c].knotcurve[s].vdotnz = vdotn * knotcurvesold[c].knotcurve[s].nz ;
+                    knotcurvesold[c].knotcurve[s].vdotbx = vdotb * knotcurvesold[c].knotcurve[s].bx ;
+                    knotcurvesold[c].knotcurve[s].vdotby = vdotb * knotcurvesold[c].knotcurve[s].by ;
+                    knotcurvesold[c].knotcurve[s].vdotbz = vdotb * knotcurvesold[c].knotcurve[s].bz ;
+                }
+            }
+}
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata)
 {
     int Nx = griddata.Nx;
@@ -1238,7 +1274,7 @@ void print_B_phi( vector<double>&phi, const griddata& griddata)
 
 void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutation,const griddata& griddata)
 {
-    for( int c=0; c <= (knotcurves.size()-1) ; c++)
+    for( int c=0; c < (knotcurves.size()) ; c++)
     {
 
         /***Write values to file*******/
@@ -1298,6 +1334,36 @@ void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutati
             knotout << knotcurves[permutation[c]].knotcurve[i].ax << ' ' << knotcurves[permutation[c]].knotcurve[i].ay << ' ' << knotcurves[permutation[c]].knotcurve[i].az << '\n';
         }
 
+        knotout << "\nVECTORS V float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].vx << ' ' << knotcurves[permutation[c]].knotcurve[i].vy << ' ' << knotcurves[permutation[c]].knotcurve[i].vz << '\n';
+        }
+        knotout << "\nVECTORS t float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].tx << ' ' << knotcurves[permutation[c]].knotcurve[i].ty << ' ' << knotcurves[permutation[c]].knotcurve[i].tz << '\n';
+        }
+        knotout << "\nVECTORS n float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].nx << ' ' << knotcurves[permutation[c]].knotcurve[i].ny << ' ' << knotcurves[permutation[c]].knotcurve[i].nz << '\n';
+        }
+        knotout << "\nVECTORS b float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].bx << ' ' << knotcurves[permutation[c]].knotcurve[i].by << ' ' << knotcurves[permutation[c]].knotcurve[i].bz << '\n';
+        }
+        knotout << "\nVECTORS vdotn float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].vdotnx << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotny << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotnz << '\n';
+        }
+        knotout << "\nVECTORS vdotb float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[permutation[c]].knotcurve[i].vdotbx << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotby << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotbz << '\n';
+        }
         knotout << "\n\nCELL_DATA " << n << "\n\n";
         knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
@@ -1925,12 +1991,17 @@ void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product
     gsl_vector_set(product, 1, p2);
     gsl_vector_set(product, 2, p3);
 }
-void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double phi, const double dispx,const double dispy,const double dispz)
+void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double ux,const double uy,const double uz)
 {
 
-    double xprime = cos(phi)*cos(theta)*xcoord -sin(phi)*ycoord + cos(phi)*sin(theta)* zcoord;
-    double yprime = sin(phi)*cos(theta)*xcoord +cos(phi)*ycoord + sin(phi)*sin(theta)*zcoord ;
-    double zprime = -sin(theta)*xcoord  + cos(theta)*zcoord;
+    double xprime = ( cos(theta) + (ux*ux)*(1-cos(theta)) )*xcoord + ( ux*uy*(1-cos(theta)) - uz*sin(theta) )*ycoord + ( ux*uz*(1-cos(theta)) + uy*sin(theta) )*zcoord;
+    double yprime =(uy*ux*(1-cos(theta)) + uz*sin(theta) )*xcoord + ( cos(theta) + (uy*uy)*(1-cos(theta)) )*ycoord + ( uy*uz*(1-cos(theta)) - ux*sin(theta)  )*zcoord;
+    double zprime = (uz*ux*(1-cos(theta)) - uy*sin(theta) )*xcoord + ( uz*uy*(1-cos(theta)) + ux*sin(theta)  )*ycoord + ( cos(theta) + (uz*uz)*(1-cos(theta)) )*zcoord;
+
+    double x = ( ux*uz*(1-cos(theta)) + uy*sin(theta) );
+    double y =( uy*uz*(1-cos(theta)) - ux*sin(theta)  );
+    double z =  ( cos(theta) + (uz*uz)*(1-cos(theta)) );
+    cout << "(001) rotated to" << x << y << z ; 
     xcoord = xprime;
     ycoord = yprime;
     zcoord = zprime; 

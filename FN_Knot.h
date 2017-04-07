@@ -53,6 +53,24 @@ struct knotpoint
     double ax;       //grad vector x coord
     double ay;       //grad vector y coord
     double az;       //grad vector z coord
+    double tx;       //grad vector x coord
+    double ty;       //grad vector y coord
+    double tz;       //grad vector z coord
+    double nx;       //grad vector x coord
+    double ny;       //grad vector y coord
+    double nz;       //grad vector z coord
+    double bx;       //grad vector x coord
+    double by;       //grad vector y coord
+    double bz;       //grad vector z coord
+    double vx;       //grad vector x coord
+    double vy;       //grad vector y coord
+    double vz;       //grad vector z coord
+    double vdotnx;       //grad vector x coord
+    double vdotny;       //grad vector x coord
+    double vdotnz;       //grad vector y coord
+    double vdotbx;       //grad vector x coord
+    double vdotby;       //grad vector x coord
+    double vdotbz;       //grad vector y coord
     double curvature;        // curvature
     double torsion;        // torsion
     double twist;    //local twist value
@@ -83,7 +101,7 @@ inline int gridinc(int i, int p, int N, int direction );    //increment with ref
 
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
-void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double phi, const double dispx,const double dispy,const double dispz);
+void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double dispx,const double dispy,const double dispz);
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot(std::vector<triangle>& knotsurface);
@@ -102,6 +120,7 @@ void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,const griddata& griddata);
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& u,std::vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer *minimizerstate,const griddata& griddata);
+void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata);
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
