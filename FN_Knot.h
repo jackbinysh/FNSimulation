@@ -6,6 +6,7 @@
 //
 //  Last modified 3/11/16
 #include "FN_Constants.h"
+#include "TriCubicInterpolator.h"
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
@@ -31,7 +32,7 @@ struct griddata
 struct parameters
 {
 	gsl_vector *v,*f,*b;
-	vector<double> *ucvx,*ucvy,*ucvz;	
+    likely::TriCubicInterpolator* ucvmag;
     griddata mygriddata;
 };
 
@@ -118,8 +119,8 @@ void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 
 //FitzHugh Nagumo functions
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,const griddata& griddata);
-void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& u,std::vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer *minimizerstate,const griddata& griddata);
+void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata);
+void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
 void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata);
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
 // 3d geometry functions

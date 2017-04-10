@@ -19,7 +19,7 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 const int option = FROM_SURFACE_FILE;         //unknot default option
-std::string knot_filename = "zero1";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+std::string knot_filename = "highresunknot";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 std::string B_filename = "uv_plot10.vtk";    //filename for phi field or uv field
 
 // OPTION - what kind of boundary condition
@@ -29,29 +29,29 @@ const BoundaryType BoundaryType=ALLPERIODIC;
 #define PRESERVE_RATIOS 1  //1 to scale input file preserving the aspect ratio
 
 // OPTION - how long should it run, when do you want data printed, what time value should it start at 
-const double TTime = 10000;       //total time of simulation (simulation units)
-const double skiptime = 10;       //print out every # unit of time (simulation units)
+const double TTime = 1000;       //total time of simulation (simulation units)
+const double skiptime = 1;       //print out every # unit of time (simulation units)
 const int BOXRESIZETIME = 400;
 
 // OPTION - what grid values do you want/ timestep
 //Grid points
-const double h = 0.7;            //grid spacing
-const int initialNx = 221;   //No. points in x,y and z
-const int initialNy = 221;
-const int initialNz = 110;
+const double h = 0.5;            //grid spacing
+const int initialNx = 401;   //No. points in x,y and z
+const int initialNy = 401;
+const int initialNz = 91;
 // timestep
 const double dtime = 0.02;         //size of each time step
 
 // OPTION - how big should the knot be in the box, do you want it tilted or displaced?
 //Size boundaries of knot (now autoscaled)
-double xmax = 9*initialNx*h/10.0;
-double ymax = 9*initialNy*h/10.0;
-double zmax = 9*initialNz*h/10.0;
+double xmax = 8*initialNx*h/10.0;
+double ymax = 8*initialNy*h/10.0;
+double zmax = 8*initialNz*h/10.0;
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
-const double initialthetarotation = 0.1;
-const double initialxdisplacement = 0.8366;
-const double initialydisplacement = 0.51;
-const double initialzdisplacement = 0.2;
+const double initialthetarotation = 0.0;
+const double initialxdisplacement = 0.0;
+const double initialydisplacement = 0.0;
+const double initialzdisplacement = 0.0;
 
 // OPTION - what system params do you want . Don't touch these usually
 //System size parameters
