@@ -130,20 +130,21 @@ int main (void)
 #pragma omp single
             {
                 if(fmod(starttime+n*dtime, 11.2)<0.01)  //Do this every unit T
+                //if(n*dtime >= p*skiptime && starttime+n*dtime>5)
                 {   // let us know how things are going
                     cout << "T = " << n*dtime + starttime << endl;
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    std::vector<int> permutation(1,0);
                     if(n*dtime+starttime>20) 
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                        std::vector<int> permutation(1,0);
                         find_knot_velocity(knotcurves,knotcurvesold,griddata);
                         print_knot(n*dtime+starttime-11.2, knotcurvesold, permutation, griddata);
                         knotcurvesold = knotcurves;
-                        print_uv(u,v,ucvx,ucvy,ucvz,n*dtime+starttime,griddata);
+                        print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,n*dtime+starttime,griddata);
                     }
                    // if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
                   //  {
@@ -153,15 +154,12 @@ int main (void)
                     q++;
                 }
 
-                if(n*dtime >= p*skiptime && n*dtime>5)
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                }
                 if(n*dtime >= p*skiptime)
                 {
 
                     cout << "T = " << n*dtime + starttime << endl;
-                    print_uv(u,v,ucvx,ucvy,ucvz,n*dtime+starttime,griddata);
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,n*dtime+starttime,griddata);
                     p++;
                 }
 
@@ -454,12 +452,18 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
             {
                 kup = gridinc(k,1,Nz,2);
                 kdown = gridinc(k,-1,Nz,2);
-                dxu = 0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
+               dxu = 0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
                 dxv = 0.5*(v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-v[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
                 dyu = 0.5*(u[pt(i,gridinc(j,1,Ny,1),k,griddata)]-u[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
                 dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k,griddata)]-v[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
                 dzu = 0.5*(u[pt(i,j,kup,griddata)]-u[pt(i,j,kdown,griddata)])/h;
                 dzv = 0.5*(v[pt(i,j,kup,griddata)]-v[pt(i,j,kdown,griddata)])/h;
+      //          dxu =(-u[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*u[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+u[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
+      //          dxv =(-v[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*v[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+v[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
+      //          dyu =(-u[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*u[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*u[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+u[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
+      //          dyv =(-v[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*v[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*v[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+v[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
+      //          dzu =(-u[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*u[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*u[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+u[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
+      //          dzv =(-v[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*v[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*v[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+v[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
                 n = pt(i,j,k,griddata);
                 ucvx[n] = dyu*dzv - dzu*dyv;
                 ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
@@ -853,49 +857,49 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 knotcurves[c].knotcurve[s].az = dzup/norm;
             }
 
-//            for(j=1; j<4; j++)
-//            {
-//                switch(j)
-//                {
-//                    case 1 :
-//                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ax ; break;
-//                    case 2 :
-//                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ay ; break;
-//                    case 3 :
-//                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].az ; break;
-//                }
-//                double* data = coord.data();
-//                // take the fft
-//                gsl_fft_real_transform (data, 1, NP, real, work);
-//                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
-//                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
-//                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
-//                // plug in above. im doing a rough length calc below, this might be overkill.
-//                // at the moment its just a hard filter, we can choose others though.
-//                // compute a rough length to set scale
-//                double filter;
-//                const double cutoff = 2*M_PI*(totlength/(1*lambda));
-//                for (i = 0; i < NP; ++i)
-//                {
-//                    filter = 1/sqrt(1+pow((i/cutoff),8));
-//                    data[i] *= filter;
-//                };
-//                // transform back
-//                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
-//                switch(j)
-//                {
-//                    case 1 :
-//                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ax= coord[i] ; break;
-//                    case 2 :
-//                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ay= coord[i] ; break;
-//                    case 3 :
-//                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].az = coord[i] ; break;
-//                }
-//            }
-//            gsl_fft_real_wavetable_free (real);
-//            gsl_fft_halfcomplex_wavetable_free (hc);
-//            gsl_fft_real_workspace_free (work);
-//
+            for(j=1; j<4; j++)
+            {
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ax ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ay ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].az ; break;
+                }
+                double* data = coord.data();
+                // take the fft
+                gsl_fft_real_transform (data, 1, NP, real, work);
+                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
+                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
+                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
+                // plug in above. im doing a rough length calc below, this might be overkill.
+                // at the moment its just a hard filter, we can choose others though.
+                // compute a rough length to set scale
+                double filter;
+                const double cutoff = 2*M_PI*(totlength/(1*lambda));
+                for (i = 0; i < NP; ++i)
+                {
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
+                    data[i] *= filter;
+                };
+                // transform back
+                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ax= coord[i] ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ay= coord[i] ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].az = coord[i] ; break;
+                }
+            }
+            gsl_fft_real_wavetable_free (real);
+            gsl_fft_halfcomplex_wavetable_free (hc);
+            gsl_fft_real_workspace_free (work);
+
             /*****Writhe and twist integrals******/
             NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
             double totwrithe = 0;
@@ -1199,7 +1203,7 @@ void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
     }
     uvout.close();
 }
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t, const griddata& griddata)
+void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1255,7 +1259,8 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
             for(i=0; i<Nx; i++)
             {
                 n = pt(i,j,k,griddata);
-                float val = FloatSwap(sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]));
+                //float val = FloatSwap(sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]));
+                float val = FloatSwap(ucvmag[n]);
                 uvout.write( (char*) &val, sizeof(float));
             }
         }

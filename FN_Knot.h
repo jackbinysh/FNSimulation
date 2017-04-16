@@ -134,7 +134,7 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
 void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata);
 
 void print_B_phi( vector<double>&phi,const griddata& griddata);
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, double t,const griddata& griddata);
+void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata);
 int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,vector<int>& permutation,const griddata& griddata);
 int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
