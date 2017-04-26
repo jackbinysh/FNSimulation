@@ -142,7 +142,7 @@ int main (void)
                     {
                         find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                         find_knot_velocity(knotcurves,knotcurvesold,griddata);
-                        print_knot(n*dtime+starttime-11.2, knotcurvesold, permutation, griddata);
+                        print_knot(n*dtime+starttime-11.2, knotcurvesold, griddata);
                         knotcurvesold = knotcurves;
                         print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,n*dtime+starttime,griddata);
                     }
