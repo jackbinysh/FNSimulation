@@ -113,60 +113,58 @@ int main (void)
         string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
         starttime = atoi(number.c_str()); 
     }
+    // initialise the time to the starttime
+    double CurrentTime = starttime;
 
-    // initilialising counters
-    int p=0;
-    int q=0;
-    int n=0;
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,n,ku,kv,p,q,ucvx, ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
-        while(n*dtime <= TTime)
+        while(CurrentTime <= TTime)
         {
 #pragma omp single
+            // in this section we do all the on the fly analysis. A few things happen
+
+
+            // if we want to do the box resizing, it happens here
+            if(BoxResizeFlag && ( abs(CurrentTime-BoxResizeTime) < (dtime/2) ))   
             {
-                if(fmod(starttime+n*dtime, 11.2)<0.01)  //Do this every unit T
-                    //if(n*dtime >= p*skiptime && starttime+n*dtime>5)
-                {   // let us know how things are going
-                    cout << "T = " << n*dtime + starttime << endl;
-                    time (&rawtime);
-                    timeinfo = localtime (&rawtime);
-                    cout << "current time \t" << asctime(timeinfo) << "\n";
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    std::vector<int> permutation(1,0);
-                    if(n*dtime+starttime>20) 
-                    {
-                        find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,n*dtime+starttime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                        find_knot_velocity(knotcurves,knotcurvesold,griddata);
-                        print_knot(n*dtime+starttime-11.2, knotcurvesold, griddata);
-                        knotcurvesold = knotcurves;
-                        print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,n*dtime+starttime,griddata);
-                    }
-                    // if( (abs(n*dtime+starttime - BOXRESIZETIME) <0.001) || (abs(n*dtime+starttime - 2*BOXRESIZETIME) <0.001) ) 
-                    //  {
-                    //     cout << "resizingbox";
-                    //    resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
-                    // }
-                    q++;
-                }
-
-                if(n*dtime >= p*skiptime)
-                {
-
-                    cout << "T = " << n*dtime + starttime << endl;
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,n*dtime+starttime,griddata);
-                    p++;
-                }
-
-                n++;
+                cout << "resizingbox";
+                resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
             }
-            uv_update(u,v,ku,kv,griddata);
+
+            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
+            if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,KnotplotPrintTime)<(dtime/2) ) )  
+            {
+                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+
+                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                find_knot_velocity(knotcurves,knotcurvesold,griddata);
+
+                print_knot(CurrentTime - KnotplotPrintTime , knotcurvesold, griddata);
+
+                knotcurvesold = knotcurves;
+
+                // at this point, let people know how things are going
+                cout << "T = " << CurrentTime << endl;
+                time (&rawtime);
+                timeinfo = localtime (&rawtime);
+                cout << "current time \t" << asctime(timeinfo) << "\n";
+            }
+
+            // print the UV, and ucrossv data
+            if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
+            {
+                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
+            }
+
+            CurrentTime += dtime;
         }
+        uv_update(u,v,ku,kv,griddata);
     }
     return 0;
 }
