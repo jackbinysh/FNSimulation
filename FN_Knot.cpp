@@ -1300,7 +1300,7 @@ void print_B_phi( vector<double>&phi, const griddata& griddata)
 }
 
 
-void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutation,const griddata& griddata)
+void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata)
 {
     for( int c=0; c < (knotcurves.size()) ; c++)
     {
@@ -1309,7 +1309,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutati
         stringstream ss;
         ss << "globaldata" << "_" << c <<  ".txt";
         ofstream wrout (ss.str().c_str(), std::ofstream::app);
-        wrout << t << '\t' << knotcurves[permutation[c]].writhe << '\t' << knotcurves[permutation[c]].twist << '\t' << knotcurves[permutation[c]].length << '\n';
+        wrout << t << '\t' << knotcurves[c].writhe << '\t' << knotcurves[c].twist << '\t' << knotcurves[c].length << '\n';
         wrout.close();
 
         ss.str("");
@@ -1319,14 +1319,14 @@ void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutati
         ofstream knotout (ss.str().c_str());
 
         int i;
-        int n = knotcurves[permutation[c]].knotcurve.size();
+        int n = knotcurves[c].knotcurve.size();
 
         knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
         knotout << "POINTS " << n << " float\n";
 
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].xcoord << ' ' << knotcurves[permutation[c]].knotcurve[i].ycoord << ' ' << knotcurves[permutation[c]].knotcurve[i].zcoord << '\n';
+            knotout << knotcurves[c].knotcurve[i].xcoord << ' ' << knotcurves[c].knotcurve[i].ycoord << ' ' << knotcurves[c].knotcurve[i].zcoord << '\n';
         }
 
         knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
@@ -1348,67 +1348,67 @@ void print_knot( double t, vector<knotcurve>& knotcurves, vector<int>& permutati
         knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].curvature << '\n'; }
+            knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
 
         knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].torsion << '\n';
+            knotout << knotcurves[c].knotcurve[i].torsion << '\n';
         }
 
         knotout << "\nVECTORS A float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].ax << ' ' << knotcurves[permutation[c]].knotcurve[i].ay << ' ' << knotcurves[permutation[c]].knotcurve[i].az << '\n';
+            knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
         }
 
         knotout << "\nVECTORS V float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].vx << ' ' << knotcurves[permutation[c]].knotcurve[i].vy << ' ' << knotcurves[permutation[c]].knotcurve[i].vz << '\n';
+            knotout << knotcurves[c].knotcurve[i].vx << ' ' << knotcurves[c].knotcurve[i].vy << ' ' << knotcurves[c].knotcurve[i].vz << '\n';
         }
         knotout << "\nVECTORS t float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].tx << ' ' << knotcurves[permutation[c]].knotcurve[i].ty << ' ' << knotcurves[permutation[c]].knotcurve[i].tz << '\n';
+            knotout << knotcurves[c].knotcurve[i].tx << ' ' << knotcurves[c].knotcurve[i].ty << ' ' << knotcurves[c].knotcurve[i].tz << '\n';
         }
         knotout << "\nVECTORS n float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].nx << ' ' << knotcurves[permutation[c]].knotcurve[i].ny << ' ' << knotcurves[permutation[c]].knotcurve[i].nz << '\n';
+            knotout << knotcurves[c].knotcurve[i].nx << ' ' << knotcurves[c].knotcurve[i].ny << ' ' << knotcurves[c].knotcurve[i].nz << '\n';
         }
         knotout << "\nVECTORS b float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].bx << ' ' << knotcurves[permutation[c]].knotcurve[i].by << ' ' << knotcurves[permutation[c]].knotcurve[i].bz << '\n';
+            knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
         }
         knotout << "\nVECTORS vdotn float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].vdotnx << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotny << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotnz << '\n';
+            knotout << knotcurves[c].knotcurve[i].vdotnx << ' ' << knotcurves[c].knotcurve[i].vdotny << ' ' << knotcurves[c].knotcurve[i].vdotnz << '\n';
         }
         knotout << "\nVECTORS vdotb float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].vdotbx << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotby << ' ' << knotcurves[permutation[c]].knotcurve[i].vdotbz << '\n';
+            knotout << knotcurves[c].knotcurve[i].vdotbx << ' ' << knotcurves[c].knotcurve[i].vdotby << ' ' << knotcurves[c].knotcurve[i].vdotbz << '\n';
         }
         knotout << "\n\nCELL_DATA " << n << "\n\n";
         knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].writhe << '\n';
+            knotout << knotcurves[c].knotcurve[i].writhe << '\n';
         }
 
         knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].twist << '\n';
+            knotout << knotcurves[c].knotcurve[i].twist << '\n';
         }
 
         knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[permutation[c]].knotcurve[i].length << '\n';
+            knotout << knotcurves[c].knotcurve[i].length << '\n';
         }
         knotout.close();
     }
