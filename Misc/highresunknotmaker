@@ -1,0 +1,28 @@
+#!/bin/bash
+# read in the stl filenames 
+echo  boundary 1 parameter 1
+echo "x1: cos(p1)"
+echo "x2: sin(p1)"
+echo "x3: 0"
+echo "vertices"
+number=120 
+for i in $(seq 1 $number) 
+do
+echo "${i} ${i}*pi/$((number/2)) boundary 1 fixed"
+done 
+
+echo "edges"
+
+for i in $(seq 1 $((number-1))) 
+do
+echo "${i} ${i} $((i+1)) boundary 1 fixed"
+done 
+
+echo "${number} ${number} 1 boundary 1 fixed"
+echo "faces"
+echo -n "1   "
+
+for i in $(seq 1 $number) 
+do
+echo -n "${i} "
+done 
