@@ -1019,29 +1019,17 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
 {
             for(int c=0;c<knotcurvesold.size();c++)
             {
-                // this code should associate knotcurveold component c with knotcurve component d
-                // okay as a super hacky first pass, I'll just compare the sizes of the vector. if this doesnt work, use more summary stats for each curve. If that doesn't work , more involved compariosn needed
-                int d = 0;
-                double mindiff = -1;
-                for(int q=0;q<knotcurves.size();q++)
-                {
-                    double diff = abs(knotcurvesold[c].knotcurve.size() - knotcurves[d].knotcurve.size()); 
-                    if(diff < mindiff) 
-                        mindiff = diff;
-                    d = q;
-                }
 
-
-                int NP = knotcurves[d].knotcurve.size();
+                int NP = knotcurves[c].knotcurve.size();
                 int NPold = knotcurvesold[c].knotcurve.size();
 
                 // align the two curves. minlocation will give the offset on the new curve.
-                double minlength =  (knotcurves[d].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[d].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[d].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[d].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[d].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[d].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
+                double minlength =  (knotcurves[c].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[c].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[c].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[c].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[c].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[c].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
                 double templength = -1;
                 int offset = 0;
                 for(int s = 1; s< NP; s++)
                 {
-                    templength = (knotcurves[d].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[d].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[d].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[d].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[d].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[d].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
+                    templength = (knotcurves[c].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[c].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[c].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[c].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[c].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[c].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
                     if (templength < minlength)
                     {
                         minlength = templength;
@@ -1059,7 +1047,7 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
                     int stepnum = 0;
                     while(!intersection)
                     {
-                        intersection = intersect3D_SegmentPlane( knotcurves[d].knotcurve[m%NP], knotcurves[d].knotcurve[(m+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
+                        intersection = intersect3D_SegmentPlane( knotcurves[c].knotcurve[m%NP], knotcurves[c].knotcurve[(m+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
                         if(intersection) break;
                         stepnum++;
                         stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
