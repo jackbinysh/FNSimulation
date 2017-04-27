@@ -126,43 +126,47 @@ int main (void)
         while(CurrentTime <= TTime)
         {
 #pragma omp single
-            // in this section we do all the on the fly analysis. A few things happen
-
-
-            // if we want to do the box resizing, it happens here
-            if(BoxResizeFlag && ( abs(CurrentTime-BoxResizeTime) < (dtime/2) ))   
             {
-                cout << "resizingbox";
-                resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
+                // in this section we do all the on the fly analysis. A few things happen
+
+
+                // if we want to do the box resizing, it happens here
+                if(BoxResizeFlag && ( abs(CurrentTime-BoxResizeTime) < (dtime/2) ))   
+                {
+                    cout << "resizingbox";
+                    resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
+                }
+
+                // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
+                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,KnotplotPrintTime)<(dtime/2) ) )  
+                {
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+
+                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                    if(!knotcurvesold.empty())
+                    {
+                        overlayknots(knotcurves,knotcurvesold, griddata);
+                        find_knot_velocity(knotcurves,knotcurvesold,griddata,KnotplotPrintTime);
+                        print_knot(CurrentTime - KnotplotPrintTime , knotcurvesold, griddata);
+                    }
+                    knotcurvesold = knotcurves;
+
+                    // at this point, let people know how things are going
+                    cout << "T = " << CurrentTime << endl;
+                    time (&rawtime);
+                    timeinfo = localtime (&rawtime);
+                    cout << "current time \t" << asctime(timeinfo) << "\n";
+                }
+
+                // print the UV, and ucrossv data
+                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
+                {
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
+                }
+
+                CurrentTime += dtime;
             }
-
-            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-            if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,KnotplotPrintTime)<(dtime/2) ) )  
-            {
-                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-
-                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                find_knot_velocity(knotcurves,knotcurvesold,griddata);
-
-                print_knot(CurrentTime - KnotplotPrintTime , knotcurvesold, griddata);
-
-                knotcurvesold = knotcurves;
-
-                // at this point, let people know how things are going
-                cout << "T = " << CurrentTime << endl;
-                time (&rawtime);
-                timeinfo = localtime (&rawtime);
-                cout << "current time \t" << asctime(timeinfo) << "\n";
-            }
-
-            // print the UV, and ucrossv data
-            if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
-            {
-                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
-            }
-
-            CurrentTime += dtime;
         }
         uv_update(u,v,ku,kv,griddata);
     }
@@ -784,6 +788,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             }
         }
 
+
+
         /******************Interpolate direction of grad u for twist calc*******/
         /**Find nearest gridpoint**/
         double dxu, dyu, dzu, dxup, dyup, dzup;
@@ -879,8 +885,6 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
         /*****Writhe and twist integrals******/
         NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
-        double totwrithe = 0;
-        double tottwist = 0;
         double dxds, dyds, dzds, dxdm, dydm, dzdm,bx, by, bz;
         totlength = 0;
         /***Do the integrals**/
@@ -975,12 +979,36 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
             knotcurves[c].length += knotcurves[c].knotcurve[s].length;
             knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
+            /* while we are computing the global quantites, get the average position too*/
+            knotcurves[c].xavgpos += knotcurves[c].knotcurve[c].xcoord/NP;
+            knotcurves[c].yavgpos += knotcurves[c].knotcurve[c].ycoord/NP;
+            knotcurves[c].zavgpos += knotcurves[c].knotcurve[c].zcoord/NP;
         }
 
+        // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
+        // but for storage and display, we should put it all in the box
+        double xmax = x(griddata.Nx,griddata);
+        double xmin = x(0,griddata);
+        double deltax = griddata.Nx * h;
+        double ymax = y(griddata.Ny,griddata);
+        double ymin = y(0,griddata);
+        double deltay = griddata.Ny * h;
+        double zmax = z(griddata.Nz,griddata);
+        double zmin = z(0,griddata);
+        double deltaz = griddata.Nz * h;
+        for(s=0; s<NP; s++)
+        {
+            if(knotcurves[c].knotcurve[s].xcoord > xmax) knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax ;
+            if(knotcurves[c].knotcurve[s].xcoord < xmin) knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
+            if(knotcurves[c].knotcurve[s].ycoord > ymax) knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
+            if(knotcurves[c].knotcurve[s].ycoord < ymin) knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
+            if(knotcurves[c].knotcurve[s].zcoord > zmax) knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
+            if(knotcurves[c].knotcurve[s].zcoord < zmin) knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
+        }
     }
 }
 
-void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata)
+void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime)
 {
     for(int c=0;c<knotcurvesold.size();c++)
     {
@@ -1019,9 +1047,9 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
 
             }
             // work out velocity and twist rate
-            knotcurvesold[c].knotcurve[s].vx = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )/ 11.2;
-            knotcurvesold[c].knotcurve[s].vy = (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )/ 11.2;
-            knotcurvesold[c].knotcurve[s].vz = (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )/ 11.2;
+            knotcurvesold[c].knotcurve[s].vx = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )/ deltatime;
+            knotcurvesold[c].knotcurve[s].vy = (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )/ deltatime;
+            knotcurvesold[c].knotcurve[s].vz = (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )/ deltatime;
             // for convenience, lets also output the decomposition into normal and binormal
             double vdotn = knotcurvesold[c].knotcurve[s].nx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].ny*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].nz*knotcurvesold[c].knotcurve[s].vz;
             double vdotb = knotcurvesold[c].knotcurve[s].bx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].by*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].bz*knotcurvesold[c].knotcurve[s].vz;
@@ -1268,7 +1296,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         ss.str("");
         ss.clear();       
 
-        ss << "knotplot" << c << "_" << t <<  ".vtk";
+        ss << "znotplot" << c << "_" << t <<  ".vtk";
         ofstream knotout (ss.str().c_str());
 
         int i;
@@ -1279,7 +1307,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
 
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].xcoord << ' ' << knotcurves[c].knotcurve[i].ycoord << ' ' << knotcurves[c].knotcurve[i].zcoord << '\n';
+            knotout << knotcurves[c].knotcurve[i].modxcoord << ' ' << knotcurves[c].knotcurve[i].modycoord << ' ' << knotcurves[c].knotcurve[i].modzcoord << '\n';
         }
 
         knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
@@ -2042,3 +2070,30 @@ void ByteSwap(const char* TobeSwapped, char* swapped )
     swapped[3] = TobeSwapped[0];
     return; 
 }
+// this function takes two knots, and shifts the first one by grid spacing multiples until it literally lies over the second
+void overlayknots(vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata)
+{
+    for(int c = 0; c <knotcurves.size();c++)
+    {
+        // how the average position is displaced between the two
+        double deltax = knotcurves[c].xavgpos - knotcurvesold[c].xavgpos;
+        double deltay = knotcurves[c].yavgpos - knotcurvesold[c].yavgpos;
+        double deltaz = knotcurves[c].zavgpos - knotcurvesold[c].zavgpos;
+
+        // we mod out by the lattice spacing in all of these
+        // how many lattice spacings go into these deltas?
+        int xlatticeshift = (int) (round(deltax/(griddata.Nx *h)));
+        int ylatticeshift = (int) (round(deltay/(griddata.Ny *h)));
+        int zlatticeshift = (int) (round(deltaz/(griddata.Nz *h)));
+
+        // we should shift the knotcurve points by this much , to properly be able to compare the curves
+
+        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+        {
+            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *h);
+            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *h);
+            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *h);
+        }
+    }
+}
+

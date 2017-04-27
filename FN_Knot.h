@@ -1,4 +1,3 @@
-//
 //  FN_knot_code.h
 //
 //
@@ -51,6 +50,9 @@ struct knotpoint
     double xcoord;   //position vector x coord
     double ycoord;   //position vector y coord
     double zcoord;   //position vector z coord
+    double modxcoord;   //position vector x coord, modded out by the lattice
+    double modycoord;   //position vector y coord, ""
+    double modzcoord;   //position vector z coord, ""
     double ax;       //grad vector x coord
     double ay;       //grad vector y coord
     double az;       //grad vector z coord
@@ -86,6 +88,9 @@ struct knotcurve
     double twist;    //total twist value
     double writhe;   //total  writhe value
     double length;   //total lengthh of line
+    double xavgpos;  // average position of the knot
+    double yavgpos;
+    double zavgpos;
 };
 /*************************General maths and integer functions*****************************/
 
@@ -121,11 +126,12 @@ void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata);
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
-void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata);
+void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime);
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
+void overlayknots(vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata);
 
 /*************************File reading and writing*****************************/
 
