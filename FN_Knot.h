@@ -131,7 +131,7 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
-void overlayknots(vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata);
+void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata);
 
 /*************************File reading and writing*****************************/
 

@@ -167,8 +167,8 @@ int main (void)
 
                 CurrentTime += dtime;
             }
+            uv_update(u,v,ku,kv,griddata);
         }
-        uv_update(u,v,ku,kv,griddata);
     }
     return 0;
 }
@@ -980,30 +980,47 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             knotcurves[c].length += knotcurves[c].knotcurve[s].length;
             knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
             /* while we are computing the global quantites, get the average position too*/
-            knotcurves[c].xavgpos += knotcurves[c].knotcurve[c].xcoord/NP;
-            knotcurves[c].yavgpos += knotcurves[c].knotcurve[c].ycoord/NP;
-            knotcurves[c].zavgpos += knotcurves[c].knotcurve[c].zcoord/NP;
+            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
         }
 
         // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
         // but for storage and display, we should put it all in the box
-        double xmax = x(griddata.Nx,griddata);
+        double xmax = x(griddata.Nx -1 ,griddata);
         double xmin = x(0,griddata);
         double deltax = griddata.Nx * h;
-        double ymax = y(griddata.Ny,griddata);
+        double ymax = y(griddata.Ny -1,griddata);
         double ymin = y(0,griddata);
         double deltay = griddata.Ny * h;
-        double zmax = z(griddata.Nz,griddata);
+        double zmax = z(griddata.Nz -1 ,griddata);
         double zmin = z(0,griddata);
         double deltaz = griddata.Nz * h;
+         
         for(s=0; s<NP; s++)
         {
-            if(knotcurves[c].knotcurve[s].xcoord > xmax) knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax ;
-            if(knotcurves[c].knotcurve[s].xcoord < xmin) knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
-            if(knotcurves[c].knotcurve[s].ycoord > ymax) knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
-            if(knotcurves[c].knotcurve[s].ycoord < ymin) knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
-            if(knotcurves[c].knotcurve[s].zcoord > zmax) knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
-            if(knotcurves[c].knotcurve[s].zcoord < zmin) knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
+            knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord;
+            knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord;
+            knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord;
+            if(knotcurves[c].knotcurve[s].xcoord > xmax) {
+                knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax;
+            } ;
+            if(knotcurves[c].knotcurve[s].xcoord < xmin) {
+                knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
+            };
+            if(knotcurves[c].knotcurve[s].ycoord > ymax) {
+                knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
+            };
+            if(knotcurves[c].knotcurve[s].ycoord < ymin) {
+                knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
+            };
+            if(knotcurves[c].knotcurve[s].zcoord > zmax) {
+                knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
+            };
+            if(knotcurves[c].knotcurve[s].zcoord < zmin) 
+            {
+                knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
+            };
         }
     }
 }
@@ -1296,7 +1313,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         ss.str("");
         ss.clear();       
 
-        ss << "znotplot" << c << "_" << t <<  ".vtk";
+        ss << "knotplot" << c << "_" << t <<  ".vtk";
         ofstream knotout (ss.str().c_str());
 
         int i;
@@ -1307,7 +1324,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
 
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].modxcoord << ' ' << knotcurves[c].knotcurve[i].modycoord << ' ' << knotcurves[c].knotcurve[i].modzcoord << '\n';
+            knotout << knotcurves[c].knotcurve[i].xcoord << ' ' << knotcurves[c].knotcurve[i].ycoord << ' ' << knotcurves[c].knotcurve[i].zcoord << '\n';
         }
 
         knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
@@ -2071,7 +2088,7 @@ void ByteSwap(const char* TobeSwapped, char* swapped )
     return; 
 }
 // this function takes two knots, and shifts the first one by grid spacing multiples until it literally lies over the second
-void overlayknots(vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata)
+void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata)
 {
     for(int c = 0; c <knotcurves.size();c++)
     {
@@ -2093,6 +2110,17 @@ void overlayknots(vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold
             knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *h);
             knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *h);
             knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *h);
+        }
+        // now we've done these shifts, we'd better move the knotcurve average position too.
+        knotcurves[c].xavgpos = 0;
+        knotcurves[c].yavgpos = 0;
+        knotcurves[c].zavgpos = 0;
+        double NP = knotcurves[c].knotcurve.size();
+        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+        {
+            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
         }
     }
 }
