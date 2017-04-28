@@ -115,13 +115,14 @@ int main (void)
     }
     // initialise the time to the starttime
     double CurrentTime = starttime;
+    int iterationcounter = 0;
 
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, iterationcounter,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
         {
@@ -164,8 +165,9 @@ int main (void)
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
                 }
-
-                CurrentTime += dtime;
+                //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
+                iterationcounter++;
+                CurrentTime  = starttime + ((double)(iterationcounter) * dtime);
             }
             uv_update(u,v,ku,kv,griddata);
         }
