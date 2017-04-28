@@ -138,8 +138,17 @@ int main (void)
                     resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
                 }
 
+                // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
+                // than a cycle
+                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,FrequentKnotplotPrintTime)<(dtime/2) ) )  
+                {
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                    print_knot(CurrentTime, knotcurves, griddata);
+                }
+
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,KnotplotPrintTime)<(dtime/2) ) )  
+                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,VelocityKnotplotPrintTime)<(dtime/2) ) )  
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
@@ -147,8 +156,8 @@ int main (void)
                     if(!knotcurvesold.empty())
                     {
                         overlayknots(knotcurves,knotcurvesold, griddata);
-                        find_knot_velocity(knotcurves,knotcurvesold,griddata,KnotplotPrintTime);
-                        print_knot(CurrentTime - KnotplotPrintTime , knotcurvesold, griddata);
+                        find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
+                        print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
                     }
                     knotcurvesold = knotcurves;
 
@@ -998,7 +1007,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
         double zmax = z(griddata.Nz -1 ,griddata);
         double zmin = z(0,griddata);
         double deltaz = griddata.Nz * h;
-         
+
         for(s=0; s<NP; s++)
         {
             knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord;
@@ -1035,40 +1044,33 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
         int NP = knotcurves[c].knotcurve.size();
         int NPold = knotcurvesold[c].knotcurve.size();
 
-        // align the two curves. minlocation will give the offset on the new curve.
-        double minlength =  (knotcurves[c].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[c].knotcurve[0].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[c].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[c].knotcurve[0].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[c].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[c].knotcurve[0].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
-        double templength = -1;
-        int offset = 0;
-        for(int s = 1; s< NP; s++)
-        {
-            templength = (knotcurves[c].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord)*(knotcurves[c].knotcurve[s].xcoord - knotcurvesold[c].knotcurve[0].xcoord) + (knotcurves[c].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) * (knotcurves[c].knotcurve[s].ycoord - knotcurvesold[c].knotcurve[0].ycoord) +  (knotcurves[c].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord) * (knotcurves[c].knotcurve[s].zcoord - knotcurvesold[c].knotcurve[0].zcoord);
-            if (templength < minlength)
-            {
-                minlength = templength;
-                offset = s;
-            }
-        }
-
-        bool intersection = false;
-        double IntersectionFraction =-1;
-        std::vector<double> IntersectionPoint(3);
         for(int s = 0; s< knotcurvesold[c].knotcurve.size(); s++)
         {
-            intersection = false;
-            int m = s + offset;
-            int stepnum = 0;
-            while(!intersection)
+            double IntersectionFraction =-1;
+            std::vector<double> IntersectionPoint(3);
+            std::vector<double> ClosestIntersection(3);
+            double closestdistancesquare = knotcurvesold[c].length;
+            for(int t = 0 ; t<knotcurves[c].knotcurve.size();t++)
             {
-                intersection = intersect3D_SegmentPlane( knotcurves[c].knotcurve[m%NP], knotcurves[c].knotcurve[(m+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
-                if(intersection) break;
-                stepnum++;
-                stepnum%2? m = incp(m,-stepnum, NP): m = incp(m,stepnum, NP); // work outwards from our best guess
-
+                int intersection = 0;
+                intersection = intersect3D_SegmentPlane( knotcurves[c].knotcurve[t%NP], knotcurves[c].knotcurve[(t+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
+                if(intersection ==1)
+                { 
+                    double intersectiondistancesquare = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )*(IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )+ (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )*(IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )+ (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )*(IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord );
+                        if(intersectiondistancesquare < closestdistancesquare)
+                        {
+                         closestdistancesquare = intersectiondistancesquare;
+                         ClosestIntersection[0] = IntersectionPoint[0];
+                         ClosestIntersection[1] = IntersectionPoint[1];
+                         ClosestIntersection[2] = IntersectionPoint[2];
+                        }
+                
+                }
             }
             // work out velocity and twist rate
-            knotcurvesold[c].knotcurve[s].vx = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )/ deltatime;
-            knotcurvesold[c].knotcurve[s].vy = (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )/ deltatime;
-            knotcurvesold[c].knotcurve[s].vz = (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )/ deltatime;
+            knotcurvesold[c].knotcurve[s].vx = (ClosestIntersection[0] - knotcurvesold[c].knotcurve[s].xcoord )/ deltatime;
+            knotcurvesold[c].knotcurve[s].vy = (ClosestIntersection[1] - knotcurvesold[c].knotcurve[s].ycoord )/ deltatime;
+            knotcurvesold[c].knotcurve[s].vz = (ClosestIntersection[2] - knotcurvesold[c].knotcurve[s].zcoord )/ deltatime;
             // for convenience, lets also output the decomposition into normal and binormal
             double vdotn = knotcurvesold[c].knotcurve[s].nx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].ny*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].nz*knotcurvesold[c].knotcurve[s].vz;
             double vdotb = knotcurvesold[c].knotcurve[s].bx*knotcurvesold[c].knotcurve[s].vx+knotcurvesold[c].knotcurve[s].by*knotcurvesold[c].knotcurve[s].vy+knotcurvesold[c].knotcurve[s].bz*knotcurvesold[c].knotcurve[s].vz;
