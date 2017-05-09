@@ -140,7 +140,7 @@ int main (void)
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,FrequentKnotplotPrintTime)<(dtime/2) ) )  
+                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
@@ -148,7 +148,7 @@ int main (void)
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-                if( ( CurrentTime > InitialSkipTime ) && ( fmod(CurrentTime,VelocityKnotplotPrintTime)<(dtime/2) ) )  
+                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
