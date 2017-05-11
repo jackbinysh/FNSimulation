@@ -19,8 +19,14 @@
    The parameters epsilon, beta and gam are set to give rise to scroll waves (see Sutcliffe, Winfree, PRE 2003 and Maucher Sutcliffe PRL 2016) which eminate from a closed curve, on initialisation this curve corresponds to the boundary of the surface in the stl file.
 
    See below for various options to start the code from previous outputted data.*/
+
+// My own header, knot specific stuff
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
+// GPU solver stuff
+#include "declarations.cuh"
+// interpolation stuff
 #include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used 
+// standard c stuff
 #include <omp.h>
 #include <math.h>
 #include <string.h>
@@ -113,6 +119,26 @@ int main (void)
         string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
         starttime = atoi(number.c_str()); 
     }
+
+
+    // Ok, U and V are initialised. lets set things up on the GPU
+    DataArray host, device1, device2;
+    InitialData id;
+
+	host.xmax = 192;
+	host.ymax = 192;
+	host.zmax = 192;
+    host.u = &u[0];
+    host.v = &v[0];
+	
+	//initial data parameters
+	id.da = 1.0f;
+	id.dt = dtime;
+	id.dx = h;
+	id.itmax = (int)(TTime/dtime);
+
+	gpuInitialize(id, host, device1, device2);
+
     // initialise the time to the starttime
     double CurrentTime = starttime;
     int iterationcounter = 0;
@@ -122,65 +148,14 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, iterationcounter,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+
+    while(iterationcounter <= TTime*dtime)
     {
-        while(CurrentTime <= TTime)
-        {
-#pragma omp single
-            {
-                // in this section we do all the on the fly analysis. A few things happen
-
-
-                // if we want to do the box resizing, it happens here
-                if(BoxResizeFlag && ( abs(CurrentTime-BoxResizeTime) < (dtime/2) ))   
-                {
-                    cout << "resizingbox";
-                    resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
-                }
-
-                // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
-                // than a cycle
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    print_knot(CurrentTime, knotcurves, griddata);
-                }
-
-                // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    if(!knotcurvesold.empty())
-                    {
-                        overlayknots(knotcurves,knotcurvesold, griddata);
-                        find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
-                        print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
-                    }
-                    knotcurvesold = knotcurves;
-
-                    // at this point, let people know how things are going
-                    cout << "T = " << CurrentTime << endl;
-                    time (&rawtime);
-                    timeinfo = localtime (&rawtime);
-                    cout << "current time \t" << asctime(timeinfo) << "\n";
-                }
-
-                // print the UV, and ucrossv data
-                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
-                }
-                //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
-                iterationcounter++;
-                CurrentTime  = starttime + ((double)(iterationcounter) * dtime);
-            }
-            uv_update(u,v,ku,kv,griddata);
-        }
+            iterationcounter++;
+            gpuStep(device1, device2);
     }
+
+	gpuClose(device1, device2);
     return 0;
 }
 
