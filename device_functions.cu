@@ -2,21 +2,23 @@
 #include "kernels.cu"
 
 //kernel configuration variables
-dim3 blocks_init;
-dim3 threads_init;
-
+// main compute blocks and threads
 dim3 blocks_laplace;	
 dim3 threads_laplace;
-
-dim3 blocks_boundary_x;
-dim3 blocks_boundary_y;
-dim3 blocks_boundary_z;
-dim3 threads_boundary;
-
-dim3 blocks_edge_x;
-dim3 blocks_edge_y;
-dim3 blocks_edge_z;
-dim3 threads_edge;
+// face blocks and threads
+dim3 blocks_boundary_X;
+dim3 blocks_boundary_Y;
+dim3 blocks_boundary_Z;
+dim3 threads_boundary_X;
+dim3 threads_boundary_Y;
+dim3 threads_boundary_Z;
+// edge blocks and threads
+dim3 blocks_boundary_edge_X;
+dim3 blocks_boundary__edge_Y;
+dim3 blocks_boundary_edge_Z;
+dim3 threads_boundary_edge_X;
+dim3 threads_boundary_edge_Y;
+dim3 threads_boundary_edge_Z;
 
 //function to allocate device memory and initialize data
 void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArray& device2)
@@ -36,34 +38,43 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
 	device2.ymax = host.ymax;
 	device2.zmax = host.zmax;
 
-	//Calculate kernel configurations
-	blocks_init.x = host.xmax/BLOCKSIZE;
-	blocks_init.y = host.ymax/BLOCKSIZE;
-	threads_init.x = BLOCKSIZE;
-	threads_init.y = BLOCKSIZE;
-
+    // Block and threads for the main compute laplacian
 	blocks_laplace.x = (int)ceil((float)host.xmax/(CELLW-2));	
 	blocks_laplace.y = (int)ceil((float)host.ymax/(CELLH-2));	
 	threads_laplace.x = CELLW;
 	threads_laplace.y = CELLH;
 	threads_laplace.z = CELLD;
 
-	blocks_boundary_x.x = host.ymax/BLOCKSIZE;
-	blocks_boundary_x.y = host.zmax/BLOCKSIZE;
+    // Block and threads for the face periodic bc's
+	blocks_boundary_X.x = (int)ceil((float)host.ymax/(BOUNDARYBLOCKSIZE-2));	
+	blocks_boundary_X.y = (int)ceil((float)host.zmax/(BOUNDARYBLOCKSIZE-2));	
 
-	blocks_boundary_y.x = host.xmax/BLOCKSIZE;
-	blocks_boundary_y.y = host.zmax/BLOCKSIZE;
+	threads_boundary_X.x = 4;
+	threads_boundary_X.y = BOUNDARYBLOCKSIZE;
+	threads_boundary_X.z=BOUNDARYBLOCKSIZE;
 
-	blocks_boundary_z.x = host.xmax/BLOCKSIZE;
-	blocks_boundary_z.y = host.ymax/BLOCKSIZE;
+	blocks_boundary_Y.x = (int)ceil((float)host.xmax/(BOUNDARYBLOCKSIZE-2));	
+	blocks_boundary_Y.y = (int)ceil((float)host.zmax/(BOUNDARYBLOCKSIZE-2));	
 
-	threads_boundary.x = BLOCKSIZE;
-	threads_boundary.y = BLOCKSIZE;
+	threads_boundary_Y.x = BOUNDARYBLOCKSIZE;
+	threads_boundary_Y.y = 4;
+	threads_boundary_Y.z=BOUNDARYBLOCKSIZE;
 
-	blocks_edge_x.x = host.xmax/BLOCKSIZE;
-	blocks_edge_y.x = host.ymax/BLOCKSIZE;
-	blocks_edge_z.x = host.zmax/BLOCKSIZE;
-	threads_edge.x = BLOCKSIZE;
+	blocks_boundary_Z.x = (int)ceil((float)host.xmax/(BOUNDARYBLOCKSIZE-2));	
+	blocks_boundary_Z.y = (int)ceil((float)host.ymax/(BOUNDARYBLOCKSIZE-2));	
+
+	threads_boundary_Z.x = BOUNDARYBLOCKSIZE;
+	threads_boundary_Z.y = BOUNDARYBLOCKSIZE;
+	threads_boundary_Z.z= 4;
+
+    // Block and threads for the edge periodic bc's
+	blocks_boundary_edge_X.x = host.xmax/BOUNDARYBLOCKSIZE;	
+	blocks_boundary_edge_Y.x = host.ymax/BOUNDARYBLOCKSIZE;	
+	blocks_boundary_edge_Z.x = host.zmax/BOUNDARYBLOCKSIZE;	
+
+	threads_boundary_edge_X.x = BOUNDARYBLOCKSIZE;
+	threads_boundary_edge_Y.x = BOUNDARYBLOCKSIZE;
+	threads_boundary_edge_Z.x = BOUNDARYBLOCKSIZE;
 
 	//allocate device arrays
     int total = host.xmax * host.ymax *host.zmax;
@@ -81,8 +92,6 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
 	cudaMemcpyToSymbol(DT, &id.dt, sizeof(float));
 	cudaMemcpyToSymbol(DX, &id.dx, sizeof(float));
 	cudaMemcpyToSymbol(DA, &id.da, sizeof(float));
-	cudaMemcpyToSymbol(A_NULL, &id.anull, sizeof(float));
-	cudaMemcpyToSymbol(ITMAX, &id.itmax, sizeof(int));
 
 	cudaMemcpyToSymbol(XMAX, &host.xmax, sizeof(int));
 	cudaMemcpyToSymbol(YMAX, &host.ymax, sizeof(int));
@@ -106,18 +115,17 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
 //compute one time step
 void gpuStep(DataArray& device1, DataArray& device2)
 {
-	kernelBoundaryX<<<blocks_boundary_x, threads_boundary>>>(device1.a);
-	kernelBoundaryY<<<blocks_boundary_y, threads_boundary>>>(device1.a);
-	kernelBoundaryZ<<<blocks_boundary_z, threads_boundary>>>(device1.a);		
-	kernelBoundaryEdgeX<<<blocks_edge_x, threads_edge>>>(device1.a);
-	kernelBoundaryEdgeY<<<blocks_edge_y, threads_edge>>>(device1.a);
-	kernelBoundaryEdgeZ<<<blocks_edge_z, threads_edge>>>(device1.a);
-
-	kernelDiffusion<<<blocks_laplace, threads_laplace>>>(device1.a, device2.a);	
+    kernelPeriodicBCX<<<blocks_boundary_X, threads_boundary_X>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCY<<<blocks_boundary_Y, threads_boundary_Y>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCZ<<<blocks_boundary_Z, threads_boundary_Z>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeX<blocks_boundary_edge_X,threads_boundary_edge_X>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeY<blocks_boundary_edge_Y,threads_boundary_edge_Y>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeZ<blocks_boundary_edge_Z,threads_boundary_edge_Z>>>(device1.u,device1.v,device2.u,device2.v);
 
 	//swap
-	float *temp=device2.u; device2.u=device1.u; device1.u=temp;
-	float *temp=device2.v; device2.v=device1.v; device1.v=temp;
+	float *temp;
+    temp=device2.u; device2.u=device1.u; device1.u=temp;
+	temp=device2.v; device2.v=device1.v; device1.v=temp;
 
 	CudaCheck(); //because of asynchronous execution, there will be several steps before it can return an error, if any
 }
@@ -131,26 +139,3 @@ void gpuClose(DataArray& device1, DataArray& device2)
 	cudaFree(device2.v);
 }
 
-//copy data from device to host and write it to a binary file
-void ExportCheckpoint(const char* name, DataArray& host, DataArray& device1, int l)
-{	
-	cudaMemcpy(host.a, device1.a, total*sizeof(float), cudaMemcpyDeviceToHost);
-	CudaCheck();
-	
-	//create a file
-	char filename[4096];
-	FILE *f;	
-	sprintf(filename, "%s_%d.bin", name, l);
-	f = fopen(filename, "wb");
-	if (f==0) { printf("  error creating %s\n", filename); return; }
-
-	//create 12-byte header(3x 4byte-integers): write dimensions
-	fwrite(&host.xmax, sizeof(host.xmax), 1, f);
-	fwrite(&host.ymax, sizeof(host.ymax), 1, f);
-	fwrite(&host.zmax, sizeof(host.zmax), 1, f);
-
-	//write data
-	fwrite(host.a, total * sizeof(float), 1, f);
-
-	fclose(f);
-}

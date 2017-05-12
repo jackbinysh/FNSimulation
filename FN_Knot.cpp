@@ -125,9 +125,9 @@ int main (void)
     DataArray host, device1, device2;
     InitialData id;
 
-	host.xmax = 192;
-	host.ymax = 192;
-	host.zmax = 192;
+	host.xmax = Nx;
+	host.ymax = Ny;
+	host.zmax = Nz;
     host.u = &u[0];
     host.v = &v[0];
 	

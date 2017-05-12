@@ -1,19 +1,18 @@
 //Constants for the simulation defined in device Constant memory
-__constant__ float DT, DX, DA, A_NULL, RADIUS; //same as in InitialData structure
-__constant__ int XMAX, YMAX, ZMAX, ITMAX; //Dimensions of simulated space and time interval
+__constant__ int XMAX, YMAX, ZMAX //Dimensions of simulated space and time interval
 __constant__ int Zsize, Ysize; //Helps to address memory.
 __constant__ float DaDt_6DxDx; //Precomputed: DA * DT / (6 * DX * DX)
 
 // BCs 
 
 // perpendicular to the X axis (YZ sides of space)
-__global__ void kernelPeriodicBCX(float *a_old, float *a_new)
+__global__ void kernelPeriodicBCX(float *u_old,float *v_old, float *u_new float *v_new)
 {
-    __shared__ float ao[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
+    __shared__ float u_shared[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    float laplace_a;
+    float laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -39,7 +38,7 @@ __global__ void kernelPeriodicBCX(float *a_old, float *a_new)
     //read first block-layer of data
     if (ok_read)
     {
-        ao[threadIdx.z][threadIdx.y][threadIdx.x] = a_old[p];
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
     };
 
     __syncthreads();
@@ -48,40 +47,40 @@ __global__ void kernelPeriodicBCX(float *a_old, float *a_new)
     //calculate laplacian with 19-point stencil
     if (ok_compute )
     {
-        laplace_a =
-            ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-            ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-            2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                   ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+        laplace_u =
+            u_shared[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
+            u_shared[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
+            2.0f * ( u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                   ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        a_new[p] = ao[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_a;
+        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
     };
 
 }
 
 // perpendicular to the Y axis (XZ sides of space)
-__global__ void kernelPeriodicBCY(float *a_old, float *a_new)
+__global__ void kernelPeriodicBCY(float *u_old,float *v_old, float *u_new float *v_new)
 {
-    __shared__ float ao[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
+    __shared__ float u_shared[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    float laplace_a;
+    float laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -107,7 +106,7 @@ __global__ void kernelPeriodicBCY(float *a_old, float *a_new)
     //read first block-layer of data
     if (ok_read)
     {
-        ao[threadIdx.z][threadIdx.y][threadIdx.x] = a_old[p];
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
     };
 
     __syncthreads();
@@ -116,40 +115,40 @@ __global__ void kernelPeriodicBCY(float *a_old, float *a_new)
     //calculate laplacian with 19-point stencil
     if (ok_compute )
     {
-        laplace_a =
-            ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-            ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-            2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                   ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+        laplace_u =
+            u_shared[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
+            u_shared[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
+            2.0f * ( u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                   ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        a_new[p] = ao[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_a;
+        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
     };
 
 }
 
 // perpendicular to the Z axis (XY sides of space)
-__global__ void kernelPeriodicBCZ(float *a_old, float *a_new)
+__global__ void kernelPeriodicBCZ(float *u_old,float *v_old, float *u_new float *v_new)
 {
-    __shared__ float ao[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
+    __shared__ float u_shared[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    float laplace_a;
+    float laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -175,7 +174,7 @@ __global__ void kernelPeriodicBCZ(float *a_old, float *a_new)
     //read first block-layer of data
     if (ok_read)
     {
-        ao[threadIdx.z][threadIdx.y][threadIdx.x] = a_old[p];
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
     };
 
     __syncthreads();
@@ -184,28 +183,28 @@ __global__ void kernelPeriodicBCZ(float *a_old, float *a_new)
     //calculate laplacian with 19-point stencil
     if (ok_compute )
     {
-        laplace_a =
-            ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-            ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-            ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-            ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-            ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-            ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-            2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                    ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                    ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                   ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+        laplace_u =
+            u_shared[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
+            u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
+            u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
+            u_shared[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
+            u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
+            u_shared[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
+            2.0f * ( u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                    u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                    u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                   ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        a_new[p] = ao[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_a;
+        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
     };
 
 }
@@ -214,7 +213,7 @@ __global__ void kernelPeriodicBCZ(float *a_old, float *a_new)
 
 //periodic boundary of the edges of space, parallel to X axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCEdgeX(float *a_old,float *a_new)
+__global__ void kernelPeriodicBCEdgeX(float *u_old,float *v_old, float *u_new float *v_new)
 {
     int x=blockIdx.x*BLOCKSIZE+threadIdx.x;
 
@@ -251,53 +250,53 @@ __global__ void kernelPeriodicBCEdgeX(float *a_old,float *a_new)
             x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
-            laplace_a =
-                aold[x_ydown_zup]+
+            laplace_u =
+                u_old[x_ydown_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zup]+
+                u_old[xdown_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_zup]+
+                u_old[xup_y_zup]+
                 //      ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zup]+
+                u_old[x_yup_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_ydown_z]+
+                u_old[xdown_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-                aold[xup_ydown_z]+
+                u_old[xup_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-                aold[xdown_yup_z]+
+                u_old[xdown_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-                aold[xup_yup_z]+
+                u_old[xup_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-                aold[x_ydown_zdown]+
+                u_old[x_ydown_zdown]+
                 //       ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zdown] + aold[xup_y_zdown]+
+                u_old[xdown_y_zdown] + u_old[xup_y_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zdown]+
+                u_old[x_yup_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-                2.0f* (aold[x_y_zdown]+
+                2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                aold[x_y_zup]+
+                u_old[x_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                aold[x_ydown_z]+
+                u_old[x_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                aold[x_yup_z]+
+                u_old[x_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_y_z]+
+                u_old[xdown_y_z]+
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_z]
+                u_old[xup_y_z]
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* aold[x_y_z];
+                ) - 24.0f* u_old[x_y_z];
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            a_new[x_y_z] = aold[x_y_z] + DaDt_6DxDx * laplace_a;
+            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
         }
     }
 }
 
 //periodic boundary of the edges of space, parallel to Y axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCBoundaryEdgeY(float *a_old,float *a_new)
+__global__ void kernelPeriodicBCBoundaryEdgeY(float *u_old,float *v_old, float *u_new float *v_new)
 {
     int y=blockIdx.x*BLOCKSIZE+threadIdx.x;
 
@@ -334,53 +333,53 @@ __global__ void kernelPeriodicBCBoundaryEdgeY(float *a_old,float *a_new)
             x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
-            laplace_a =
-                aold[x_ydown_zup]+
+            laplace_u =
+                u_old[x_ydown_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zup]+
+                u_old[xdown_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_zup]+
+                u_old[xup_y_zup]+
                 //      ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zup]+
+                u_old[x_yup_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_ydown_z]+
+                u_old[xdown_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-                aold[xup_ydown_z]+
+                u_old[xup_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-                aold[xdown_yup_z]+
+                u_old[xdown_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-                aold[xup_yup_z]+
+                u_old[xup_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-                aold[x_ydown_zdown]+
+                u_old[x_ydown_zdown]+
                 //       ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zdown] + aold[xup_y_zdown]+
+                u_old[xdown_y_zdown] + u_old[xup_y_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zdown]+
+                u_old[x_yup_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-                2.0f* (aold[x_y_zdown]+
+                2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                aold[x_y_zup]+
+                u_old[x_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                aold[x_ydown_z]+
+                u_old[x_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                aold[x_yup_z]+
+                u_old[x_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_y_z]+
+                u_old[xdown_y_z]+
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_z]
+                u_old[xup_y_z]
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* aold[x_y_z];
+                ) - 24.0f* u_old[x_y_z];
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            a_new[x_y_z] = aold[x_y_z] + DaDt_6DxDx * laplace_a;
+            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
         }
     }
 }
 
 //periodic boundary of the edges of space, parallel to Z axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCBoundaryEdgeZ(float *a_old,float *a_new)
+__global__ void kernelPeriodicBCBoundaryEdgeZ(float *u_old,float *v_old, float *u_new float *v_new)
 {
     int z=blockIdx.x*BLOCKSIZE+threadIdx.x;
 
@@ -416,58 +415,58 @@ __global__ void kernelPeriodicBCBoundaryEdgeZ(float *a_old,float *a_new)
             x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
-            laplace_a =
-                aold[x_ydown_zup]+
+            laplace_u =
+                u_old[x_ydown_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zup]+
+                u_old[xdown_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_zup]+
+                u_old[xup_y_zup]+
                 //      ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zup]+
+                u_old[x_yup_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_ydown_z]+
+                u_old[xdown_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-                aold[xup_ydown_z]+
+                u_old[xup_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-                aold[xdown_yup_z]+
+                u_old[xdown_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-                aold[xup_yup_z]+
+                u_old[xup_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-                aold[x_ydown_zdown]+
+                u_old[x_ydown_zdown]+
                 //       ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-                aold[xdown_y_zdown] + aold[xup_y_zdown]+
+                u_old[xdown_y_zdown] + u_old[xup_y_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] + ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-                aold[x_yup_zdown]+
+                u_old[x_yup_zdown]+
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-                2.0f* (aold[x_y_zdown]+
+                2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                aold[x_y_zup]+
+                u_old[x_y_zup]+
                 //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                aold[x_ydown_z]+
+                u_old[x_ydown_z]+
                 //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                aold[x_yup_z]+
+                u_old[x_yup_z]+
                 //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                aold[xdown_y_z]+
+                u_old[xdown_y_z]+
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                aold[xup_y_z]
+                u_old[xup_y_z]
                 //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* aold[x_y_z];
+                ) - 24.0f* u_old[x_y_z];
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            a_new[x_y_z] = aold[x_y_z] + DaDt_6DxDx * laplace_a;
+            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
         }
     }
 }
 
 //main compute kernel to update concentration values on the grid
-__global__ void kernelDiffusion(float *a_old, float *a_new)
+__global__ void kernelDiffusion(float *u_old,float *v_old, float *u_new float *v_new)
 {
-    __shared__ float ao[CELLD][CELLH][CELLW];
+    __shared__ float u_shared[CELLD][CELLH][CELLW];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    float laplace_a;
+    float laplace_u;
 
     //location and memory address. Note: neighbouring blocks overlap.
     x = blockIdx.x*(CELLW-2)+threadIdx.x;
@@ -482,7 +481,7 @@ __global__ void kernelDiffusion(float *a_old, float *a_new)
     //read first block-layer of data
     if (ok_read)
     {
-        ao[threadIdx.z][threadIdx.y][threadIdx.x] = a_old[p];
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
     };
 
     __syncthreads();
@@ -497,29 +496,29 @@ __global__ void kernelDiffusion(float *a_old, float *a_new)
         //calculate laplacian with 19-point stencil
         if (ok_compute & (z < ZMAX-1))
         {
-            laplace_a =
-                ao[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
-                ao[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
-                ao[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
-                ao[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
-                ao[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
-                ao[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
-                ao[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
-                ao[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
-                ao[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
-                ao[threadIdx.z-1][threadIdx.y][threadIdx.x-1] +
-                ao[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
-                ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
-                2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                        ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                        ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                        ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                        ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                        ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                       ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+            laplace_u =
+                u_shared[threadIdx.z+1][threadIdx.y-1][threadIdx.x] + 
+                u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x-1] +
+                u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
+                u_shared[threadIdx.z+1][threadIdx.y+1][threadIdx.x] + 
+                u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x-1] +
+                u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
+                u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x-1] +
+                u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
+                u_shared[threadIdx.z-1][threadIdx.y-1][threadIdx.x] + 
+                u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x-1] +
+                u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
+                u_shared[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
+                2.0f * ( u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x] +
+                        u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                        u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                        u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                        u_shared[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                        u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                       ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            a_new[p] = ao[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_a;
+            u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
         };
 
         __syncthreads();
@@ -527,7 +526,7 @@ __global__ void kernelDiffusion(float *a_old, float *a_new)
         //copy last two z-layers in the block to the first position
         if (threadIdx.z >= CELLD-2)
         {
-            ao[threadIdx.z-CELLD+2][threadIdx.y][threadIdx.x] = ao[threadIdx.z][threadIdx.y][threadIdx.x];			
+            u_shared[threadIdx.z-CELLD+2][threadIdx.y][threadIdx.x] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x];			
         };
 
         //No need to syncthreads() here because those warps that write shared mem above
@@ -540,7 +539,7 @@ __global__ void kernelDiffusion(float *a_old, float *a_new)
         p = z * Zsize + y * Ysize + x;
         if ((z<ZMAX) & ok_read & (threadIdx.z >= 2))
         {
-            ao[threadIdx.z][threadIdx.y][threadIdx.x] = a_old[p];			
+            u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];			
         }
 
         __syncthreads();

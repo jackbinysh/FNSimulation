@@ -21,7 +21,6 @@ typedef struct InitialData
 	float da; //Diffusion coefficient for species A
 	float dt; //Timestep
 	float dx; //Grid spacing
-	int itmax; //Max number of iteration steps
 } InitialData;
 
 
@@ -43,14 +42,9 @@ typedef struct InitialData
 void CudaCheck();
 void Error(const char* text);
 
-//functions in host_functions.cu
-void hostInitialize(DataArray& host);
-void hostClose(DataArray& host);
-
 //functions in device_functions.cu
 void gpuClose(DataArray& device1, DataArray& device2);
 void gpuStep(DataArray& device1, DataArray& device2);
 void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArray& device2);
-void ExportCheckpoint(const char* name, DataArray& host, DataArray& device1, int l);
 
 #endif //declarations_h
