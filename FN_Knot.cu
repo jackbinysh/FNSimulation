@@ -153,6 +153,7 @@ int main (void)
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
+    cudaEventRecord(start, 0);
     while(iterationcounter <= (int)(TTime/dtime))
     {
         iterationcounter++;
