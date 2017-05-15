@@ -144,19 +144,38 @@ int main (void)
     gpuInitialize(id, host, device1, device2);
 
     // initialise the time to the starttime
-    double CurrentTime = starttime;
     int iterationcounter = 0;
+    int reportInterval = (int)(1/dtime);
+    int exportInterval = 10*reportInterval; //must be multiple of reportInterval
 
-    // initialising timers
-    time_t then = time(NULL);
-    time_t rawtime;
-    time (&rawtime);
-    struct tm * timeinfo;
+    //events for time measurement
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-    while(iterationcounter <= TTime*dtime)
+    while(iterationcounter <= (int)(TTime/dtime))
     {
         iterationcounter++;
         gpuStep(device1, device2);
+        if (iterationcounter % reportInterval == 0)
+        {
+            cudaEventRecord(stop, 0);
+            cudaEventSynchronize(stop);
+            float elapsed;
+            cudaEventElapsedTime(&elapsed, start, stop); //gives in milliseconds
+            elapsed /= 1000.0f; //convert to seconds
+            printf("%f \n", elapsed);
+
+            if (iterationcounter % exportInterval == 0)
+            {
+                cudaMemcpy(host.u,device1.u,u.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+                cudaMemcpy(host.v,device1.v,v.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+                print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,iterationcounter*dtime,griddata);
+
+
+            }
+            cudaEventRecord(start, 0);
+        }   
     }
 
     gpuClose(device1, device2);
