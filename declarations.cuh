@@ -22,6 +22,11 @@ typedef struct InitialData
 	float da; //Diffusion coefficient for species A
 	float dt; //Timestep
 	float dx; //Grid spacing
+	float epsilon; //Grid spacing
+	float beta; //Grid spacing
+	float gam; //Grid spacing
+	float oneoverepsilon; //Grid spacing
+	float onethird; //Grid spacing
 } InitialData;
 
 

@@ -123,18 +123,25 @@ int main (void)
     DataArray host, device1, device2;
     InitialData id;
 
-	host.xmax = Nx;
-	host.ymax = Ny;
-	host.zmax = Nz;
+    host.xmax = Nx;
+    host.ymax = Ny;
+    host.zmax = Nz;
     host.u = &u[0];
     host.v = &v[0];
-	
-	//initial data parameters
-	id.da = 1.0f;
-	id.dt = dtime;
-	id.dx = h;
 
-	gpuInitialize(id, host, device1, device2);
+    //initial data parameters
+    id.da = 1.0f;
+    id.dt = dtime;
+    id.dx = h;
+
+    id.epsilon = epsilon;
+    id.beta = beta;
+    id.gam = gam;
+    id.oneoverepsilon = 1.0f/epsilon;
+    id.onethird = (float)1.0f/(float)3.0f;
+
+
+    gpuInitialize(id, host, device1, device2);
 
     // initialise the time to the starttime
     double CurrentTime = starttime;
@@ -148,11 +155,11 @@ int main (void)
 
     while(iterationcounter <= TTime*dtime)
     {
-            iterationcounter++;
-            gpuStep(device1, device2);
+        iterationcounter++;
+        gpuStep(device1, device2);
     }
 
-	gpuClose(device1, device2);
+    gpuClose(device1, device2);
     return 0;
 }
 
@@ -291,7 +298,7 @@ double init_from_surface_file(vector<triangle>& knotsurface)
           ny = ny/norm;
           nz = nz/norm;
           cout << nx*knotsurface[i].normal[0] + ny*knotsurface[i].normal[1] + nz*knotsurface[i].normal[2] << '\n';
-          */
+         */
 
         r10 = sqrt((knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0]));
         r20 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0]));
@@ -1029,14 +1036,14 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
                 if(intersection ==1)
                 { 
                     double intersectiondistancesquare = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )*(IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )+ (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )*(IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )+ (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )*(IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord );
-                        if(intersectiondistancesquare < closestdistancesquare)
-                        {
-                         closestdistancesquare = intersectiondistancesquare;
-                         ClosestIntersection[0] = IntersectionPoint[0];
-                         ClosestIntersection[1] = IntersectionPoint[1];
-                         ClosestIntersection[2] = IntersectionPoint[2];
-                        }
-                
+                    if(intersectiondistancesquare < closestdistancesquare)
+                    {
+                        closestdistancesquare = intersectiondistancesquare;
+                        ClosestIntersection[0] = IntersectionPoint[0];
+                        ClosestIntersection[1] = IntersectionPoint[1];
+                        ClosestIntersection[2] = IntersectionPoint[2];
+                    }
+
                 }
             }
             // work out velocity and twist rate
@@ -1057,91 +1064,91 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
     }
 }
 /*
-void uv_update(vector<gridprecision>&u, vector<gridprecision>&v,  vector<gridprecision>&ku, vector<gridprecision>&kv,const griddata& griddata)
+   void uv_update(vector<gridprecision>&u, vector<gridprecision>&v,  vector<gridprecision>&ku, vector<gridprecision>&kv,const griddata& griddata)
+   {
+   int Nx = griddata.Nx;
+   int Ny = griddata.Ny;
+   int Nz = griddata.Nz;
+   int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
+   double D2u;
+   const int arraysize = Nx*Ny*Nz;
+// first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
+#pragma omp for 
+for(i=0;i<Nx;i++)
 {
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
-    double D2u;
-    const int arraysize = Nx*Ny*Nz;
-    // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
+for(j=0; j<Ny; j++)
+{
+for(k=0; k<Nz; k++)   //Central difference
+{
+for(k=0; k<Nz; k++)   //Central difference
+{
+n = pt(i,j,k,griddata);
+kup = gridinc(k,1,Nz,2);
+kdown = gridinc(k,-1,Nz,2);
+D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
+ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
+kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+}
+}
+}
+}
+// 2nd and 3rd loops
+double inc ;   
+for(l=1;l<=3;l++)  //u and v update for each fractional time step
+{
+switch (l)
+{
+case 1:
+{
+inc=0.5;   //add k1 to uv and add to total k
+}
+break;
+
+case 2:
+{
+inc=0.5 ;   //add k1 to uv and add to total k
+}
+break;
+case 3:
+{
+inc=1 ;   //add k1 to uv and add to total k
+}
+break;
+}   
 #pragma omp for 
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)   //Central difference
-            {
-                for(k=0; k<Nz; k++)   //Central difference
-                {
-                    n = pt(i,j,k,griddata);
-                    kup = gridinc(k,1,Nz,2);
-                    kdown = gridinc(k,-1,Nz,2);
-                    D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
-                    ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
-                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
-                }
-            }
-        }
-    }
-    // 2nd and 3rd loops
-    double inc ;   
-    for(l=1;l<=3;l++)  //u and v update for each fractional time step
-    {
-        switch (l)
-        {
-            case 1:
-                {
-                    inc=0.5;   //add k1 to uv and add to total k
-                }
-                break;
+for(i=0;i<Nx;i++)
+{
+for(j=0; j<Ny; j++)
+{
+for(k=0; k<Nz; k++)   //Central difference
+{
+n = pt(i,j,k,griddata);
 
-            case 2:
-                {
-                    inc=0.5 ;   //add k1 to uv and add to total k
-                }
-                break;
-            case 3:
-                {
-                    inc=1 ;   //add k1 to uv and add to total k
-                }
-                break;
-        }   
+iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
+idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
+jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
+jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
+kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
+kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
+double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
+double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
+
+D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
+
+
+ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
+kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
+}
+}
+}
+}
 #pragma omp for 
-        for(i=0;i<Nx;i++)
-        {
-            for(j=0; j<Ny; j++)
-            {
-                for(k=0; k<Nz; k++)   //Central difference
-                {
-                    n = pt(i,j,k,griddata);
+for(n=0;n<Nx*Ny*Nz;n++)
+{
 
-                    iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
-                    idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
-                    jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
-                    jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
-                    kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
-                    kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
-                    double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
-                    double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
-
-                    D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
-
-
-                    ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
-                    kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
-                }
-            }
-        }
-    }
-#pragma omp for 
-    for(n=0;n<Nx*Ny*Nz;n++)
-    {
-
-        u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
-        v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
-    }
+    u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
+    v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
+}
 
 }
 */
@@ -1674,148 +1681,148 @@ int uvfile_read_BINARY(vector<gridprecision>&u, vector<gridprecision>&v,const gr
     return 0;
 }
 /*
-void resizebox(vector<gridprecision>&u,vector<gridprecision>&v,vector<gridprecision>&ucvx,vector<gridprecision>&ucvy,vector<gridprecision>&ucvz,vector<knotcurve>&knotcurves,vector<gridprecision>&ku,vector<gridprecision>&kv,griddata& oldgriddata)
+   void resizebox(vector<gridprecision>&u,vector<gridprecision>&v,vector<gridprecision>&ucvx,vector<gridprecision>&ucvy,vector<gridprecision>&ucvz,vector<knotcurve>&knotcurves,vector<gridprecision>&ku,vector<gridprecision>&kv,griddata& oldgriddata)
+   {
+   cout << "resizing box \n";
+   int Nx = oldgriddata.Nx;
+   int Ny = oldgriddata.Ny;
+   int Nz = oldgriddata.Nz;
+   double ucrit = -1.2;
+// first of all, take off the boundary; we set up the marked array to have 1's on the boudary of the box 
+std::vector<int>marked(u.size(),0);
+int shelllabel=1;
+for(int i=0;i<Nx;i++)
 {
-    cout << "resizing box \n";
-    int Nx = oldgriddata.Nx;
-    int Ny = oldgriddata.Ny;
-    int Nz = oldgriddata.Nz;
-    double ucrit = -1.2;
-    // first of all, take off the boundary; we set up the marked array to have 1's on the boudary of the box 
-    std::vector<int>marked(u.size(),0);
-    int shelllabel=1;
-    for(int i=0;i<Nx;i++)
-    {
-        for(int j=0; j<Ny; j++)
-        {
-            for(int k=0; k<Nz; k++)   //Central difference
-            {
-                int n = pt(i,j,k,oldgriddata);
-                if(i==0||i==Nx-1||j==0||j==Ny-1||k==0||k==Nz-1 && u[n]>ucrit) marked[n] =-1;
-            }
-        }
-    }
-    // okay , grow the shell
-    growshell(u,marked,ucrit, oldgriddata);
-    bool dontresize = false;
-    for(int n = 0; n<u.size();n++)
-    {
-        if(marked[n]==-2)
-        {
-            marked[n]=shelllabel; 
-            if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) dontresize = true;
-        }
-    }
-    shelllabel++;
+for(int j=0; j<Ny; j++)
+{
+for(int k=0; k<Nz; k++)   //Central difference
+{
+int n = pt(i,j,k,oldgriddata);
+if(i==0||i==Nx-1||j==0||j==Ny-1||k==0||k==Nz-1 && u[n]>ucrit) marked[n] =-1;
+}
+}
+}
+// okay , grow the shell
+growshell(u,marked,ucrit, oldgriddata);
+bool dontresize = false;
+for(int n = 0; n<u.size();n++)
+{
+if(marked[n]==-2)
+{
+marked[n]=shelllabel; 
+if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) dontresize = true;
+}
+}
+shelllabel++;
 
-    if (!dontresize)
+if (!dontresize)
+{
+bool hitinnershell = false;
+while(!hitinnershell)
+{
+int imax,jmax,kmax;
+imax = -1;
+jmax = -1;
+kmax = -1;
+// now we have no shells intersecting the boundary, but there may still be multiple shells before the knot; lets remove them one by one
+// to begin with , just grab some point on the outer shell
+for(int i=0;i<Nx;i++)
+{
+for(int j=0; j<Ny; j++)
+{
+for(int k=0; k<Nz; k++)   //Central difference
+{
+int n = pt(i,j,k,oldgriddata);
+if(u[n]>ucrit &&marked[n]==0 && i>imax && j>jmax && k> kmax) {imax = i ; jmax = j; kmax = k;}
+}
+}
+}
+marked[pt(imax,jmax,kmax,oldgriddata)] = -1;
+// now grow the shell from here
+growshell(u,marked,ucrit, oldgriddata);
+for(int n = 0; n<u.size();n++)
+{
+if(marked[n]==-2)
+{
+marked[n]=shelllabel;
+if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
+}
+}
+if(!hitinnershell)shelllabel++;
+}
+// at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
+// we want to stip off all but the innermost shell
+// set everything outside this inner shell to the fixed point values 
+for(int n = 0; n<u.size();n++)
+{
+    if(marked[n]>0 &&marked[n]<shelllabel){ u[n] = -1.03; v[n] = -0.66;}
+}
+// find the hull of the inner shell
+int imax = 0;
+int jmax = 0; 
+int kmax =0;
+int imin = Nx;
+int jmin =Ny; 
+int kmin =Nz; 
+for(int i = 0; i<Nx;i++)
+{
+    for(int j = 0; j<Ny;j++)
     {
-        bool hitinnershell = false;
-        while(!hitinnershell)
+        for(int k = 0; k<Nz;k++)
         {
-            int imax,jmax,kmax;
-            imax = -1;
-            jmax = -1;
-            kmax = -1;
-            // now we have no shells intersecting the boundary, but there may still be multiple shells before the knot; lets remove them one by one
-            // to begin with , just grab some point on the outer shell
-            for(int i=0;i<Nx;i++)
+            if(marked[pt(i,j,k,oldgriddata)] == shelllabel)
             {
-                for(int j=0; j<Ny; j++)
-                {
-                    for(int k=0; k<Nz; k++)   //Central difference
-                    {
-                        int n = pt(i,j,k,oldgriddata);
-                        if(u[n]>ucrit &&marked[n]==0 && i>imax && j>jmax && k> kmax) {imax = i ; jmax = j; kmax = k;}
-                    }
-                }
-            }
-            marked[pt(imax,jmax,kmax,oldgriddata)] = -1;
-            // now grow the shell from here
-            growshell(u,marked,ucrit, oldgriddata);
-            for(int n = 0; n<u.size();n++)
-            {
-                if(marked[n]==-2)
-                {
-                    marked[n]=shelllabel;
-                    if(ucvx[n]*ucvx[n]+ucvy[n]*ucvy[n]+ucvz[n]*ucvz[n]>0.1) hitinnershell = true;
-                }
-            }
-            if(!hitinnershell)shelllabel++;
-        }
-        // at this point we have an array, marked, marked with integers increasing from the boudary, denoting shell numbers
-        // we want to stip off all but the innermost shell
-        // set everything outside this inner shell to the fixed point values 
-        for(int n = 0; n<u.size();n++)
-        {
-            if(marked[n]>0 &&marked[n]<shelllabel){ u[n] = -1.03; v[n] = -0.66;}
-        }
-        // find the hull of the inner shell
-        int imax = 0;
-        int jmax = 0; 
-        int kmax =0;
-        int imin = Nx;
-        int jmin =Ny; 
-        int kmin =Nz; 
-        for(int i = 0; i<Nx;i++)
-        {
-            for(int j = 0; j<Ny;j++)
-            {
-                for(int k = 0; k<Nz;k++)
-                {
-                    if(marked[pt(i,j,k,oldgriddata)] == shelllabel)
-                    {
-                        if(i>imax) imax = i;
-                        if(j>jmax) jmax = j;
-                        if(k>kmax) kmax = k;
-                        if(i<imin) imin = i;
-                        if(j<jmin) jmin = j;
-                        if(k<kmin) kmin = k;
-                    }
-                }
+                if(i>imax) imax = i;
+                if(j>jmax) jmax = j;
+                if(k>kmax) kmax = k;
+                if(i<imin) imin = i;
+                if(j<jmin) jmin = j;
+                if(k<kmin) kmin = k;
             }
         }
-        // we have our box dimensions in the ijk max min values already
-        int deltai = imax - imin;
-        int deltaj = jmax - jmin;
-        int deltak = kmax - kmin;
-        int N = (deltai<deltaj) ? deltaj:deltai;
-        N = (N < deltak) ? deltak:N;
+    }
+}
+// we have our box dimensions in the ijk max min values already
+int deltai = imax - imin;
+int deltaj = jmax - jmin;
+int deltak = kmax - kmin;
+int N = (deltai<deltaj) ? deltaj:deltai;
+N = (N < deltak) ? deltak:N;
 
-        griddata newgriddata;
-        newgriddata.Nx = newgriddata.Ny = newgriddata.Nz = N;
-        vector<gridprecision>utemp(N*N*N);
-        vector<gridprecision>vtemp(N*N*N);
-        for(int i = 0; i<N;i++)
-        {
-            for(int j = 0; j<N;j++)
-            {
-                for(int k = 0; k<N;k++)
-                {
-                    utemp[pt(i,j,k,newgriddata)] = u[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
-                    vtemp[pt(i,j,k,newgriddata)] = v[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
-                }
-            }
-        }
-        // first of all, we can simply resize the ucvx data, since it gets recalculated anyhow
-        ucvx.resize(N*N*N);
-        ucvy.resize(N*N*N);
-        ucvz.resize(N*N*N);
-        // better resize our scratchpad too
-        ku.resize(4*N*N*N);
-        kv.resize(4*N*N*N);
-        // the data is safely stored in the temp arrays, lets trash u and v
-        u.resize(N*N*N);
-        v.resize(N*N*N);
-        u = utemp;
-        v = vtemp;
-        // finally, reset the grid data to the new griddata
-        oldgriddata = newgriddata;
-    }
-    if(dontresize)
+griddata newgriddata;
+newgriddata.Nx = newgriddata.Ny = newgriddata.Nz = N;
+vector<gridprecision>utemp(N*N*N);
+vector<gridprecision>vtemp(N*N*N);
+for(int i = 0; i<N;i++)
+{
+    for(int j = 0; j<N;j++)
     {
-        cout << "the inner shell is touching the boundary. Either the knot is spanning the whole box, or its across/very close to the box  boundary. For now, just aborting the resize \n" ;
+        for(int k = 0; k<N;k++)
+        {
+            utemp[pt(i,j,k,newgriddata)] = u[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+            vtemp[pt(i,j,k,newgriddata)] = v[pt(imin+i,jmin+j,kmin+k,oldgriddata)] ;
+        }
     }
+}
+// first of all, we can simply resize the ucvx data, since it gets recalculated anyhow
+ucvx.resize(N*N*N);
+ucvy.resize(N*N*N);
+ucvz.resize(N*N*N);
+// better resize our scratchpad too
+ku.resize(4*N*N*N);
+kv.resize(4*N*N*N);
+// the data is safely stored in the temp arrays, lets trash u and v
+u.resize(N*N*N);
+v.resize(N*N*N);
+u = utemp;
+v = vtemp;
+// finally, reset the grid data to the new griddata
+oldgriddata = newgriddata;
+}
+if(dontresize)
+{
+    cout << "the inner shell is touching the boundary. Either the knot is spanning the whole box, or its across/very close to the box  boundary. For now, just aborting the resize \n" ;
+}
 }
 void growshell(vector<gridprecision>&u,vector<int>& marked,double ucrit, const griddata& griddata)
 {
@@ -1874,7 +1881,7 @@ void grow(const vector<gridprecision>&u,vector<int>&marked,double ucrit,const gr
         if(marked[n]==-3){marked[n] =-1;}
     }
 }
-*/
+    */
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;

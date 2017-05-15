@@ -1,6 +1,6 @@
 //Constants for the simulation defined in device Constant memory
 #include "declarations.cuh"
-__constant__ gridprecision DT, DX, DA; //same as in InitialData structure
+__constant__ gridprecision DT, DX, DA, EPSILON,BETA,GAMMA,ONEOVEREPSILON,ONETHIRD ; //same as in InitialData structure
 __constant__ int XMAX, YMAX, ZMAX; //Dimensions of simulated space and time interval
 __constant__ int Zsize, Ysize; //Helps to address memory.
 __constant__ gridprecision DaDt_6DxDx; //Precomputed: DA * DT / (6 * DX * DX)
@@ -25,10 +25,11 @@ __device__ int GridInc(int p,int inc, int N)
 __global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ gridprecision u_shared[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
+    __shared__ gridprecision v_shared[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
 
     unsigned int p, x, y, z;
     bool ok_read, ok_compute;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -55,6 +56,7 @@ __global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gri
     if (ok_read)
     {
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
     };
 
     __syncthreads();
@@ -84,7 +86,10 @@ __global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
+           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -93,10 +98,11 @@ __global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gri
 __global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ gridprecision u_shared[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
+    __shared__ gridprecision v_shared[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
 
     unsigned int p,  x, y, z;
     bool ok_read, ok_compute;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -123,6 +129,7 @@ __global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gri
     if (ok_read)
     {
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
     };
 
     __syncthreads();
@@ -152,7 +159,10 @@ __global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
+           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -161,10 +171,11 @@ __global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gri
 __global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ gridprecision u_shared[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
+    __shared__ gridprecision v_shared[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
 
     unsigned int p, x, y, z;
     bool ok_read, ok_compute;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -191,6 +202,7 @@ __global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gri
     if (ok_read)
     {
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
     };
 
     __syncthreads();
@@ -220,7 +232,10 @@ __global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-        u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
+           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -232,7 +247,7 @@ __global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gri
 __global__ void kernelPeriodicBCEdgeX(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     int x=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     for(int y=0; y<YMAX; y += YMAX)
     {
@@ -306,7 +321,10 @@ __global__ void kernelPeriodicBCEdgeX(gridprecision *u_old,gridprecision *v_old,
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
+           u =  u_old[x_y_z] ;
+           v= v_old[x_y_z] ;
+           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
@@ -316,7 +334,7 @@ __global__ void kernelPeriodicBCEdgeX(gridprecision *u_old,gridprecision *v_old,
 __global__ void kernelPeriodicBCEdgeY(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     int y=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     for(int x=0; x<XMAX; x += XMAX)
     {
@@ -390,7 +408,10 @@ __global__ void kernelPeriodicBCEdgeY(gridprecision *u_old,gridprecision *v_old,
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
+           u =  u_old[x_y_z] ;
+           v= v_old[x_y_z] ;
+           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
@@ -400,7 +421,7 @@ __global__ void kernelPeriodicBCEdgeY(gridprecision *u_old,gridprecision *v_old,
 __global__ void kernelPeriodicBCEdgeZ(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     int z=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     for(int x=0; x<XMAX; x += XMAX)
     {
@@ -473,7 +494,10 @@ __global__ void kernelPeriodicBCEdgeZ(gridprecision *u_old,gridprecision *v_old,
                         //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            u_new[x_y_z] = u_old[x_y_z] + DaDt_6DxDx * laplace_u;
+           u =  u_old[x_y_z] ;
+           v= v_old[x_y_z] ;
+           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
@@ -482,10 +506,11 @@ __global__ void kernelPeriodicBCEdgeZ(gridprecision *u_old,gridprecision *v_old,
 __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ gridprecision u_shared[CELLD][CELLH][CELLW];
+    __shared__ gridprecision v_shared[CELLD][CELLH][CELLW];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    gridprecision laplace_u;
+    gridprecision laplace_u,u,v;
 
     //location and memory address. Note: neighbouring blocks overlap.
     x = blockIdx.x*(CELLW-2)+threadIdx.x;
@@ -501,6 +526,7 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
     if (ok_read)
     {
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
     };
 
     __syncthreads();
@@ -537,7 +563,10 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
                        ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-            u_new[p] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x] + DaDt_6DxDx * laplace_u;
+           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         };
 
         __syncthreads();
@@ -546,6 +575,7 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
         if (threadIdx.z >= CELLD-2)
         {
             u_shared[threadIdx.z-CELLD+2][threadIdx.y][threadIdx.x] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x];			
+            v_shared[threadIdx.z-CELLD+2][threadIdx.y][threadIdx.x] = v_shared[threadIdx.z][threadIdx.y][threadIdx.x];			
         };
 
         //No need to syncthreads() here because those warps that write shared mem above
@@ -559,6 +589,7 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
         if ((z<ZMAX) & ok_read & (threadIdx.z >= 2))
         {
             u_shared[threadIdx.z][threadIdx.y][threadIdx.x] = u_old[p];			
+            v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];			
         }
 
         __syncthreads();

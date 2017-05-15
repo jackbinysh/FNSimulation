@@ -22,13 +22,6 @@
 #include <gsl/gsl_vector.h>
 using namespace std;
 
-
-
-const double sixth = 1.0/6.0;
-const double ONETHIRD = 1.0/3.0;
-const double oneoverepsilon = 1.0/epsilon;
-const double oneoverhsq = 1.0/(h*h);
-
 struct griddata 
 {
 	double Nx,Ny,Nz;	
