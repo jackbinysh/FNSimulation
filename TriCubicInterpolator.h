@@ -1,7 +1,9 @@
 // Created 23-Dec-2011 by David Kirkby (University of California, Irvine) <dkirkby@uci.edu>
-#include <vector>
 #ifndef LIKELY_TRI_CUBIC_INTERPOLATOR
 #define LIKELY_TRI_CUBIC_INTERPOLATOR
+
+#include <vector>
+#include "FN_Configuration.h"
 
 
 namespace likely {
@@ -9,7 +11,7 @@ namespace likely {
 	// Performs tri-cubic interpolation within a 3D periodic grid.
 	// Based on http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.89.7835
 	public:
-        typedef std::vector<double> DataCube;
+        typedef std::vector<gridprecision> DataCube;
         // Initializes an interpolator using the specified datacube of length n1*n2*n3 where
         // data is ordered first along the n1 axis [0,0,0], [1,0,0], ..., [n1-1,0,0], [0,1,0], ...
         // If n2 and n3 are both omitted, then n1=n2=n3 is assumed. Data is assumed to be

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "FN_Configuration.h" 
 
 //structure to hold size of simulation and arrays on the host
 typedef struct DataArray
@@ -11,8 +12,8 @@ typedef struct DataArray
 	int xmax;
 	int ymax;
 	int zmax;
-	float* u;
-	float* v;
+	gridprecision* u;
+	gridprecision* v;
 } DataArray;
 
 //Initial data for the simulation
@@ -25,7 +26,7 @@ typedef struct InitialData
 
 
 //Kernel configuration parameter for boundary conditions. All dimensions must be multiple of this.
-#define BLOCKSIZE 16	
+#define BOUNDARYBLOCKSIZE 16	
 
 //3D Laplace-computing kernel configuration parameters. Dimensions of a kernel is how many threads it contains
 #define CELLW	8	//width of thread block

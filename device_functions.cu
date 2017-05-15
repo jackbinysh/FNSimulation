@@ -1,4 +1,3 @@
-#include "declarations.cuh"
 #include "kernels.cu"
 
 //kernel configuration variables
@@ -14,7 +13,7 @@ dim3 threads_boundary_Y;
 dim3 threads_boundary_Z;
 // edge blocks and threads
 dim3 blocks_boundary_edge_X;
-dim3 blocks_boundary__edge_Y;
+dim3 blocks_boundary_edge_Y;
 dim3 blocks_boundary_edge_Z;
 dim3 threads_boundary_edge_X;
 dim3 threads_boundary_edge_Y;
@@ -23,10 +22,10 @@ dim3 threads_boundary_edge_Z;
 //function to allocate device memory and initialize data
 void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArray& device2)
 {
-	if (host.xmax % BLOCKSIZE != 0 || host.ymax % BLOCKSIZE != 0 || host.zmax % BLOCKSIZE != 0)
+	if (host.xmax % BOUNDARYBLOCKSIZE != 0 || host.ymax % BOUNDARYBLOCKSIZE != 0 || host.zmax % BOUNDARYBLOCKSIZE != 0)
 	{
 		char buf[1024];
-		sprintf(buf, "All dimensions must be multiple of %d", BLOCKSIZE);
+		sprintf(buf, "All dimensions must be multiple of %d", BOUNDARYBLOCKSIZE);
 		Error(buf);
 	}
 
@@ -76,9 +75,13 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
 	threads_boundary_edge_Y.x = BOUNDARYBLOCKSIZE;
 	threads_boundary_edge_Z.x = BOUNDARYBLOCKSIZE;
 
-	//allocate device arrays
+	
+    //compute 3D addressing variables
     int total = host.xmax * host.ymax *host.zmax;
-	int size = total * sizeof(float);	
+    int zsize = host.xmax * host.ymax;
+    int ysize = host.xmax;//allocate device arrays
+
+	int size = total * sizeof(gridprecision);	
 	cudaMalloc((void**)&device1.u, size);
 	cudaMalloc((void**)&device1.v, size);
 	cudaMalloc((void**)&device2.u, size);
@@ -118,12 +121,12 @@ void gpuStep(DataArray& device1, DataArray& device2)
     kernelPeriodicBCX<<<blocks_boundary_X, threads_boundary_X>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCY<<<blocks_boundary_Y, threads_boundary_Y>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCZ<<<blocks_boundary_Z, threads_boundary_Z>>>(device1.u,device1.v,device2.u,device2.v);
-    kernelPeriodicBCEdgeX<blocks_boundary_edge_X,threads_boundary_edge_X>>>(device1.u,device1.v,device2.u,device2.v);
-    kernelPeriodicBCEdgeY<blocks_boundary_edge_Y,threads_boundary_edge_Y>>>(device1.u,device1.v,device2.u,device2.v);
-    kernelPeriodicBCEdgeZ<blocks_boundary_edge_Z,threads_boundary_edge_Z>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeX<<<blocks_boundary_edge_X,threads_boundary_edge_X>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeY<<<blocks_boundary_edge_Y,threads_boundary_edge_Y>>>(device1.u,device1.v,device2.u,device2.v);
+    kernelPeriodicBCEdgeZ<<<blocks_boundary_edge_Z,threads_boundary_edge_Z>>>(device1.u,device1.v,device2.u,device2.v);
 
 	//swap
-	float *temp;
+	gridprecision *temp;
     temp=device2.u; device2.u=device1.u; device1.u=temp;
 	temp=device2.v; device2.v=device1.v; device1.v=temp;
 
@@ -139,3 +142,26 @@ void gpuClose(DataArray& device1, DataArray& device2)
 	cudaFree(device2.v);
 }
 
+//Function to check for error after a CUDA call.
+void CudaCheck()
+{
+	cudaError_t er = cudaGetLastError();
+	if (er!=0)
+	{
+		printf("CUDA Error: %s\n", cudaGetErrorString(er));
+#ifdef _WIN32
+		system("PAUSE");
+#endif
+		exit(-1);
+	};	
+};
+
+//function to halt program with an error message
+void Error(const char* text)
+{
+	printf("%s\n", text);
+#ifdef _WIN32
+		system("PAUSE");
+#endif
+	exit(-1);
+}

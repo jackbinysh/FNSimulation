@@ -1,18 +1,34 @@
 //Constants for the simulation defined in device Constant memory
-__constant__ int XMAX, YMAX, ZMAX //Dimensions of simulated space and time interval
+#include "declarations.cuh"
+__constant__ gridprecision DT, DX, DA; //same as in InitialData structure
+__constant__ int XMAX, YMAX, ZMAX; //Dimensions of simulated space and time interval
 __constant__ int Zsize, Ysize; //Helps to address memory.
-__constant__ float DaDt_6DxDx; //Precomputed: DA * DT / (6 * DX * DX)
+__constant__ gridprecision DaDt_6DxDx; //Precomputed: DA * DT / (6 * DX * DX)
+
+// Two little helper functions to do the periodc bc's
+
+__device__ int GridMod(int p, int N)
+{
+    int LessThanZero = (p<0);
+    int ZeroOrAbove = 1 - LessThanZero;
+
+    return ZeroOrAbove*(p%N) + LessThanZero*(N-p);
+}
+__device__ int GridInc(int p,int inc, int N)
+{
+    return(GridMod(p+inc,N));
+}
 
 // BCs 
 
 // perpendicular to the X axis (YZ sides of space)
-__global__ void kernelPeriodicBCX(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    __shared__ float u_shared[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
+    __shared__ gridprecision u_shared[BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE][4];
 
-    unsigned int p, k, x, y, z, kmax;
+    unsigned int p, x, y, z;
     bool ok_read, ok_compute;
-    float laplace_u;
+    gridprecision laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -74,13 +90,13 @@ __global__ void kernelPeriodicBCX(float *u_old,float *v_old, float *u_new float 
 }
 
 // perpendicular to the Y axis (XZ sides of space)
-__global__ void kernelPeriodicBCY(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    __shared__ float u_shared[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
+    __shared__ gridprecision u_shared[BOUNDARYBLOCKSIZE][4][BOUNDARYBLOCKSIZE];
 
-    unsigned int p, k, x, y, z, kmax;
+    unsigned int p,  x, y, z;
     bool ok_read, ok_compute;
-    float laplace_u;
+    gridprecision laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -142,13 +158,13 @@ __global__ void kernelPeriodicBCY(float *u_old,float *v_old, float *u_new float 
 }
 
 // perpendicular to the Z axis (XY sides of space)
-__global__ void kernelPeriodicBCZ(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    __shared__ float u_shared[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
+    __shared__ gridprecision u_shared[4][BOUNDARYBLOCKSIZE][BOUNDARYBLOCKSIZE];
 
-    unsigned int p, k, x, y, z, kmax;
+    unsigned int p, x, y, z;
     bool ok_read, ok_compute;
-    float laplace_u;
+    gridprecision laplace_u;
 
     // recall that, irritatingly, block id's are always 2d, in x and y. since we are doing the yz boundary, but we have to label are blocks xy,
     // we initially define "real space" block id's here, mapping "block space" x -> real space y , "block space" y -> real space z
@@ -213,41 +229,42 @@ __global__ void kernelPeriodicBCZ(float *u_old,float *v_old, float *u_new float 
 
 //periodic boundary of the edges of space, parallel to X axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCEdgeX(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCEdgeX(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    int x=blockIdx.x*BLOCKSIZE+threadIdx.x;
+    int x=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
+    gridprecision laplace_u;
 
-    for(int y=0, y<YMAX, y += YMAX)
+    for(int y=0; y<YMAX; y += YMAX)
     {
-        for(int z=0, z<ZMAX, z += ZMAX)
+        for(int z=0; z<ZMAX; z += ZMAX)
         {
 
             // the 7 point stencil
-            x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             // get the 4 extras around xup_y_z
-            xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
 
             // get the 4 extras around xdown_y_z
-            xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
 
             // get the remaining guys
-            x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
             laplace_u =
@@ -296,41 +313,42 @@ __global__ void kernelPeriodicBCEdgeX(float *u_old,float *v_old, float *u_new fl
 
 //periodic boundary of the edges of space, parallel to Y axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCBoundaryEdgeY(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCEdgeY(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    int y=blockIdx.x*BLOCKSIZE+threadIdx.x;
+    int y=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
+    gridprecision laplace_u;
 
-    for(int x=0, x<XMAX, x += XMAX)
+    for(int x=0; x<XMAX; x += XMAX)
     {
-        for(int z=0, z<ZMAX, z += ZMAX)
+        for(int z=0; z<ZMAX; z += ZMAX)
         {
 
             // the 7 point stencil
-            x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             // get the 4 extras around xup_y_z
-            xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
 
             // get the 4 extras around xdown_y_z
-            xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
 
             // get the remaining guys
-            x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
             laplace_u =
@@ -379,40 +397,41 @@ __global__ void kernelPeriodicBCBoundaryEdgeY(float *u_old,float *v_old, float *
 
 //periodic boundary of the edges of space, parallel to Z axis
 // enough smarts, lets just do this the dumb way
-__global__ void kernelPeriodicBCBoundaryEdgeZ(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelPeriodicBCEdgeZ(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    int z=blockIdx.x*BLOCKSIZE+threadIdx.x;
+    int z=blockIdx.x*BOUNDARYBLOCKSIZE+threadIdx.x;
+    gridprecision laplace_u;
 
-    for(int x=0, x<XMAX, x += XMAX)
+    for(int x=0; x<XMAX; x += XMAX)
     {
-        for(int z=0, z<ZMAX, z += ZMAX)
+        for(int y=0; y<YMAX; y += YMAX)
         {
             // the 7 point stencil
-            x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int xup_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xdown_y_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int x_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             // get the 4 extras around xup_y_z
-            xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
-            xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
+            int xup_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,1,XMAX);	
 
             // get the 4 extras around xdown_y_z
-            xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
-            xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_yup_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_ydown_z = GridInc(z,0,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
+            int xdown_y_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,0,YMAX) * Ysize + GridInc(x,-1,XMAX);	
 
             // get the remaining guys
-            x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
-            x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_yup_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zup = GridInc(z,1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
+            int x_ydown_zdown = GridInc(z,-1,ZMAX) * Zsize + GridInc(y,-1,YMAX) * Ysize + GridInc(x,0,XMAX);	
 
             //calculate laplacian with 19-point stencil
             laplace_u =
@@ -460,13 +479,13 @@ __global__ void kernelPeriodicBCBoundaryEdgeZ(float *u_old,float *v_old, float *
 }
 
 //main compute kernel to update concentration values on the grid
-__global__ void kernelDiffusion(float *u_old,float *v_old, float *u_new float *v_new)
+__global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
-    __shared__ float u_shared[CELLD][CELLH][CELLW];
+    __shared__ gridprecision u_shared[CELLD][CELLH][CELLW];
 
     unsigned int p, k, x, y, z, kmax;
     bool ok_read, ok_compute;
-    float laplace_u;
+    gridprecision laplace_u;
 
     //location and memory address. Note: neighbouring blocks overlap.
     x = blockIdx.x*(CELLW-2)+threadIdx.x;
@@ -546,18 +565,3 @@ __global__ void kernelDiffusion(float *u_old,float *v_old, float *u_new float *v
     }
 }
 
-// Two little helper functions to do the periodc bc's
-__device__ int Gridinc(int p,int inc, int N)
-{
-    return(GridMod(p+inc,N));
-}
-
-
-// a little helper function to do the periodc bc's
-__device__ int GridMod(int p, int N)
-{
-    int LessThanZero = (p<0);
-    int ZeroOrAbove = 1 - LessThanZero;
-
-    return ZeroOrAbove*(p%N) + LessThanZero*(N-p);
-}
