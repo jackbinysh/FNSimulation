@@ -114,7 +114,7 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
     CudaCheck();
 
     float t;
-    t = id.da *(6.0f*id.dx*id.dx);
+    t = id.da *id.dt/(6.0f*id.dx*id.dx);
     cudaMemcpyToSymbol(DaDt_6DxDx, &t, sizeof(float));
     CudaCheck();
 
