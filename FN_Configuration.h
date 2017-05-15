@@ -1,4 +1,8 @@
-//Constants.h
+//Configuration.h
+
+#ifndef CONFIGURATION
+#define CONFIGURATION
+
 #include <string>
 #define FROM_PHI_FILE 0
 #define FROM_SURFACE_FILE 1
@@ -9,7 +13,10 @@ enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
 
 /* CHANGE THESE OPTIONS */
 
-// OPTION - // what kind of initialisation
+// OPTION - what precision do you want u and v to be stored at ?
+typedef float gridprecision;
+
+// OPTION - what kind of initialisation
 /* the different initialisation options
 Available options:
 FROM_PHI_FILE: Skip initialisation, input from previous run.
@@ -19,8 +26,8 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 const int option = FROM_UV_FILE;         //unknot default option
-std::string knot_filename = "eight13";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
-std::string B_filename = "uv_plot11.vtk";    //filename for phi field or uv field
+const std::string knot_filename = "eight13";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+const std::string B_filename = "uv_plot11.vtk";    //filename for phi field or uv field
 
 // OPTION - what kind of boundary condition
 const BoundaryType BoundaryType=ALLPERIODIC;
@@ -68,3 +75,4 @@ const double epsilon = 0.3;                //parameters for F-N eqns
 const double beta = 0.7;
 const double gam = 0.5;
 
+#endif // end CONFIGURATION 

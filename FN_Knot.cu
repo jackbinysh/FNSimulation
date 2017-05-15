@@ -23,7 +23,7 @@
 // My own header, knot specific stuff
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
 // GPU solver stuff
-#include "declarations.cuh"
+#include "device_functions.cu"
 // interpolation stuff
 #include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used 
 // standard c stuff
@@ -47,14 +47,12 @@ int main (void)
     // all major allocations are here
     // the main data storage arrays, contain info associated with the grid
     vector<double>phi(Nx*Ny*Nz);  //scalar potential
-    vector<double>u(Nx*Ny*Nz);
-    vector<double>v(Nx*Ny*Nz);
-    vector<double>ucvx(Nx*Ny*Nz);
-    vector<double>ucvy(Nx*Ny*Nz);
-    vector<double>ucvz(Nx*Ny*Nz);
-    vector<double>ucvmag(Nx*Ny*Nz);// mod(grad u cross grad v)
-    vector<double>ku(4*Nx*Ny*Nz);
-    vector<double>kv(4*Nx*Ny*Nz);
+    vector<gridprecision>u(Nx*Ny*Nz);
+    vector<gridprecision>v(Nx*Ny*Nz);
+    vector<gridprecision>ucvx(Nx*Ny*Nz);
+    vector<gridprecision>ucvy(Nx*Ny*Nz);
+    vector<gridprecision>ucvz(Nx*Ny*Nz);
+    vector<gridprecision>ucvmag(Nx*Ny*Nz);// mod(grad u cross grad v)
     // objects to hold information about the knotcurve we find, andthe surface we read in
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
@@ -76,7 +74,7 @@ int main (void)
         if(option == FROM_UV_FILE)
         {
             cout << "Reading input file...\n";
-            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,griddata)) return 1;
+            if(uvfile_read(u,v, ucvx,ucvy,ucvz,griddata)) return 1;
         }
         else
         {
@@ -135,7 +133,6 @@ int main (void)
 	id.da = 1.0f;
 	id.dt = dtime;
 	id.dx = h;
-	id.itmax = (int)(TTime/dtime);
 
 	gpuInitialize(id, host, device1, device2);
 
@@ -411,7 +408,7 @@ void phi_calc_manual(vector<double>&phi, griddata& griddata)
 
 /*************************Functions for FN dynamics*****************************/
 
-void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const griddata& griddata)
+void uv_initialise(vector<double>&phi, vector<gridprecision>&u, vector<gridprecision>&v, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -425,7 +422,7 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
     }
 }
 
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata)
+void crossgrad_calc( vector<gridprecision>&u, vector<gridprecision>&v, vector<gridprecision>&ucvx, vector<gridprecision>&ucvy, vector<gridprecision>&ucvz, vector<gridprecision>&ucvmag,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -462,7 +459,7 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
     }
 }
 
-void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
+void find_knot_properties( vector<gridprecision>&ucvx, vector<gridprecision>&ucvy, vector<gridprecision>&ucvz, vector<gridprecision>& ucvmag,vector<gridprecision>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
 {
     // first thing, clear the knotcurve object before we begin writing a new one 
     knotcurves.clear(); //empty vector with knot curve points
@@ -477,7 +474,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     int c =0;
     bool knotexists = true;
 
-    double   ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
+    double ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
     int n,i,j,k,imax,jmax,kmax;
     for(i=0;i<Nx;i++)
     {
@@ -1059,7 +1056,8 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
         }
     }
 }
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata)
+/*
+void uv_update(vector<gridprecision>&u, vector<gridprecision>&v,  vector<gridprecision>&ku, vector<gridprecision>&kv,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1146,7 +1144,7 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
     }
 
 }
-
+*/
 /*************************File reading and writing*****************************/
 
 void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
@@ -1180,7 +1178,7 @@ void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
     }
     uvout.close();
 }
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata)
+void print_uv( vector<gridprecision>&u, vector<gridprecision>&v, vector<gridprecision>&ucvx, vector<gridprecision>&ucvy, vector<gridprecision>&ucvz,vector<gridprecision>&ucvmag, double t, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1445,7 +1443,7 @@ int phi_file_read(vector<double>&phi,const griddata& griddata)
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata)
+int uvfile_read(vector<gridprecision>&u, vector<gridprecision>&v, vector<gridprecision>& ucvx, vector<gridprecision>& ucvy,vector<gridprecision>& ucvz,griddata& griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -1480,8 +1478,6 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
         ucvy.resize(x*y*z);
         ucvz.resize(x*y*z);
         // better resize our scratchpad too
-        ku.resize(4*x*y*z);
-        kv.resize(4*x*y*z);
         u.resize(x*y*z);
         v.resize(x*y*z);
 
@@ -1503,7 +1499,7 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
     return 0;
 }
 
-int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata)
+int uvfile_read_ASCII(vector<gridprecision>&u, vector<gridprecision>&v,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1593,7 +1589,7 @@ int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddat
     return 0;
 }
 
-int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata)
+int uvfile_read_BINARY(vector<gridprecision>&u, vector<gridprecision>&v,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1677,7 +1673,8 @@ int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& gridda
 
     return 0;
 }
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata)
+/*
+void resizebox(vector<gridprecision>&u,vector<gridprecision>&v,vector<gridprecision>&ucvx,vector<gridprecision>&ucvy,vector<gridprecision>&ucvz,vector<knotcurve>&knotcurves,vector<gridprecision>&ku,vector<gridprecision>&kv,griddata& oldgriddata)
 {
     cout << "resizing box \n";
     int Nx = oldgriddata.Nx;
@@ -1787,8 +1784,8 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
 
         griddata newgriddata;
         newgriddata.Nx = newgriddata.Ny = newgriddata.Nz = N;
-        vector<double>utemp(N*N*N);
-        vector<double>vtemp(N*N*N);
+        vector<gridprecision>utemp(N*N*N);
+        vector<gridprecision>vtemp(N*N*N);
         for(int i = 0; i<N;i++)
         {
             for(int j = 0; j<N;j++)
@@ -1820,7 +1817,7 @@ void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<doub
         cout << "the inner shell is touching the boundary. Either the knot is spanning the whole box, or its across/very close to the box  boundary. For now, just aborting the resize \n" ;
     }
 }
-void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata)
+void growshell(vector<gridprecision>&u,vector<int>& marked,double ucrit, const griddata& griddata)
 {
     bool stillboundaryleft = true;
     while(stillboundaryleft)
@@ -1835,7 +1832,7 @@ void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata
     }
     // okay we have our marked points - they are marked with a 2 in the marked array. lets set all the uv values we find their to the resting state values
 }
-void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
+void grow(const vector<gridprecision>&u,vector<int>&marked,double ucrit,const griddata& griddata)
 {
     // the marked array has the following values
     // 0 - not evaluated 
@@ -1877,6 +1874,7 @@ void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata&
         if(marked[n]==-3){marked[n] =-1;}
     }
 }
+*/
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
