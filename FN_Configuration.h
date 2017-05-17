@@ -8,6 +8,11 @@
 #define FROM_SURFACE_FILE 1
 #define FROM_UV_FILE 2
 #define FROM_FUNCTION 3
+
+// choose which GPU kernel to launch Either SHARED or MOVINGTILES
+#define MOVINGTILES
+
+
 // the different boundary conditions
 enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
 

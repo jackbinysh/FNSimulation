@@ -33,10 +33,21 @@ typedef struct InitialData
 //Kernel configuration parameter for boundary conditions. All dimensions must be multiple of this.
 #define BOUNDARYBLOCKSIZE 16	
 
+
+# ifdef MOVINGTILES
 //3D Laplace-computing kernel configuration parameters. Dimensions of a kernel is how many threads it contains
 #define CELLW	16	//width of thread block
 #define CELLH	5	//height of thred block
 #define CELLD	5	//depth of thread block. At least 3, but value is arbitrary since CELLW*CELLH is already multiple of the warp size (32)
+#endif //MOVINGTILES
+
+# ifdef SHARED
+//3D Laplace-computing kernel configuration parameters. Dimensions of a kernel is how many threads it contains
+#define CELLW	8	//width of thread block
+#define CELLH	8	//height of thred block
+#define CELLD	8	//depth of thread block. At least 3, but value is arbitrary since CELLW*CELLH is already multiple of the warp size (32)
+#endif //SHARED
+
 // FOR SHARED
 // all should by 8
 //because of the overlap, reads in the laplacian computation kernel will never be coalesced.

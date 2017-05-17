@@ -38,11 +38,21 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
     device2.zmax = host.zmax;
 
     // Block and threads for the main compute laplacian
+#ifdef SHARED
     blocks_laplace.x = (int)ceil((float)host.xmax/(CELLW-2));	
     blocks_laplace.y = (int)ceil((float)host.ymax/(CELLH-2));	
     threads_laplace.x = CELLW;
     threads_laplace.y = CELLH;
     threads_laplace.z = CELLD;
+#endif //SHARED
+
+#ifdef MOVINGTILES
+    blocks_laplace.x = (int)ceil((float)host.xmax/(CELLH-2));	
+    blocks_laplace.y = (int)ceil((float)host.ymax/(CELLD-2));	
+    threads_laplace.x = CELLW;
+    threads_laplace.y = CELLH;
+    threads_laplace.z = CELLD;
+#endif //MOVINGTILES
 
     // Block and threads for the face periodic bc's
     blocks_boundary_X.x = (int)ceil((float)host.ymax/(BOUNDARYBLOCKSIZE-2));	
@@ -68,11 +78,7 @@ void gpuInitialize(InitialData& id, DataArray& host, DataArray& device1, DataArr
 
     // Block and threads for the edge periodic bc's
     blocks_boundary_edge_X.x = host.xmax/BOUNDARYBLOCKSIZE;	
-    blocks_boundary_edge_Y.x = host.ymax/BOUNDARYBLOCKSIZE;	
-    blocks_boundary_edge_Z.x = host.zmax/BOUNDARYBLOCKSIZE;	
-
-    threads_boundary_edge_X.x = BOUNDARYBLOCKSIZE;
-    threads_boundary_edge_Y.x = BOUNDARYBLOCKSIZE;
+    blocks_boundary_edge_Y.x = host.ymax/BOUNDARYBLOCKSIZE;	blocks_boundary_edge_Z.x = host.zmax/BOUNDARYBLOCKSIZE;	threads_boundary_edge_X.x = BOUNDARYBLOCKSIZE; threads_boundary_edge_Y.x = BOUNDARYBLOCKSIZE;
     threads_boundary_edge_Z.x = BOUNDARYBLOCKSIZE;
 
 
@@ -132,9 +138,12 @@ void gpuStep(DataArray& device1, DataArray& device2)
     kernelPeriodicBCEdgeX<<<blocks_boundary_edge_X,threads_boundary_edge_X>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCEdgeY<<<blocks_boundary_edge_Y,threads_boundary_edge_Y>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCEdgeZ<<<blocks_boundary_edge_Z,threads_boundary_edge_Z>>>(device1.u,device1.v,device2.u,device2.v);
-//    kernelDiffusion<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
+#ifdef MOVINGTILES
     kernelDiffusion_MovingTiles<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
-
+#endif //MOVTINGTILES
+#ifdef SHARED
+    kernelDiffusion_Shared<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
+#endif //SHARED
     //swap
     gridprecision *temp;
     temp=device2.u; device2.u=device1.u; device1.u=temp;

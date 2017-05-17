@@ -675,15 +675,19 @@ __global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *
         //moving the tile: copy the second tile onto the first
         //no bank conflict -> this is as fast as setting a new value to a register (in every thread)
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW];
-
-        //read new data into the second tile
-        x = (k+2) * CELLW + threadIdx.x;
-        p = z * Zsize + y * Ysize + x;
-        if (ok_read & (x<XMAX)) 
+        // read in the next cell of v
+        if (ok_read)
         {
+            p+=CELLW;
             v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
+        }
+        //read new data into the second tile
 
-            if (k < XMAX/CELLW -2) //don't read in last two iterations
+        if (k < XMAX/CELLW -2) //don't read in last two iterations
+        {           
+            x = (k+2) * CELLW + threadIdx.x;
+            p = z * Zsize + y * Ysize + x;
+            if (ok_read & (x<XMAX)) 
             {
                 u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW] = u_old[p];
             }
