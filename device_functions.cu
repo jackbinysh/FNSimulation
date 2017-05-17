@@ -132,7 +132,8 @@ void gpuStep(DataArray& device1, DataArray& device2)
     kernelPeriodicBCEdgeX<<<blocks_boundary_edge_X,threads_boundary_edge_X>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCEdgeY<<<blocks_boundary_edge_Y,threads_boundary_edge_Y>>>(device1.u,device1.v,device2.u,device2.v);
     kernelPeriodicBCEdgeZ<<<blocks_boundary_edge_Z,threads_boundary_edge_Z>>>(device1.u,device1.v,device2.u,device2.v);
-    kernelDiffusion<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
+//    kernelDiffusion<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
+    kernelDiffusion_MovingTiles<<<blocks_laplace, threads_laplace>>>(device1.u, device1.v,device2.u,device2.v);
 
     //swap
     gridprecision *temp;

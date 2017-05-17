@@ -86,10 +86,10 @@ __global__ void kernelPeriodicBCX(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+        u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+        v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -159,10 +159,10 @@ __global__ void kernelPeriodicBCY(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+        u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+        v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -232,10 +232,10 @@ __global__ void kernelPeriodicBCZ(gridprecision *u_old,gridprecision *v_old, gri
                    ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
         //write updated values to global memory
-           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+        u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+        u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+        v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
     };
 
 }
@@ -307,24 +307,24 @@ __global__ void kernelPeriodicBCEdgeX(gridprecision *u_old,gridprecision *v_old,
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
                 2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                u_old[x_y_zup]+
-                //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                u_old[x_ydown_z]+
-                //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                u_old[x_yup_z]+
-                //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                u_old[xdown_y_z]+
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                u_old[xup_y_z]
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* u_old[x_y_z];
-                        //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+                        u_old[x_y_zup]+
+                        //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                        u_old[x_ydown_z]+
+                        //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                        u_old[x_yup_z]+
+                        //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                        u_old[xdown_y_z]+
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                        u_old[xup_y_z]
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                      ) - 24.0f* u_old[x_y_z];
+                      //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
-            //write updated values to global memory
-           u =  u_old[x_y_z] ;
-           v= v_old[x_y_z] ;
-           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+                      //write updated values to global memory
+            u =  u_old[x_y_z] ;
+            v= v_old[x_y_z] ;
+            u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+            v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
@@ -394,24 +394,24 @@ __global__ void kernelPeriodicBCEdgeY(gridprecision *u_old,gridprecision *v_old,
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
                 2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                u_old[x_y_zup]+
-                //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                u_old[x_ydown_z]+
-                //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                u_old[x_yup_z]+
-                //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                u_old[xdown_y_z]+
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                u_old[xup_y_z]
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* u_old[x_y_z];
-                        //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+                        u_old[x_y_zup]+
+                        //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                        u_old[x_ydown_z]+
+                        //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                        u_old[x_yup_z]+
+                        //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                        u_old[xdown_y_z]+
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                        u_old[xup_y_z]
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                      ) - 24.0f* u_old[x_y_z];
+                      //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
-            //write updated values to global memory
-           u =  u_old[x_y_z] ;
-           v= v_old[x_y_z] ;
-           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+                      //write updated values to global memory
+            u =  u_old[x_y_z] ;
+            v= v_old[x_y_z] ;
+            u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+            v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
@@ -480,30 +480,30 @@ __global__ void kernelPeriodicBCEdgeZ(gridprecision *u_old,gridprecision *v_old,
                 //      ao[threadIdx.z-1][threadIdx.y+1][threadIdx.x] + 
                 2.0f* (u_old[x_y_zdown]+
                         //  2.0f * ( ao[threadIdx.z-1][threadIdx.y][threadIdx.x] +
-                u_old[x_y_zup]+
-                //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
-                u_old[x_ydown_z]+
-                //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
-                u_old[x_yup_z]+
-                //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
-                u_old[xdown_y_z]+
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
-                u_old[xup_y_z]
-                //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
-                ) - 24.0f* u_old[x_y_z];
-                        //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
+                        u_old[x_y_zup]+
+                        //       ao[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                        u_old[x_ydown_z]+
+                        //       ao[threadIdx.z][threadIdx.y-1][threadIdx.x] + 
+                        u_old[x_yup_z]+
+                        //       ao[threadIdx.z][threadIdx.y+1][threadIdx.x] + 
+                        u_old[xdown_y_z]+
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x-1] +
+                        u_old[xup_y_z]
+                        //       ao[threadIdx.z][threadIdx.y][threadIdx.x+1] 
+                      ) - 24.0f* u_old[x_y_z];
+                      //  ) -24.0f * ao[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
-            //write updated values to global memory
-           u =  u_old[x_y_z] ;
-           v= v_old[x_y_z] ;
-           u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+                      //write updated values to global memory
+            u =  u_old[x_y_z] ;
+            v= v_old[x_y_z] ;
+            u_new[x_y_z] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+            v_new[x_y_z] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         }
     }
 }
 
 //main compute kernel to update concentration values on the grid
-__global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
+__global__ void kernelDiffusion_Shared(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ gridprecision u_shared[CELLD][CELLH][CELLW];
     __shared__ gridprecision v_shared[CELLD][CELLH][CELLW];
@@ -563,10 +563,10 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
                        ) -24.0f * u_shared[threadIdx.z][threadIdx.y][threadIdx.x]; 
 
             //write updated values to global memory
-           u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
-           u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
-           v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+            u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+            v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+            u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+            v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
         };
 
         __syncthreads();
@@ -595,4 +595,99 @@ __global__ void kernelDiffusion(gridprecision *u_old,gridprecision *v_old, gridp
         __syncthreads();
     }
 }
+__global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
+{
+    __shared__ float u_shared[CELLD][CELLH][CELLW*2+1];
 
+    unsigned int p, k, x, y, z;
+    bool ok_read, ok_compute;
+    float laplace_u;
+
+    //3D position and memory address
+    z = blockIdx.y*(CELLD-2)+threadIdx.z; 
+    y = blockIdx.x*(CELLH-2)+threadIdx.y; 
+    x = threadIdx.x;
+    p = z * Zsize + y * Ysize + x;
+
+    //precompute conditions
+    ok_read = (z<ZMAX) & (y<YMAX);
+    ok_compute = (threadIdx.y>0) & (threadIdx.y<CELLH-1) & (threadIdx.z>0) & (threadIdx.z<CELLD-1) & (y<YMAX-1) & (z<ZMAX-1);
+
+    //read first two tiles of data
+    if (ok_read)
+    {
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] = u_old[p];
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
+        p+=CELLW;       
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1+CELLW] = u_old[p];
+    };
+    __syncthreads();
+
+    //Move Tiles to the right: computing, writing result and reading new data in each iteration step.
+    for (k=0; k < XMAX/CELLW; k++)
+    {
+        x = k*CELLW + threadIdx.x; 
+        p = z * Zsize + y * Ysize + x;
+
+        //calculate
+        if (ok_compute & (x>0) & (x<XMAX-1))
+        {
+            laplace_u =
+
+                u_shared[threadIdx.z+1][threadIdx.y-1][threadIdx.x+1] + 
+                u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x] +
+                u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+2] +
+                u_shared[threadIdx.z+1][threadIdx.y+1][threadIdx.x+1] + 
+                u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x] +
+                u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+2] + 
+                u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x] +
+                u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+2] + 
+                u_shared[threadIdx.z-1][threadIdx.y-1][threadIdx.x+1] + 
+                u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x] +
+                u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+2] +
+                u_shared[threadIdx.z-1][threadIdx.y+1][threadIdx.x+1] + 
+                2.0f*( u_shared[threadIdx.z-1][threadIdx.y][threadIdx.x+1] +
+                        u_shared[threadIdx.z+1][threadIdx.y][threadIdx.x+1] +
+                        u_shared[threadIdx.z][threadIdx.y-1][threadIdx.x+1] + 
+                        u_shared[threadIdx.z][threadIdx.y+1][threadIdx.x+1] + 
+                        u_shared[threadIdx.z][threadIdx.y][threadIdx.x] +
+                        u_shared[threadIdx.z][threadIdx.y][threadIdx.x+2] 
+                     ) -24.0f*u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1]; 
+
+            u =  u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] ;
+            v =  v_shared[threadIdx.z][threadIdx.y][threadIdx.x] ;
+            u_new[p] = u + (DaDt_6DxDx * laplace_u)+ ONEOVEREPSILON*(u - ONETHIRD*u*u*u - v)*DT;
+            v_new[p] = v +EPSILON*(u + BETA - GAMMA*v)*DT;
+        };
+
+        __syncthreads();
+
+        //copy last column of first tile to the extra column before the first tile (no bank conflict) 
+        if (threadIdx.x==CELLW-1)
+        {
+            u_shared[threadIdx.z][threadIdx.y][0] = u_shared[threadIdx.z][threadIdx.y][CELLW];
+        };
+
+        //no need to syncthreads() here because threads (warps) that read in the memcopy above
+        //are exactly the ones that will write to the same address in the following memcopy
+
+        //moving the tile: copy the second tile onto the first
+        //no bank conflict -> this is as fast as setting a new value to a register (in every thread)
+        u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW];
+
+        //read new data into the second tile
+        x = (k+2) * CELLW + threadIdx.x;
+        p = z * Zsize + y * Ysize + x;
+        if (ok_read & (x<XMAX)) 
+        {
+            v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
+
+            if (k < XMAX/CELLW -2) //don't read in last two iterations
+            {
+                u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW] = u_old[p];
+            }
+        }
+
+        __syncthreads();
+    }
+}
