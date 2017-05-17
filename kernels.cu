@@ -598,10 +598,11 @@ __global__ void kernelDiffusion_Shared(gridprecision *u_old,gridprecision *v_old
 __global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ float u_shared[CELLD][CELLH][CELLW*2+1];
+    __shared__ float v_shared[CELLD][CELLH][CELLW];
 
     unsigned int p, k, x, y, z;
     bool ok_read, ok_compute;
-    float laplace_u;
+    gridprecision laplace_u, u,v;
 
     //3D position and memory address
     z = blockIdx.y*(CELLD-2)+threadIdx.z; 
