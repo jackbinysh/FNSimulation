@@ -140,43 +140,60 @@ int main (void)
     id.oneoverepsilon = 1.0f/epsilon;
     id.onethird = (float)1.0f/(float)3.0f;
 
-
+    // set up the GPU
     gpuInitialize(id, host, device1, device2);
 
-    // initialise the time to the starttime
-    int iterationcounter = 0;
+    // Set up the timings - set the current time to the start time
+    int iterationcounter = (int) ((float)starttime/dtime);
+    int TotalIterations = (int) ((float)TTime/dtime);
+    int VelocityKnotPropertiesInterval = (int) ((float)VelocityKnotplotPrintTime/dtime);
+    int UVPrintInterval = (int) ((float)UVPrintTime/dtime);
     int reportInterval = (int)(1/dtime);
-    int exportInterval = 10*reportInterval; //must be multiple of reportInterval
-
-    //events for time measurement
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    cudaEventRecord(start, 0);
-    while(iterationcounter <= (int)(TTime/dtime))
+    // initialising timers
+    time_t then = time(NULL);
+    time_t rawtime;
+    time (&rawtime);
+    struct tm * timeinfo;
+    //gogogogogo
+    while(iterationcounter <= TotalIterations)
     {
         iterationcounter++;
+        float CurrentTime  = starttime + ((float)(iterationcounter) * dtime);
+
+        if(iterationcounter%VelocityKnotPropertiesInterval == 0)
+        {
+            cudaMemcpy(host.u,device1.u,u.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+            cudaMemcpy(host.v,device1.v,v.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+
+            crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+
+            find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+            if(!knotcurvesold.empty())
+            {
+                overlayknots(knotcurves,knotcurvesold, griddata);
+                find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
+                print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
+            }
+            knotcurvesold = knotcurves;
+        }
+
         gpuStep(device1, device2);
+
         if (iterationcounter % reportInterval == 0)
         {
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            float elapsed;
-            cudaEventElapsedTime(&elapsed, start, stop); //gives in milliseconds
-            elapsed /= 1000.0f; //convert to seconds
-            printf("%f \n", elapsed);
-
-            if (iterationcounter % exportInterval == 0)
-            {
-                cudaMemcpy(host.u,device1.u,u.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
-                cudaMemcpy(host.v,device1.v,v.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
-                print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,iterationcounter*dtime,griddata);
-
-
-            }
-            cudaEventRecord(start, 0);
+            cout << "T = " << CurrentTime << endl;
+            time (&rawtime);
+            timeinfo = localtime (&rawtime);
+            cout << "current time \t" << asctime(timeinfo) << "\n";
         }   
+        if(iterationcounter % UVPrintInterval == 0 )  
+        {
+            cudaMemcpy(host.u,device1.u,u.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+            cudaMemcpy(host.v,device1.v,v.size()*sizeof(gridprecision),cudaMemcpyDeviceToHost);
+            crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+            print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
+        }
+
     }
 
     gpuClose(device1, device2);
