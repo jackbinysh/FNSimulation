@@ -595,10 +595,10 @@ __global__ void kernelDiffusion_Shared(gridprecision *u_old,gridprecision *v_old
         __syncthreads();
     }
 }
-__global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *v_old, gridprecision *u_new, gridprecision *v_new)
+__global__ void kernelDiffusion_MovingTiles(const gridprecision __restrict__ *u_old,const gridprecision __restrict__ *v_old, gridprecision *u_new, gridprecision *v_new)
 {
     __shared__ float u_shared[CELLD][CELLH][CELLW*2+1];
-    __shared__ float v_shared[CELLD][CELLH][CELLW];
+    __shared__ float v_shared[CELLD][CELLH][CELLW*2];
 
     unsigned int p, k, x, y, z;
     bool ok_read, ok_compute;
@@ -675,12 +675,8 @@ __global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *
         //moving the tile: copy the second tile onto the first
         //no bank conflict -> this is as fast as setting a new value to a register (in every thread)
         u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1] = u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW];
-        // read in the next cell of v
-        if (ok_read)
-        {
-            p+=CELLW;
-            v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_old[p];
-        }
+        v_shared[threadIdx.z][threadIdx.y][threadIdx.x] = v_shared[threadIdx.z][threadIdx.y][threadIdx.x+ CELLW];
+
         //read new data into the second tile
 
         if (k < XMAX/CELLW -2) //don't read in last two iterations
@@ -690,6 +686,7 @@ __global__ void kernelDiffusion_MovingTiles(gridprecision *u_old,gridprecision *
             if (ok_read & (x<XMAX)) 
             {
                 u_shared[threadIdx.z][threadIdx.y][threadIdx.x+1 + CELLW] = u_old[p];
+                v_shared[threadIdx.z][threadIdx.y][threadIdx.x + CELLW] = v_old[p];
             }
         }
 
