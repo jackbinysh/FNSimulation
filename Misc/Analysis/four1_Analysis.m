@@ -8,7 +8,7 @@ clear all;
 
 % read in parameters
 minvalue = 9003.4;
-maxvalue = 9984.4;
+maxvalue = 9003.4;
 increment = 10.9;
 
 %9.1124e+03;
