@@ -1,0 +1,19 @@
+#!/bin/bash
+
+
+for directory in `echo */` 
+do
+	cd $directory
+	for filename in knotplot*_0.vtk
+	do
+		# get the time
+		simtime=`echo $filename | sed 's/_0.vtk//'`
+		simtime=`echo $simtime | sed 's/knotplot//'` 
+		# sum everything by running my little awk script
+		results=$(../filewrithereader $filename) 
+		# dump the time and these numbers into a file
+		echo "$simtime $results " >> "fistcomponentwrithe.txt"
+ 	done
+	cd ..
+done
+
