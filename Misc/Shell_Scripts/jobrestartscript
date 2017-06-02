@@ -12,9 +12,9 @@ do
 	# go down into the folder
 	cd $filepath
 
-	# first up, check if a job is currently running in this folder. we do this by looking through the list of jobs
+	# first up, check if a job is currently running in this folder, or if there is one pending. we do this by looking through the list of jobs
 	activejobsinthisdirectory=0
-	for jobid in $(squeue -u matgqz -h -t R -o %i)
+	for jobid in $(squeue -u matgqz -h -t PD,R -o %i)
 	do
 
 		jobdirectory=$(scontrol show job $jobid | grep "WorkDir*" | sed 's/WorkDir=\/tinisgpfs//')
@@ -43,7 +43,10 @@ do
 		# first up, copy the templated code in here
 		cp ../FN_Constants.h .
 
-		# If its set on FROM_SURFACE_FILE, change that
+		# set the surface filename  to nothing
+		sed "s/INSERT_SURFACE_FILENAME/\"\"/" FN_Constants.h > temp
+		mv temp FN_Constants.h 
+		# set FROM_UV_FILE 
 		sed 's/INSERT_INITIALISATION_TYPE/FROM_UV_FILE/' FN_Constants.h > temp
 		mv temp FN_Constants.h 
 		# put the uv filename in
