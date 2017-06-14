@@ -52,6 +52,6 @@ debug1: channel 0: free: client-session, nchannels 1
 debug1: fd 0 clearing O_NONBLOCK
 debug1: fd 1 clearing O_NONBLOCK
 debug1: fd 2 clearing O_NONBLOCK
-Transferred: sent 3680, received 3216 bytes, in 24.0 seconds
-Bytes per second: sent 153.0, received 133.7
+Transferred: sent 3200, received 2768 bytes, in 2.0 seconds
+Bytes per second: sent 1604.3, received 1387.7
 debug1: Exit status 0
