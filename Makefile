@@ -1,0 +1,22 @@
+CXX=g++
+CXXFLAGS=-O3 
+LDLIBS= -lgsl -lgslcblas -lm -fopenmp 
+LDFLAGS = -O3
+OBJS= TriCubicInterpolator.o FN_Knot.o
+DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h
+
+%.o: %.c $(DEPS)
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+all:clean FNCode 
+
+FNCode:$(OBJS)
+	$(CXX) -o FN_Knot $(OBJS) $(LDLIBS) $(LDFLAGS)
+
+.PHONY: clean
+
+clean:
+	rm -f *.o
+
+# a handy list of commands I was using for different architectures
+#icpc -O3 -qopenmp FN_Knot.cpp TriCubicInterpolator.cpp -lgsl -lgslcblas -lm	
