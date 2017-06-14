@@ -8,7 +8,7 @@ DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h
 %.o: %.c $(DEPS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-all:clean FNCode 
+all:FNCode clean
 
 FNCode:$(OBJS)
 	$(CXX) -o FN_Knot $(OBJS) $(LDLIBS) $(LDFLAGS)
