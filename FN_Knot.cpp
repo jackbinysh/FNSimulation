@@ -894,85 +894,81 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
         gsl_fft_halfcomplex_wavetable_free (hc);
         gsl_fft_real_workspace_free (work);
 
-        /*****Writhe and twist integrals******/
-        NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
-        double dxds, dyds, dzds, dxdm, dydm, dzdm,bx, by, bz;
-        totlength = 0;
-        /***Do the integrals**/
-        double T[3][3];
-        double N[2][3];
-        double B[3];
-        double deltas[3]; double ds;
-        double curvature[2];double torsion;
-        for(s=0; s<NP; s++)    //fwd diff (defined on connecting line) (cell data in paraview)
+
+        // CURVE GEOMETRY - get curvatures, torsions, frennet serret frame
+
+
+        NP = knotcurves[c].knotcurve.size();
+        for(s=0; s<NP; s++)   
         {
-            for(i=0;i<3;i++)
-            {
+            // forward difference on the tangents
+            double dx = (knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,0,NP)].xcoord);   
+            double dy = (knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,0,NP)].ycoord);
+            double dz = (knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,0,NP)].zcoord);
+            double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+            knotcurves[c].knotcurve[s].tx = dx/(deltas);
+            knotcurves[c].knotcurve[s].ty = dy/(deltas);
+            knotcurves[c].knotcurve[s].tz = dz/(deltas);
+            knotcurves[c].knotcurve[s].length = deltas;
+            knotcurves[c].length +=deltas;
+        }
+        for(s=0; s<NP; s++)  
+        {
+            // backwards diff for the normals, amounting to a central diff overall
+            double nx = 2.0*(knotcurves[c].knotcurve[s].tx-knotcurves[c].knotcurve[incp(s,-1,NP)].tx)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+            double ny = 2.0*(knotcurves[c].knotcurve[s].ty-knotcurves[c].knotcurve[incp(s,-1,NP)].ty)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+            double nz = 2.0*(knotcurves[c].knotcurve[s].tz-knotcurves[c].knotcurve[incp(s,-1,NP)].tz)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+            double curvature = sqrt(nx*nx+ny*ny+nz*nz);
+            nx /=curvature;
+            ny /=curvature;
+            nz /=curvature;
+            double tx = knotcurves[c].knotcurve[s].tx ;
+            double ty =  knotcurves[c].knotcurve[s].ty ;
+            double tz = knotcurves[c].knotcurve[s].tz ;
+            double bx = ty*nz - tz*ny;
+            double by = tz*nx - tx*nz;
+            double bz = tx*ny - ty*nx;
+            knotcurves[c].knotcurve[s].nx = nx ;
+            knotcurves[c].knotcurve[s].ny = ny ;
+            knotcurves[c].knotcurve[s].nz = nz ;
+            knotcurves[c].knotcurve[s].bx = bx ;
+            knotcurves[c].knotcurve[s].by = by ;
+            knotcurves[c].knotcurve[s].bz = bz ;
+            knotcurves[c].knotcurve[s].curvature = curvature ;
+        }
+        // torsions with a central difference
+        for(s=0; s<NP; s++)   
+        {
+            double bx = knotcurves[c].knotcurve[s].bx;
+            double by =  knotcurves[c].knotcurve[s].by;
+            double bz = knotcurves[c].knotcurve[s].bz;
 
-                dx = (knotcurves[c].knotcurve[incp(s,i+1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,i,NP)].xcoord);   //central diff as a is defined on the points
-                dy = (knotcurves[c].knotcurve[incp(s,i+1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,i,NP)].ycoord);
-                dz = (knotcurves[c].knotcurve[incp(s,i+1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,i,NP)].zcoord);
-                deltas[i] = sqrt(dx*dx+dy*dy+dz*dz);
-                T[i][0] = dx/(deltas[i]);
-                T[i][1] = dy/(deltas[i]);
-                T[i][2] = dz/(deltas[i]);
-                if(i==0)
-                {
-                    knotcurves[c].knotcurve[s].length = deltas[0];
-                    dxds = T[0][0];
-                    dyds = T[0][1];
-                    dzds = T[0][2];
-                    ds = deltas[0];
-                }
-            }
-            for(i=0;i<2;i++)
-            {
-                N[i][0] = (T[i+1][0]-T[i][0])/deltas[i];
-                N[i][1] = (T[i+1][1]-T[i][1])/deltas[i];
-                N[i][2] = (T[i+1][2]-T[i][2])/deltas[i];
-                curvature[i] = sqrt(N[i][0]*N[i][0]+N[i][1]*N[i][1]+N[i][2]*N[i][2]);
-                N[i][0] /=curvature[i];
-                N[i][1] /=curvature[i];
-                N[i][2] /=curvature[i];
-            }
-            //compute the binormal with a cross product 
-            B[0] = T[0][1]*N[0][2] - N[0][1]*T[0][2] ;
-            B[1] = T[0][2]*N[0][0] - N[0][2]*T[0][0] ;
-            B[2] = T[0][0]*N[0][1] - N[0][0]*T[0][1] ;
-            // this is dn/ds +kt
-            double vx= (N[1][0]-N[0][0])/deltas[0] +curvature[0]*T[0][0];
-            double vy= (N[1][1]-N[0][1])/deltas[0]+ curvature[0]*T[0][1];
-            double vz= (N[1][2]-N[0][2])/deltas[0] + curvature[0]*T[0][2];
-            // lets get the torsion by computing the x component of the binomral, and looking at the scale factor between it and dn/ds+kt
-            double torsion = sqrt(vx*vx +vy*vy +vz*vz);
-            // we have lost the sign of the torsion here. to get it , compare the signs of dn/dx+kt and the binromal
-            double sign = 1;
-            (vx*B[0] + vy*B[1] + vz*B[2] >0)? sign = 1: sign = -1;
-            torsion *=sign;
+            double dnxds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nx-knotcurves[c].knotcurve[incp(s,-1,NP)].nx)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+            double dnyds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].ny-knotcurves[c].knotcurve[incp(s,-1,NP)].ny)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+            double dnzds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nz-knotcurves[c].knotcurve[incp(s,-1,NP)].nz)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
 
-            knotcurves[c].knotcurve[s].curvature = curvature[0];
+            double torsion = bx*dnxds+by*dnyds+bz*dnzds;
             knotcurves[c].knotcurve[s].torsion = torsion ;
-            knotcurves[c].knotcurve[s].tx = T[0][0] ;
-            knotcurves[c].knotcurve[s].ty = T[0][1] ;
-            knotcurves[c].knotcurve[s].tz = T[0][2] ;
-            knotcurves[c].knotcurve[s].nx = N[0][0] ;
-            knotcurves[c].knotcurve[s].ny = N[0][1] ;
-            knotcurves[c].knotcurve[s].nz = N[0][2] ;
-            knotcurves[c].knotcurve[s].bx = B[0] ;
-            knotcurves[c].knotcurve[s].by = B[1] ;
-            knotcurves[c].knotcurve[s].bz = B[2] ;
+        }
 
-            // okay curvature and torions done! lets get twist and writhe
 
-            /*These quantities defined on line connecting points s and s+1*/
-            knotcurves[c].knotcurve[s].writhe = 0;
-            bx = (knotcurves[c].knotcurve[incp(s,1,NP)].ax - knotcurves[c].knotcurve[s].ax)/ds;
-            by = (knotcurves[c].knotcurve[incp(s,1,NP)].ay - knotcurves[c].knotcurve[s].ay)/ds;
-            bz = (knotcurves[c].knotcurve[incp(s,1,NP)].az - knotcurves[c].knotcurve[s].az)/ds;
+        // RIBBON TWIST AND WRITHE
+
+        for(s=0; s<NP; s++)   
+        {
+
+            // twist of this segment
+            double ds = knotcurves[c].knotcurve[s].length;
+            double dxds = knotcurves[c].knotcurve[s].tx;
+            double dyds = knotcurves[c].knotcurve[s].ty;
+            double dzds = knotcurves[c].knotcurve[s].tz;
+            double bx = (knotcurves[c].knotcurve[incp(s,1,NP)].ax - knotcurves[c].knotcurve[s].ax)/ds;
+            double by = (knotcurves[c].knotcurve[incp(s,1,NP)].ay - knotcurves[c].knotcurve[s].ay)/ds;
+            double bz = (knotcurves[c].knotcurve[incp(s,1,NP)].az - knotcurves[c].knotcurve[s].az)/ds;
             knotcurves[c].knotcurve[s].twist = (dxds*(knotcurves[c].knotcurve[s].ay*bz - knotcurves[c].knotcurve[s].az*by) + dyds*(knotcurves[c].knotcurve[s].az*bx - knotcurves[c].knotcurve[s].ax*bz) + dzds*(knotcurves[c].knotcurve[s].ax*by - knotcurves[c].knotcurve[s].ay*bx))/(2*M_PI*sqrt(dxds*dxds + dyds*dyds + dzds*dzds));
-            /*Check this is actually normal to tangent*/
-            /*check = fabs(0.5*(knotcurves[c].knotcurve[s].ax + knotcurves[c].knotcurve[incp(s,1,NP)].ax)*dxds + 0.5*(knotcurves[c].knotcurve[s].ay + knotcurves[c].knotcurve[incp(s,1,NP)].ay)*dyds + 0.5*(knotcurves[c].knotcurve[s].az + knotcurves[c].knotcurve[incp(s,1,NP)].az)*dzds)/sqrt(dxds*dxds + dyds*dyds + dzds*dzds);
-              if(check>0.01) cout << s << ": (" << knotcurves[c].knotcurve[s].xcoord << ", " << knotcurves[c].knotcurve[s].ycoord << ", " << knotcurves[c].knotcurve[s].zcoord << "). Grad u . t = " << check << '\n';*/
+
+            // "writhe" of this segment. writhe is nonlocal, this is the thing in the integrand over s
+            knotcurves[c].knotcurve[s].writhe = 0;
             for(m=0; m<NP; m++)
             {
                 if(s != m)
@@ -980,17 +976,17 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                     xdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord + knotcurves[c].knotcurve[s].xcoord - knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord);   //interpolate, consistent with fwd diff
                     ydiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].ycoord + knotcurves[c].knotcurve[s].ycoord - knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord);
                     zdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].zcoord + knotcurves[c].knotcurve[s].zcoord - knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord);
-                    dxdm = (knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord)/(ds);
-                    dydm = (knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord)/(ds);
-                    dzdm = (knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord)/(ds);
+                    double dxdm = (knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord)/(ds);
+                    double dydm = (knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord)/(ds);
+                    double dzdm = (knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord)/(ds);
                     knotcurves[c].knotcurve[s].writhe += ds*(xdiff*(dyds*dzdm - dzds*dydm) + ydiff*(dzds*dxdm - dxds*dzdm) + zdiff*(dxds*dydm - dyds*dxdm))/(4*M_PI*(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff)*sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff));
                 }
             }
-            /*Add on writhe, twist and length*/
+
+            //Add on writhe, twist 
             knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
-            knotcurves[c].length += knotcurves[c].knotcurve[s].length;
             knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
-            /* while we are computing the global quantites, get the average position too*/
+            // while we are computing the global quantites, get the average position too
             knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
             knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
             knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
@@ -1057,14 +1053,14 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
                 if(intersection ==1)
                 { 
                     double intersectiondistancesquare = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )*(IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )+ (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )*(IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )+ (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )*(IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord );
-                        if(intersectiondistancesquare < closestdistancesquare)
-                        {
-                         closestdistancesquare = intersectiondistancesquare;
-                         ClosestIntersection[0] = IntersectionPoint[0];
-                         ClosestIntersection[1] = IntersectionPoint[1];
-                         ClosestIntersection[2] = IntersectionPoint[2];
-                        }
-                
+                    if(intersectiondistancesquare < closestdistancesquare)
+                    {
+                        closestdistancesquare = intersectiondistancesquare;
+                        ClosestIntersection[0] = IntersectionPoint[0];
+                        ClosestIntersection[1] = IntersectionPoint[1];
+                        ClosestIntersection[2] = IntersectionPoint[2];
+                    }
+
                 }
             }
             // work out velocity and twist rate
