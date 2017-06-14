@@ -32,12 +32,13 @@ function [ knotplot ] = CurveRead( filename )
         end
 
         % Vector data
-        names = {'POINTS','vdotn','vdotb'};
+        names = {'POINTS','n','b','vdotn','vdotb'};
         for i = 1:length(names)
          name = names{i};
-         y = cellfun(@(x) strfind(x,name), knotplotdata,'UniformOutput',false);
-        location = ~cellfun('isempty', y);
-        [row,col] = find(location);
+        % y = cellfun(@(x) strcmp(x,name), knotplotdata,'UniformOutput',false);
+        y = cellfun(@(x) strcmp(x,name), knotplotdata);
+        %location = ~cellfun('isempty', y);
+        [row,col] = find(y);
         data = knotplotdata((row+1):(row+1+points-1),1:3);
         data = str2double(data);
         knotplot.(name) = data;
