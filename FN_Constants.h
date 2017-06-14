@@ -19,8 +19,8 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
  */
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
 const int option = INSERT_INITIALISATION_TYPE;         //unknot default option
-std::string knot_filename = INSERT_SURFACE_FILENAME;      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
-std::string B_filename = INSERT_UV_FILENAME;    //filename for phi field or uv field
+std::string knot_filename = "INSERT_SURFACE_FILENAME";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
+std::string B_filename = "INSERT_UV_FILENAME";    //filename for phi field or uv field
 
 // OPTION - what kind of boundary condition
 const BoundaryType BoundaryType=ALLPERIODIC;
