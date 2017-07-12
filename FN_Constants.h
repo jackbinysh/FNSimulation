@@ -4,6 +4,7 @@
 #define FROM_SURFACE_FILE 1
 #define FROM_UV_FILE 2
 #define FROM_FUNCTION 3
+#define FROM_CURVE_FILE 4
 // the different boundary conditions
 enum BoundaryType {ALLREFLECTING, ZPERIODIC, ALLPERIODIC};
 

@@ -80,18 +80,28 @@ int main (void)
             }
             else
             {
-                //Initialise knot
-                if(initialise_knot(knotsurface)==0)
+                if(option == FROM_SURFACE_FILE) 
                 {
-                    cout << "Error reading input option. Aborting...\n";
-                    return 1;
+                    //Initialise knot
+                    if(initialise_knot(knotsurface)==0)
+                    {
+                        cout << "Error reading input option. Aborting...\n";
+                        return 1;
+                    }
+
+                    if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
+                    cout << knotsurface.size() << '\n';
+
+                    //Calculate phi for initial conditions
+                    phi_calc(phi,knotsurface,griddata);
                 }
-
-                if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-                cout << knotsurface.size() << '\n';
-
-                //Calculate phi for initial conditions
-                phi_calc(phi,knotsurface,griddata);
+                else
+                {
+                    if(option == FROM_CURVE_FILE)
+                    {
+                        DualConePhiCalc(phi,griddata); 
+                    }
+                }
             }
         }
     }
@@ -409,6 +419,63 @@ void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const griddata& 
     print_B_phi(phi,griddata);
 
 }
+void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
+{
+    //first up, initialise the knotcurve
+    knotcurve InitialisationCurve;
+
+    double xcoord,ycoord,zcoord;    //temporary variables
+
+    ifstream CurveInputStream;   //knot file(s)
+    string buff;
+    stringstream ss;
+
+    CurveInputStream.open(knot_filename.c_str());
+    
+    /*  For recording max and min input values*/
+    double maxxin = 0;
+    double maxyin = 0;
+    double maxzin = 0;
+    double minxin = 0;
+    double minyin = 0;
+    double minzin = 0;
+    while(CurveInputStream.good())   //read in points for knot
+    {
+        if(getline(CurveInputStream,buff))
+        {
+            ss.clear();
+            ss.str("");
+            ss << buff;
+            ss >> xcoord >> ycoord >> zcoord;
+        }
+        else break;
+        // construct a point and put it on the curve
+        knotpoint Point;
+        Point.xcoord = xcoord;
+        Point.ycoord = ycoord;
+        Point.zcoord = zcoord;
+        InitialisationCurve.knotcurve.push_back(Point);
+        if(xcoord>maxxin) maxxin = xcoord;
+        if(ycoord>maxyin) maxyin = ycoord;
+        if(zcoord>maxzin) maxzin = zcoord;
+        if(xcoord<minxin) minxin = xcoord;
+        if(ycoord<minyin) minyin = ycoord;
+        if(zcoord<minzin) minzin = zcoord;
+    }
+    CurveInputStream.close();
+    double scale[3];
+    double midpoint[3];
+    scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin);
+    for(int i=0;i<InitialisationCurve.knotcurve.size();i++)
+    {
+            InitialisationCurve.knotcurve[i].xcoord = scale[0]*(InitialisationCurve.knotcurve[i].xcoord - midpoint[0]);
+            InitialisationCurve.knotcurve[i].ycoord = scale[1]*(InitialisationCurve.knotcurve[i].ycoord - midpoint[1]);
+            InitialisationCurve.knotcurve[i].zcoord = scale[2]*(InitialisationCurve.knotcurve[i].zcoord - midpoint[2]);
+    }
+
+    return;
+}
+
 void phi_calc_manual(vector<double>&phi, griddata& griddata)
 {
     int Nx = griddata.Nx;

@@ -119,7 +119,7 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 /*************************Functions for B and Phi calcs*****************************/
 
 void phi_calc( vector<double>&phi,std::vector<triangle>& knotsurface,const griddata& griddata);
-
+void DualConePhiCalc(vector<double>&phi, const griddata& griddata);
 void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 
 //FitzHugh Nagumo functions
