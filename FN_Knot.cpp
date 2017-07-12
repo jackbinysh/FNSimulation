@@ -431,7 +431,7 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
     stringstream ss;
 
     CurveInputStream.open(knot_filename.c_str());
-    
+
     /*  For recording max and min input values*/
     double maxxin = 0;
     double maxyin = 0;
@@ -468,12 +468,88 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
     scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin);
     for(int i=0;i<InitialisationCurve.knotcurve.size();i++)
     {
-            InitialisationCurve.knotcurve[i].xcoord = scale[0]*(InitialisationCurve.knotcurve[i].xcoord - midpoint[0]);
-            InitialisationCurve.knotcurve[i].ycoord = scale[1]*(InitialisationCurve.knotcurve[i].ycoord - midpoint[1]);
-            InitialisationCurve.knotcurve[i].zcoord = scale[2]*(InitialisationCurve.knotcurve[i].zcoord - midpoint[2]);
+        InitialisationCurve.knotcurve[i].xcoord = scale[0]*(InitialisationCurve.knotcurve[i].xcoord - midpoint[0]);
+        InitialisationCurve.knotcurve[i].ycoord = scale[1]*(InitialisationCurve.knotcurve[i].ycoord - midpoint[1]);
+        InitialisationCurve.knotcurve[i].zcoord = scale[2]*(InitialisationCurve.knotcurve[i].zcoord - midpoint[2]);
     }
 
-    return;
+    knotcurve ProjectedCurve;
+    knotcurve DualCurve;
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)
+            {
+                n = pt(i,j,k,griddata);
+                phi[n] = 0;
+                // first, take the curve and project it onto the unit sphere around our observation point
+                for(s=0;s<InitialisationCurve.knotcurve.size();s++)
+                {
+                    
+                   double projxcoord = InitialisationCurve.knotcurve.xcoord - x(i,griddata);
+                   double projycoord = InitialisationCurve.knotcurve.ycoord - y(j,griddata);
+                   double projzcoord = InitialisationCurve.knotcurve.zcoord - z(k,griddata);
+
+                    double mag = sqrt(projxcoord*projxcoord +projycoord*projycoord +projzcoord*projzcoord);
+                    projxcoord /= projxcoord;
+                    projycoord /= projycoord;
+                    projzcoord /= projzcoord;
+
+                    knotpoint Point;
+                    Point.xcoord = projxcoord;
+                    Point.ycoord = projycoord;
+                    Point.zcoord = projzcoord;
+                    ProjectedCurve.knotcurve.push_back(Point);
+                }
+
+                // now from the projected curve, construct the dual. In the notation below, I follow Mark Levi's convention of using n to denote position on the sphere
+                for(s=0;s<ProjectedCurve.knotcurve.size();s++)
+                {
+                    // forward difference on the tangents
+                    double dx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                    double dy = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord);
+                    double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
+                    double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                    double tx = dx/(deltas);
+                    double ty = dy/(deltas);
+                    double tz = dz/(deltas);
+                    double nx = ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord;
+                    double ny = ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord;
+                    double nz = ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord;
+                    // get dual curve positions
+                    double nstarx = ty*nz - nz*ty;
+                    double nstary = tz*nx - nx*tz;
+                    double nstarz = tx*ny - ny*tx;
+
+                    knotpoint Point;
+                    Point.xcoord = nstarx; 
+                    Point.ycoord = nstary;
+                    Point.zcoord = nstarz;
+                    Point.tx = -tx;
+                    Point.ty = -ty;
+                    Point.tz = -tz;
+                    DualCurve.knotcurve.push_back(Point);
+                }
+
+                // compute the dual curves length
+                double DualCurveLength = 0;
+                for(s=0;s<DualCurve.knotcurve.size();s++)
+                {
+                    double dx = (DualCurve.knotcurve[incp(s,1,NP)].xcoord - DualCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                    double dy = (DualCurve.knotcurve[incp(s,1,NP)].ycoord - DualCurve.knotcurve[incp(s,0,NP)].ycoord);
+                    double dz = (DualCurve.knotcurve[incp(s,1,NP)].zcoord - DualCurve.knotcurve[incp(s,0,NP)].zcoord);
+                    double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                    DualCurveLength += deltas;
+                }
+                n = pt(i,j,k,griddata);
+                phi[n] = 2*M_PI-DualCurveLength;
+                while(phi[n]>M_PI) phi[n] -= 2*M_PI;
+                while(phi[n]<-M_PI) phi[n] += 2*M_PI;
+            }
+        }
+    }
+return;
 }
 
 void phi_calc_manual(vector<double>&phi, griddata& griddata)
