@@ -1,22 +1,50 @@
 CXX=g++
-CXXFLAGS=-O3 
-LDLIBS= -lgsl -lgslcblas -lm -fopenmp 
-LDFLAGS = -O3
+CXXFLAGS= -O3 -fopenmp
+LDLIBS= -lgsl -lgslcblas -lm 
 OBJS= TriCubicInterpolator.o FN_Knot.o
 DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h
+
+all: preprocessing executable clean
+release: preprocessing executable clean
+debug: CXXFLAGS = -g
+debug: preprocessing executable clean
+
+
+preprocessing:
+	INSERT_INITIALISATION_TYPE=FROM_CURVE_FILE; \
+	INSERT_SURFACE_FILENAME=test_three1; \
+	INSERT_UV_FILENAME=uv_plot0.vtk; \
+	INSERT_RUNTIME=21; \
+	INSERT_UVPRINTTIME=20; \
+	INSERT_VELOCITYPRINTTIME=1; \
+	INSERT_FREQUENTPRINTTIME=100; \
+	INSERT_SKIPTIME=0; \
+	INSERT_GRIDSPACING=0.6; \
+	INSERT_NX=128; \
+	INSERT_NY=128; \
+	INSERT_NZ=128; \
+	INSERT_TIMESTEP=0.02; \
+	names="INSERT_INITIALISATION_TYPE INSERT_SURFACE_FILENAME INSERT_UV_FILENAME INSERT_RUNTIME INSERT_UVPRINTTIME INSERT_VELOCITYPRINTTIME INSERT_FREQUENTPRINTTIME INSERT_SKIPTIME INSERT_GRIDSPACING INSERT_NX INSERT_NY INSERT_NZ INSERT_TIMESTEP"; \
+	cp FN_Constants.h FN_Constants_backup.h; \
+	for name in $names; \
+	do; \
+		value=${!name}; \
+		sed "s/${name}/${value}/" FN_Constants.h > temp; \
+		mv -f temp FN_Constants.h; \
+	done; \
+
+executable:$(OBJS)
+	$(CXX) -o FN_Knot $(OBJS) $(LDLIBS) $(LDFLAGS)
 
 %.o: %.c $(DEPS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-all:FNCode clean
-
-FNCode:$(OBJS)
-	$(CXX) -o FN_Knot $(OBJS) $(LDLIBS) $(LDFLAGS)
-
-.PHONY: clean
-
 clean:
 	rm -f *.o
+	mv -f FN_Constants.h FN_Constants_written.h
+	mv -f FN_Constants_backup.h FN_Constants.h
 
+.PHONY: clean
+	
 # a handy list of commands I was using for different architectures
 #icpc -O3 -qopenmp FN_Knot.cpp TriCubicInterpolator.cpp -lgsl -lgslcblas -lm	
