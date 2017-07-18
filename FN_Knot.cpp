@@ -424,11 +424,16 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
     //first up, initialise the knotcurve
     knotcurve InitialisationCurve;
 
-
-    ifstream CurveInputStream;   //knot file(s)
-    string buff;
     stringstream ss;
-    CurveInputStream.open(knot_filename.c_str());
+    string buff,filename;
+
+    ss.clear();
+    ss.str("");
+    ss << knot_filename << ".fe";
+
+    filename = ss.str();
+    ifstream CurveInputStream;   //knot file(s)
+    CurveInputStream.open(filename.c_str());
     /*  For recording max and min input values*/
     double maxxin = 0;
     double maxyin = 0;
@@ -477,7 +482,9 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
     // now for the guts of the thing - construct the dual curve
     knotcurve ProjectedCurve;
     knotcurve DualCurve;
-    
+    knotcurve SubdividedInitialisationCurve = InitialisationCurve;
+    vector<knotcurve> Curvetoprint;
+
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
@@ -487,79 +494,162 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
         {
             for(int k=0; k<Nz; k++)
             {
-                // first ensure the curves are clear from the list iteration
-                ProjectedCurve.clear();
-                DualCurve.clear();
-
-                // first, take the curve and project it onto the unit sphere around our observation point
-                for(int s=0;s<InitialisationCurve.knotcurve.size();s++)
+                bool KgCondition = false;
+                bool subdividing = false;
+                
+                while (KgCondition==false)
                 {
-                    
-                    double projxcoord = InitialisationCurve.knotcurve[s].xcoord - x(i,griddata);
-                    double projycoord = InitialisationCurve.knotcurve[s].ycoord - y(j,griddata);
-                    double projzcoord = InitialisationCurve.knotcurve[s].zcoord - z(k,griddata);
+                    // first ensure the curves are clear from the list iteration
+                    ProjectedCurve.knotcurve.clear();
+                    DualCurve.knotcurve.clear();
+                    DualCurve.length = 0 ;
 
-                    double mag = sqrt(projxcoord*projxcoord +projycoord*projycoord +projzcoord*projzcoord);
-                    projxcoord /= projxcoord;
-                    projycoord /= projycoord;
-                    projzcoord /= projzcoord;
+                    // first, take the curve and project it onto the unit sphere around our observation point
+                    for(int s=0;s<SubdividedInitialisationCurve.knotcurve.size();s++)
+                    {
 
-                    knotpoint Point;
-                    Point.xcoord = projxcoord;
-                    Point.ycoord = projycoord;
-                    Point.zcoord = projzcoord;
-                    ProjectedCurve.knotcurve.push_back(Point);
+                        double initialx = SubdividedInitialisationCurve.knotcurve[s].xcoord;
+                        double initialy = SubdividedInitialisationCurve.knotcurve[s].ycoord;
+                        double initialz = SubdividedInitialisationCurve.knotcurve[s].zcoord;
+
+                        double projxcoord = initialx - x(i,griddata);
+                        double projycoord = initialy - y(j,griddata);
+                        double projzcoord = initialz - z(k,griddata);
+
+                        double mag = sqrt(projxcoord*projxcoord +projycoord*projycoord +projzcoord*projzcoord);
+                        projxcoord /= mag;
+                        projycoord /= mag;
+                        projzcoord /= mag;
+
+                        knotpoint Point;
+                        Point.xcoord = projxcoord;
+                        Point.ycoord = projycoord;
+                        Point.zcoord = projzcoord;
+                        ProjectedCurve.knotcurve.push_back(Point);
+                    }
+
+
+
+                    // now from the projected curve, construct the dual. In the notation below, I follow Mark Levi's convention of using n to denote position on the sphere
+                    for(int s=0;s<ProjectedCurve.knotcurve.size();s++)
+                    {
+                        int NP = ProjectedCurve.knotcurve.size();
+                        // forward difference on the tangents
+                        double dx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                        double dy = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord);
+                        double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
+                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                        double tx = dx/(deltas);
+                        double ty = dy/(deltas);
+                        double tz = dz/(deltas);
+                        ProjectedCurve.knotcurve[s].tx = tx;
+                        ProjectedCurve.knotcurve[s].ty = ty;
+                        ProjectedCurve.knotcurve[s].tz = tz;
+
+                        double nx = ProjectedCurve.knotcurve[s].xcoord;
+                        double ny = ProjectedCurve.knotcurve[s].ycoord;
+                        double nz = ProjectedCurve.knotcurve[s].zcoord;
+                        // get dual curve positions, with cross product
+                        double nstarx = ty*nz - tz*ny;
+                        double nstary = tz*nx - tx*nz;
+                        double nstarz = tx*ny - ty*nx;
+
+                        knotpoint Point;
+                        Point.xcoord = nstarx; 
+                        Point.ycoord = nstary;
+                        Point.zcoord = nstarz;
+                        Point.tx = -tx; 
+                        Point.ty = -ty; 
+                        Point.tz = -tz; 
+                        DualCurve.knotcurve.push_back(Point);
+                    }
+
+                    // compute the dual curves length. We do this using the exact formula in Mark Levi's paper - got to be careful with signs here
+                    double Maxdeltas = 0;
+                    for(int s=0;s<DualCurve.knotcurve.size();s++)
+                    {
+                        int NP = DualCurve.knotcurve.size();
+
+                        // computing the quantities in Levi's eqn (1.1)
+
+                        double nstarx =  DualCurve.knotcurve[s].xcoord;
+                        double nstary =  DualCurve.knotcurve[s].ycoord;
+                        double nstarz =  DualCurve.knotcurve[s].zcoord;
+
+                        double tstarx =  DualCurve.knotcurve[s].tx;   
+                        double tstary =  DualCurve.knotcurve[s].ty;
+                        double tstarz =  DualCurve.knotcurve[s].tz;
+
+                        double dx = (DualCurve.knotcurve[incp(s,1,NP)].xcoord - DualCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                        double dy = (DualCurve.knotcurve[incp(s,1,NP)].ycoord - DualCurve.knotcurve[incp(s,0,NP)].ycoord);
+                        double dz = (DualCurve.knotcurve[incp(s,1,NP)].zcoord - DualCurve.knotcurve[incp(s,0,NP)].zcoord);
+
+                        double nstardotx = dx;
+                        double nstardoty = dy;
+                        double nstardotz = dz;
+
+                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                        if (deltas > Maxdeltas) Maxdeltas = deltas;
+
+                        double ax = nstary*nstardotz - nstarz*nstardoty;
+                        double ay = nstarz*nstardotx - nstarx*nstardotz;
+                        double az = nstarx*nstardoty - nstary*nstardotx;
+
+                        double bx = nstary*tstarz - nstarz*tstary;
+                        double by = nstarz*tstarx - nstarx*tstarz;
+                        double bz = nstarx*tstary - nstary*tstarx;
+
+                        DualCurve.length += (ax*bx + ay*by + az*bz);
+                    }
+
+                    if(subdividing)
+                    {
+                        Curvetoprint.push_back(ProjectedCurve);
+                        print_knot(k, Curvetoprint, griddata);
+                        Curvetoprint.clear();
+                    }
+
+                    cout << Maxdeltas << "\t";
+                    //check if we are happy with how fine the curve was subdivided
+                    if(Maxdeltas < 0.6)
+                    {
+                        KgCondition = true;
+                    }
+                    else
+                    {
+                        // SUBDIVIDE! (the initial curve, i.e the one for the object itself, not projection or dual)
+                        subdividing = true;
+                        knotcurve TempInitialisationCurve;
+                        int NP = SubdividedInitialisationCurve.knotcurve.size();
+                        for(int s=0;s<NP;s++)
+                        {
+
+                            knotpoint Point;
+                            Point.xcoord = SubdividedInitialisationCurve.knotcurve[s].xcoord;
+                            Point.ycoord = SubdividedInitialisationCurve.knotcurve[s].ycoord;
+                            Point.zcoord = SubdividedInitialisationCurve.knotcurve[s].zcoord;
+                            TempInitialisationCurve.knotcurve.push_back(Point);
+
+                            knotpoint SubdividedPoint;
+                            SubdividedPoint.xcoord = 0.5*(SubdividedInitialisationCurve.knotcurve[s].xcoord+SubdividedInitialisationCurve.knotcurve[incp(s,1,NP)].xcoord);
+                            SubdividedPoint.ycoord = 0.5* (SubdividedInitialisationCurve.knotcurve[s].ycoord+SubdividedInitialisationCurve.knotcurve[incp(s,1,NP)].ycoord);
+                            SubdividedPoint.zcoord = 0.5* (SubdividedInitialisationCurve.knotcurve[s].zcoord+SubdividedInitialisationCurve.knotcurve[incp(s,1,NP)].zcoord);
+                            TempInitialisationCurve.knotcurve.push_back(SubdividedPoint);
+
+                        }
+                        SubdividedInitialisationCurve = TempInitialisationCurve;
+                    }
                 }
-
-                // now from the projected curve, construct the dual. In the notation below, I follow Mark Levi's convention of using n to denote position on the sphere
-                for(int s=0;s<ProjectedCurve.knotcurve.size();s++)
-                {
-                    int NP = ProjectedCurve.knotcurve.size();
-                    // forward difference on the tangents
-                    double dx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
-                    double dy = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord);
-                    double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
-                    double deltas = sqrt(dx*dx+dy*dy+dz*dz);
-                    double tx = dx/(deltas);
-                    double ty = dy/(deltas);
-                    double tz = dz/(deltas);
-                    double nx = ProjectedCurve.knotcurve[s].xcoord;
-                    double ny = ProjectedCurve.knotcurve[s].ycoord;
-                    double nz = ProjectedCurve.knotcurve[s].zcoord;
-                    // get dual curve positions, with cross product
-                    double nstarx = ty*nz - nz*ty;
-                    double nstary = tz*nx - nx*tz;
-                    double nstarz = tx*ny - ny*tx;
-
-                    knotpoint Point;
-                    Point.xcoord = nstarx; 
-                    Point.ycoord = nstary;
-                    Point.zcoord = nstarz;
-                    DualCurve.knotcurve.push_back(Point);
-                }
-
-                // compute the dual curves length
-                double DualCurveLength = 0;
-                for(int s=0;s<DualCurve.knotcurve.size();s++)
-                {
-                    int NP = DualCurve.knotcurve.size();
-                    double dx = (DualCurve.knotcurve[incp(s,1,NP)].xcoord - DualCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
-                    double dy = (DualCurve.knotcurve[incp(s,1,NP)].ycoord - DualCurve.knotcurve[incp(s,0,NP)].ycoord);
-                    double dz = (DualCurve.knotcurve[incp(s,1,NP)].zcoord - DualCurve.knotcurve[incp(s,0,NP)].zcoord);
-                    double deltas = sqrt(dx*dx+dy*dy+dz*dz);
-                    DualCurveLength += deltas;
-                }
-
-                int n = pt(i,j,k,griddata);
-                phi[n] = 2*M_PI-DualCurveLength;
-                while(phi[n]>M_PI) phi[n] -= 2*M_PI;
-                while(phi[n]<-M_PI) phi[n] += 2*M_PI;
-
+                // clean up, and set phi
+                SubdividedInitialisationCurve = InitialisationCurve;
+                    int n = pt(i,j,k,griddata);
+                phi[n] = 0.5*(2*M_PI-DualCurve.length);
             }
         }
     }
-    
-return;
+    cout << "Printing B and phi...\n";
+    print_B_phi(phi,griddata);
+    return;
 }
 
 void phi_calc_manual(vector<double>&phi, griddata& griddata)
@@ -1496,71 +1586,71 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
 
         knotout << "\n\nPOINT_DATA " << n << "\n\n";
 
-        knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
+        //   knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
+        //   for(i=0; i<n; i++)
+        //   {
+        //       knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
 
-        knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].torsion << '\n';
-        }
+        //   knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
+        //   for(i=0; i<n; i++)
+        //   {
+        //       knotout << knotcurves[c].knotcurve[i].torsion << '\n';
+        //   }
 
-        knotout << "\nVECTORS A float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
-        }
+        //   knotout << "\nVECTORS A float\n";
+        //   for(i=0; i<n; i++)
+        //   {
+        //       knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
+        //   }
 
-        knotout << "\nVECTORS V float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vx << ' ' << knotcurves[c].knotcurve[i].vy << ' ' << knotcurves[c].knotcurve[i].vz << '\n';
-        }
+        //   knotout << "\nVECTORS V float\n";
+        //   for(i=0; i<n; i++)
+        //   {
+        //       knotout << knotcurves[c].knotcurve[i].vx << ' ' << knotcurves[c].knotcurve[i].vy << ' ' << knotcurves[c].knotcurve[i].vz << '\n';
+        //   }
         knotout << "\nVECTORS t float\n";
         for(i=0; i<n; i++)
         {
             knotout << knotcurves[c].knotcurve[i].tx << ' ' << knotcurves[c].knotcurve[i].ty << ' ' << knotcurves[c].knotcurve[i].tz << '\n';
         }
-        knotout << "\nVECTORS n float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].nx << ' ' << knotcurves[c].knotcurve[i].ny << ' ' << knotcurves[c].knotcurve[i].nz << '\n';
-        }
-        knotout << "\nVECTORS b float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
-        }
-        knotout << "\nVECTORS vdotn float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vdotnx << ' ' << knotcurves[c].knotcurve[i].vdotny << ' ' << knotcurves[c].knotcurve[i].vdotnz << '\n';
-        }
-        knotout << "\nVECTORS vdotb float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vdotbx << ' ' << knotcurves[c].knotcurve[i].vdotby << ' ' << knotcurves[c].knotcurve[i].vdotbz << '\n';
-        }
-        knotout << "\n\nCELL_DATA " << n << "\n\n";
-        knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].writhe << '\n';
-        }
+        //    knotout << "\nVECTORS n float\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].nx << ' ' << knotcurves[c].knotcurve[i].ny << ' ' << knotcurves[c].knotcurve[i].nz << '\n';
+        //    }
+        //    knotout << "\nVECTORS b float\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
+        //    }
+        //    knotout << "\nVECTORS vdotn float\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].vdotnx << ' ' << knotcurves[c].knotcurve[i].vdotny << ' ' << knotcurves[c].knotcurve[i].vdotnz << '\n';
+        //    }
+        //    knotout << "\nVECTORS vdotb float\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].vdotbx << ' ' << knotcurves[c].knotcurve[i].vdotby << ' ' << knotcurves[c].knotcurve[i].vdotbz << '\n';
+        //    }
+        //    knotout << "\n\nCELL_DATA " << n << "\n\n";
+        //    knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].writhe << '\n';
+        //    }
 
-        knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].twist << '\n';
-        }
+        //    knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].twist << '\n';
+        //    }
 
-        knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].length << '\n';
-        }
+        //    knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
+        //    for(i=0; i<n; i++)
+        //    {
+        //        knotout << knotcurves[c].knotcurve[i].length << '\n';
+        //    }
         knotout.close();
     }
 }
