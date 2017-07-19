@@ -571,35 +571,24 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         int NP = DualCurve.knotcurve.size();
 
                         // computing the quantities in Levi's eqn (1.1)
+                        double dx = (DualCurve.knotcurve[incp(s,1,NP)].xcoord - DualCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                        double dy = (DualCurve.knotcurve[incp(s,1,NP)].ycoord - DualCurve.knotcurve[incp(s,0,NP)].ycoord);
+                        double dz = (DualCurve.knotcurve[incp(s,1,NP)].zcoord - DualCurve.knotcurve[incp(s,0,NP)].zcoord);
+                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
 
-                        double nstarx =  DualCurve.knotcurve[s].xcoord;
-                        double nstary =  DualCurve.knotcurve[s].ycoord;
-                        double nstarz =  DualCurve.knotcurve[s].zcoord;
-
+                        double dndsstarx = dx/deltas; 
+                        double dndsstary = dy/deltas;  
+                        double dndsstarz = dz/deltas; 
+                        
                         double tstarx =  DualCurve.knotcurve[s].tx;   
                         double tstary =  DualCurve.knotcurve[s].ty;
                         double tstarz =  DualCurve.knotcurve[s].tz;
 
-                        double dx = (DualCurve.knotcurve[incp(s,1,NP)].xcoord - DualCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
-                        double dy = (DualCurve.knotcurve[incp(s,1,NP)].ycoord - DualCurve.knotcurve[incp(s,0,NP)].ycoord);
-                        double dz = (DualCurve.knotcurve[incp(s,1,NP)].zcoord - DualCurve.knotcurve[incp(s,0,NP)].zcoord);
-
-                        double nstardotx = dx;
-                        double nstardoty = dy;
-                        double nstardotz = dz;
-
-                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
-                        if (deltas > Maxdeltas) Maxdeltas = deltas;
-
-                        double ax = nstary*nstardotz - nstarz*nstardoty;
-                        double ay = nstarz*nstardotx - nstarx*nstardotz;
-                        double az = nstarx*nstardoty - nstary*nstardotx;
-
-                        double bx = nstary*tstarz - nstarz*tstary;
-                        double by = nstarz*tstarx - nstarx*tstarz;
-                        double bz = nstarx*tstary - nstary*tstarx;
-
-                        DualCurve.length += (ax*bx + ay*by + az*bz);
+                        int triadsign =(tstarx*dndsstarx+tstary*dndsstary+tstarz*dndsstarz)<0? -1 : 1;
+                        
+                        if (deltas > Maxdeltas){ Maxdeltas = deltas;}
+                        
+                        DualCurve.length += triadsign*deltas;
                     }
 
                     if(subdividing)
@@ -609,9 +598,8 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         Curvetoprint.clear();
                     }
 
-                    cout << Maxdeltas << "\t";
                     //check if we are happy with how fine the curve was subdivided
-                    if(Maxdeltas < 0.6)
+                    if(Maxdeltas < 100)
                     {
                         KgCondition = true;
                     }
@@ -642,7 +630,7 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                 }
                 // clean up, and set phi
                 SubdividedInitialisationCurve = InitialisationCurve;
-                    int n = pt(i,j,k,griddata);
+                int n = pt(i,j,k,griddata);
                 phi[n] = 0.5*(2*M_PI-DualCurve.length);
             }
         }
