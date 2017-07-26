@@ -527,7 +527,16 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         Point.zcoord = projzcoord;
                         ProjectedCurve.knotcurve.push_back(Point);
                     }
-
+                    // get segment lengths
+                    for(int s=0;s<ProjectedCurve.knotcurve.size();s++)
+                    {
+                        int NP = ProjectedCurve.knotcurve.size();
+                        double dx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                        double dy = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord);
+                        double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
+                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                        ProjectedCurve.knotcurve[s].length = deltas;
+                    }
 
 
                     // now from the projected curve, construct the dual. In the notation below, I follow Mark Levi's convention of using n to denote position on the sphere
@@ -542,6 +551,12 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         double tx = dx/(deltas);
                         double ty = dy/(deltas);
                         double tz = dz/(deltas);
+
+                        // a central differencing scheme
+                        //double tx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,-1,NP)].xcoord)/(ProjectedCurve.knotcurve[incp(s,-1,NP)].length+ProjectedCurve.knotcurve[incp(s,0,NP)].length) ;
+                        //double ty = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,-1,NP)].ycoord)/(ProjectedCurve.knotcurve[incp(s,-1,NP)].length+ProjectedCurve.knotcurve[incp(s,0,NP)].length);
+                       // double tz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,-1,NP)].zcoord)/(ProjectedCurve.knotcurve[incp(s,-1,NP)].length+ProjectedCurve.knotcurve[incp(s,0,NP)].length) ;
+
                         ProjectedCurve.knotcurve[s].tx = tx;
                         ProjectedCurve.knotcurve[s].ty = ty;
                         ProjectedCurve.knotcurve[s].tz = tz;
@@ -586,15 +601,46 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
 
                         int triadsign =(tstarx*dndsstarx+tstary*dndsstary+tstarz*dndsstarz)<0? -1 : 1;
                         
-                        if (deltas > Maxdeltas){ Maxdeltas = deltas;}
-                        
-                        DualCurve.length += triadsign*deltas;
+                        //if (deltas > Maxdeltas){ Maxdeltas = deltas;}
+
+                       
+                        // I want to try using the actual geodesic length:
+                        double n1x = DualCurve.knotcurve[incp(s,0,NP)].xcoord;
+                        double n1y = DualCurve.knotcurve[incp(s,0,NP)].ycoord;
+                        double n1z = DualCurve.knotcurve[incp(s,0,NP)].zcoord;
+                        double n2x = DualCurve.knotcurve[incp(s,1,NP)].xcoord;
+                        double n2y = DualCurve.knotcurve[incp(s,1,NP)].ycoord;
+                        double n2z = DualCurve.knotcurve[incp(s,1,NP)].zcoord;
+
+                        double ax = n1y*n2z - n1z*n2y;
+                        double ay = n1z*n2x - n1x*n2z;
+                        double az = n1x*n2y - n1y*n2x;
+
+                        double geodesicdistance = atan2(sqrt(ax*ax+ay*ay+az*az),(n1x*n2x+n1y*n2y+n1z*n2z));
+                       // double geodesicdistance = abs(atan2(sqrt(ax*ax+ay*ay+az*az),(n1x*n2x+n1y*n2y+n1z*n2z)));
+                        //double geodesicdistance = atan(sqrt(ax*ax+ay*ay+az*az)/(n1x*n2x+n1y*n2y+n1z*n2z));
+
+                    // data to output to the dual
+                        DualCurve.knotcurve[s].bx = dndsstarx;
+                        DualCurve.knotcurve[s].by = dndsstary;
+                        DualCurve.knotcurve[s].bz = dndsstarz;
+
+                        DualCurve.knotcurve[s].length = triadsign*geodesicdistance;
+                        DualCurve.knotcurve[s].torsion = triadsign;
+
+                        DualCurve.length += triadsign*geodesicdistance;
                     }
 
-                    if(subdividing)
+                    if(i==138 && j == 265)
                     {
                         Curvetoprint.push_back(ProjectedCurve);
-                        print_knot(k, Curvetoprint, griddata);
+                        print_knot(k, Curvetoprint, griddata,"ProjectedCurve");
+                        Curvetoprint.clear();
+                        Curvetoprint.push_back(DualCurve);
+                        print_knot(k, Curvetoprint, griddata,"DualCurve");
+                        Curvetoprint.clear();
+                        Curvetoprint.push_back(InitialisationCurve);
+                        print_knot(0, Curvetoprint, griddata,"InitialisationCurve");
                         Curvetoprint.clear();
                     }
 
@@ -631,7 +677,7 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                 // clean up, and set phi
                 SubdividedInitialisationCurve = InitialisationCurve;
                 int n = pt(i,j,k,griddata);
-                phi[n] = 0.5*(2*M_PI-DualCurve.length);
+                phi[n] = 2*M_PI-(DualCurve.length);
             }
         }
     }
@@ -1529,7 +1575,7 @@ void print_B_phi( vector<double>&phi, const griddata& griddata)
 }
 
 
-void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata)
+void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata,string seriesname)
 {
     for( int c=0; c < (knotcurves.size()) ; c++)
     {
@@ -1544,7 +1590,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         ss.str("");
         ss.clear();       
 
-        ss << "knotplot" << c << "_" << t <<  ".vtk";
+        ss << seriesname << c << "_" << t <<  ".vtk";
         ofstream knotout (ss.str().c_str());
 
         int i;
@@ -1579,11 +1625,11 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         //   {
         //       knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
 
-        //   knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
-        //   for(i=0; i<n; i++)
-        //   {
-        //       knotout << knotcurves[c].knotcurve[i].torsion << '\n';
-        //   }
+           knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
+           for(i=0; i<n; i++)
+           {
+               knotout << knotcurves[c].knotcurve[i].torsion << '\n';
+           }
 
         //   knotout << "\nVECTORS A float\n";
         //   for(i=0; i<n; i++)
@@ -1606,11 +1652,11 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         //    {
         //        knotout << knotcurves[c].knotcurve[i].nx << ' ' << knotcurves[c].knotcurve[i].ny << ' ' << knotcurves[c].knotcurve[i].nz << '\n';
         //    }
-        //    knotout << "\nVECTORS b float\n";
-        //    for(i=0; i<n; i++)
-        //    {
-        //        knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
-        //    }
+       knotout << "\nVECTORS b float\n";
+        for(i=0; i<n; i++)
+        {
+            knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
+        }
         //    knotout << "\nVECTORS vdotn float\n";
         //    for(i=0; i<n; i++)
         //    {
@@ -1634,11 +1680,11 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         //        knotout << knotcurves[c].knotcurve[i].twist << '\n';
         //    }
 
-        //    knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
-        //    for(i=0; i<n; i++)
-        //    {
-        //        knotout << knotcurves[c].knotcurve[i].length << '\n';
-        //    }
+            knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
+            for(i=0; i<n; i++)
+            {
+                knotout << knotcurves[c].knotcurve[i].length << '\n';
+            }
         knotout.close();
     }
 }
