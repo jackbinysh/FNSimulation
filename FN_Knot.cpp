@@ -484,12 +484,19 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
     knotcurve DualCurve;
     knotcurve SubdividedInitialisationCurve = InitialisationCurve;
     vector<knotcurve> Curvetoprint;
+    int intersectioncount = 0;
 
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
     for(int i=0;i<Nx;i++)
     {
+        cout << i;
+                    time_t rawtime;
+                    struct tm * timeinfo;
+                    time (&rawtime);
+                    timeinfo = localtime (&rawtime);
+                    cout << "current time \t" << asctime(timeinfo) << "\n";
         for(int j=0; j<Ny; j++)
         {
             for(int k=0; k<Nz; k++)
@@ -536,6 +543,54 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
                         double deltas = sqrt(dx*dx+dy*dy+dz*dz);
                         ProjectedCurve.knotcurve[s].length = deltas;
+                    }
+
+                    intersectioncount = 0;
+                    for(int s=0;s<ProjectedCurve.knotcurve.size();s++)
+                    {
+                        int NP = ProjectedCurve.knotcurve.size();
+                        float a1[3];
+                        float a2[3];
+                        a1[0]= ProjectedCurve.knotcurve[s].xcoord;
+                        a1[1]= ProjectedCurve.knotcurve[s].ycoord;
+                        a1[2]= ProjectedCurve.knotcurve[s].zcoord;
+                        a2[0]= ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord;
+                        a2[1]= ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord;
+                        a2[2]= ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord;
+
+                        ProjectedCurve.knotcurve[s].length = 0;
+                        for(int t=0;t<ProjectedCurve.knotcurve.size();t++)
+                        {
+                            float b1[3];
+                            float b2[3];
+                            b1[0]= ProjectedCurve.knotcurve[t].xcoord;
+                            b1[1]= ProjectedCurve.knotcurve[t].ycoord;
+                            b1[2]= ProjectedCurve.knotcurve[t].zcoord;
+                            b2[0]= ProjectedCurve.knotcurve[incp(t,1,NP)].xcoord;
+                            b2[1]= ProjectedCurve.knotcurve[incp(t,1,NP)].ycoord;
+                            b2[2]= ProjectedCurve.knotcurve[incp(t,1,NP)].zcoord;
+
+                            bool intersection = false;
+                            if(s!=t && s!=incp(t,1,NP) && s!=incp(t,-1,NP))
+                            {
+                                 intersection = GeodesicIntersection(a1,a2,b1,b2);
+                               if(intersection){ ProjectedCurve.knotcurve[s].length = intersection;}
+                                
+                            }
+                            intersectioncount += intersection;
+                        }
+                    }
+                    // this will have double counted all intersections
+                    intersectioncount /=2;
+
+                    for(int s=0;s<ProjectedCurve.knotcurve.size();s++)
+                    {
+                        int NP = ProjectedCurve.knotcurve.size();
+                        double dx = (ProjectedCurve.knotcurve[incp(s,1,NP)].xcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].xcoord);   //central diff as a is defined on the points
+                        double dy = (ProjectedCurve.knotcurve[incp(s,1,NP)].ycoord - ProjectedCurve.knotcurve[incp(s,0,NP)].ycoord);
+                        double dz = (ProjectedCurve.knotcurve[incp(s,1,NP)].zcoord - ProjectedCurve.knotcurve[incp(s,0,NP)].zcoord);
+                        double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                      //  ProjectedCurve.knotcurve[s].length = deltas;
                     }
 
 
@@ -617,8 +672,6 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         double az = n1x*n2y - n1y*n2x;
 
                         double geodesicdistance = atan2(sqrt(ax*ax+ay*ay+az*az),(n1x*n2x+n1y*n2y+n1z*n2z));
-                       // double geodesicdistance = abs(atan2(sqrt(ax*ax+ay*ay+az*az),(n1x*n2x+n1y*n2y+n1z*n2z)));
-                        //double geodesicdistance = atan(sqrt(ax*ax+ay*ay+az*az)/(n1x*n2x+n1y*n2y+n1z*n2z));
 
                     // data to output to the dual
                         DualCurve.knotcurve[s].bx = dndsstarx;
@@ -631,7 +684,8 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         DualCurve.length += triadsign*geodesicdistance;
                     }
 
-                    if(i==138 && j == 265)
+                    
+                    if(i==55 && j == 95)
                     {
                         Curvetoprint.push_back(ProjectedCurve);
                         print_knot(k, Curvetoprint, griddata,"ProjectedCurve");
@@ -643,6 +697,7 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                         print_knot(0, Curvetoprint, griddata,"InitialisationCurve");
                         Curvetoprint.clear();
                     }
+                    
 
                     //check if we are happy with how fine the curve was subdivided
                     if(Maxdeltas < 100)
@@ -652,6 +707,7 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                     else
                     {
                         // SUBDIVIDE! (the initial curve, i.e the one for the object itself, not projection or dual)
+                        cout << "inhere";
                         subdividing = true;
                         knotcurve TempInitialisationCurve;
                         int NP = SubdividedInitialisationCurve.knotcurve.size();
@@ -677,7 +733,11 @@ void DualConePhiCalc(vector<double>&phi, const griddata& griddata)
                 // clean up, and set phi
                 SubdividedInitialisationCurve = InitialisationCurve;
                 int n = pt(i,j,k,griddata);
-                phi[n] = 2*M_PI-(DualCurve.length);
+                int parity = intersectioncount%2;
+                phi[n] = DualCurve.length + 2*M_PI*parity;
+                while(phi[n]>4*M_PI) phi[n] -= 4*M_PI;
+                while(phi[n]<0) phi[n] += 4*M_PI;
+                phi[n] /= 2;
             }
         }
     }
@@ -1575,7 +1635,7 @@ void print_B_phi( vector<double>&phi, const griddata& griddata)
 }
 
 
-void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata,string seriesname)
+void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata, string seriesname)
 {
     for( int c=0; c < (knotcurves.size()) ; c++)
     {
@@ -1631,11 +1691,11 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
                knotout << knotcurves[c].knotcurve[i].torsion << '\n';
            }
 
-        //   knotout << "\nVECTORS A float\n";
-        //   for(i=0; i<n; i++)
-        //   {
-        //       knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
-        //   }
+           knotout << "\nVECTORS A float\n";
+           for(i=0; i<n; i++)
+      //     {
+     //          knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
+     //      }
 
         //   knotout << "\nVECTORS V float\n";
         //   for(i=0; i<n; i++)
@@ -1655,7 +1715,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
        knotout << "\nVECTORS b float\n";
         for(i=0; i<n; i++)
         {
-            knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
+     //       knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
         }
         //    knotout << "\nVECTORS vdotn float\n";
         //    for(i=0; i<n; i++)
@@ -2402,3 +2462,64 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
     }
 }
 
+inline bool GeodesicIntersection(float* a1,float* a2,float* b1,float* b2)
+{
+    float epsilon = 0.00001f;
+    bool intersection = 0;
+
+    float a[3];
+    Cross(a1,a2,a);
+    float b[3];
+    Cross(b1,b2,b);
+    float line[3];
+    Cross(a,b,line);
+    Norm(line);
+    // the vector line intersects the sphere twice - at the points {line, -line}. we now test if these points lie on the arcs
+    float test1 = fabs(GeodesicDistance(a1,a2)-GeodesicDistance(a1,line)-GeodesicDistance(a2,line));
+    float test2 = fabs(GeodesicDistance(b1,b2)-GeodesicDistance(b1,line)-GeodesicDistance(b2,line));
+    if(test1 < epsilon && test2 <epsilon)
+    {
+        intersection=true;
+    }
+    else
+    {
+        line[0] = -line[0];
+        line[1] = -line[1];
+        line[2] = -line[2];
+
+        test1 = fabs(GeodesicDistance(a1,a2)-GeodesicDistance(a1,line)-GeodesicDistance(a2,line));
+        test2 = fabs(GeodesicDistance(b1,b2)-GeodesicDistance(b1,line)-GeodesicDistance(b2,line));
+
+        if(test1 < epsilon && test2 <epsilon){intersection=true;}
+    }
+//
+    return intersection;
+}
+
+inline float GeodesicDistance(float* a, float* b)
+{
+    float result[3];
+    Cross(a,b,result);
+    float distance = atan2(sqrt(dot(result,result)),dot(a,b));
+    return distance;
+}
+
+inline void Cross(float* a, float* b, float* result)
+{
+    result[0]= a[1]*b[2] - a[2]*b[1];
+    result[1]= a[2]*b[0] - a[0]*b[2];
+    result[2]= a[0]*b[1] - a[1]*b[0];
+}
+
+inline float dot(float* a, float* b)
+{
+    return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+}
+
+inline void Norm(float* a)
+{
+    float mag = sqrt(dot(a,a));
+    a[0] /= mag;
+    a[1] /= mag;
+    a[2] /= mag;
+}

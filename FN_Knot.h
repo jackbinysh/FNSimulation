@@ -106,8 +106,15 @@ inline int incw(int i, int p, int N);    //increment with reflecting boundary be
 inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
 
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
-double my_f(const gsl_vector* minimum, void* params);
+inline void Cross(float* a, float* b, float* result);
+inline float dot(float* a, float* b);
+inline void Norm(float* a);
+inline double my_f(const gsl_vector* minimum, void* params);
 void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double dispx,const double dispy,const double dispz);
+
+// spherical geometry functions
+inline float GeodesicDistance(float* a, float* b);
+inline bool GeodesicIntersection(float* a1,float* a2,float* b1,float* b2);
 /*************************Functions for knot initialisation*****************************/
 
 double initialise_knot(std::vector<triangle>& knotsurface);
@@ -142,7 +149,7 @@ void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata);
 void print_B_phi( vector<double>&phi,const griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata);
 int phi_file_read(vector<double>&phi,const griddata& griddata);
-void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata,string seriesname="knotplot");
+void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata,string seriesname="");
 int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata); // for legacy purposes
 int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata);
@@ -155,4 +162,6 @@ void ByteSwap(const char* TobeSwapped, char* swapped );
 inline int incabsorb(int i, int p, int N);
 void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata);
 void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata);
+
+
 
