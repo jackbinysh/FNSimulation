@@ -4,3 +4,11 @@
 *.out
 
 *.txt
+
+*.config
+
+*.creator
+
+*.files
+
+*.includes
