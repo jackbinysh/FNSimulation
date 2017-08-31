@@ -8,6 +8,7 @@
 *.config
 
 *.creator
+*.creator.user
 
 *.files
 
