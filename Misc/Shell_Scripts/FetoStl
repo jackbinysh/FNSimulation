@@ -1,0 +1,16 @@
+#!/bin/bash
+#a bash script to take in an fe file and spit our the cmd, after performing some refinements
+# heres a load of evolver files I'll put in a file, then feed into evolver
+
+
+# grab the name of every damned fe file in our folder
+
+ls | grep '\.fe$'| while read -r line; do
+    rm evolverinputcommands
+    # strip of the .fe from the filename
+    filename=`echo ${line} | sed 's/\.fe//'`
+    # the commands we want evolver to run go in a file
+    echo "bitmore:={r; g 10; V 10; u 10; V 10;};"  >> evolverinputcommands
+    echo -e "gogo1\nbitmore\nread \"stl.cmd\"\nstl >>> \"${filename}.stl\"\nq\nq"  >> evolverinputcommands
+    evolver -f evolverinputcommands -x -e $line
+done
