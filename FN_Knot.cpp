@@ -1096,15 +1096,12 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
         {
             for(k=0; k<Nz; k++)   //Central difference
             {
-                for(k=0; k<Nz; k++)   //Central difference
-                {
-                    n = pt(i,j,k,griddata);
-                    kup = gridinc(k,1,Nz,2);
-                    kdown = gridinc(k,-1,Nz,2);
-                    D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
-                    ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
-                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
-                }
+                n = pt(i,j,k,griddata);
+                kup = gridinc(k,1,Nz,2);
+                kdown = gridinc(k,-1,Nz,2);
+                D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
+                ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
+                kv[n] = epsilon*(u[n] + beta - gam*v[n]);
             }
         }
     }
