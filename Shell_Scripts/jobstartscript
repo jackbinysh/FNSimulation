@@ -1,62 +1,77 @@
 #!/bin/bash
 
 # cd into the top level directory
-cd /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017
+#cd /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017
 # log the date we are run
-date >> TinisRestartLog   
+#date >> TinisRestartLog   
 
-# read in the stl filenames 
-for filepath in /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017/{five2,five2b,five1,five1_alt,six1,six2,six3,seven1,seven2,seven6,seven7}
+for directoryname in {five2,five1}
 do
+    # make a directory for the run, copy everything relevant into it	
+    mkdir ${directoryname}
+    cp Makefile CompilationScript parameters myscript.pbs *.cpp *.h  $directoryname 
+    # grab the relevant file from the stl files Gareth made
+    stlfilepath=`echo ./Knotplot_Evolver_files/stl/${directoryname}.stl`
+    cp $stlfilepath $directoryname
+    # now everything is in the folder, lets cd into it
+    cd $directoryname
 
+    # okay, lets make a parameters file from the template
 
-	filename=`echo $filepath | sed 's/.*\///'`
-	filename=`echo $filename | sed 's/.stl//'`
-	# make a directory for the run, copy everything relevant into it, then cd in	
-	directoryname=${filename}	
-	mkdir ${directoryname}
-	cp myscript.pbs *.cpp *.h  $directoryname 
-	# grab the relevant file from the stl files Gareth made
-	stlfilepath=`echo ~/Knot_Surface/Knot_surface_calc/Knotplot_Evolver_files/stl/${filename}.stl`
-	cp $stlfilepath $directoryname
-	cd $directoryname
+    # set FROM_SURFACE_FILE
+    sed 's/^INSERT_INITIALISATION_TYPE$/INSERT_INITIALISATION_TYPE=FROM_SURFACE_FILE/' parameters > temp
+    mv temp parameters 
 
-		# okay, lets go into the C code, make these substitutions, and recompile the code
-		# set the surface filename 
-		sed "s/INSERT_SURFACE_FILENAME/\"${filename}\"/" FN_Constants.h > temp
-		mv temp FN_Constants.h 
-		# set FROM_SURFACE_FILE
-		sed 's/INSERT_INITIALISATION_TYPE/FROM_SURFACE_FILE/' FN_Constants.h > temp
-		mv temp FN_Constants.h 
-		# put the uv filename in, as blank 
-		sed "s/INSERT_UV_FILENAME/\"\"/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the dimensions
-		sed "s/INSERT_NX/401/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		sed "s/INSERT_NY/401/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		sed "s/INSERT_NZ/401/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the skiptime settings
-		sed "s/INSERT_SKIPTIME/10/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the total desired runtime
-		sed "s/INSERT_RUNTIME/20000/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
+    # set the surface filename 
+    sed "s/^INSERT_SURFACE_FILENAME$/INSERT_SURFACE_FILENAME=\"${filename}\"/" parameters > temp
+    mv temp parameters 
 
-		# compile the code with this filename
-		module load intel impi GSL 
-		icpc -O3 -qopenmp FN_Knot.cpp TriCubicInterpolator.cpp -lgsl -lgslcblas -lm	
-		startedjobid=$(msub myscript.pbs) 
-	# okay we are done, lets change back out 
-	cd ..
+    # put the uv filename in, as blank 
+    sed "s/^INSERT_UV_FILENAME$/INSERT_UV_FILENAME=\"\"/" parameters > temp 
+    mv temp parameters 
 
-	# lets log what happened
-	echo $filepath >> TinisRestartLog   
-	echo $activejobsinthisdirectory >> TinisRestartLog   
-	echo $startedjobid >> TinisRestartLog   
-	startedjobid=""
+    # change the total desired runtime
+    sed "s/^INSERT_RUNTIME$/INSERT_RUNTIME=20000/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_UVPRINTTIME$/INSERT_UVPRINTTIME=20000/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_VELOCITYPRINTTIME$/INSERT_VELOCITYPRINTTIME=20000/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_FREQUENTPRINTTIME$/INSERT_FREQUENTPRINTTIME=20000/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_SKIPTIME$/INSERT_SKIPTIME=10/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_GRIDSPACING$/INSERT_GRIDSPACING=10/" parameters > temp 
+    mv temp parameters 
+
+    # change the dimensions
+    sed "s/^INSERT_NX$/INSERT_NX=401/" parameters > temp 
+    mv temp parameters 
+    sed "s/^INSERT_NY$/INSERT_NY=401/" parameters > temp 
+    mv temp parameters 
+    sed "s/^INSERT_NZ$/INSERT_NZ=401/" parameters > temp 
+    mv temp parameters 
+
+    sed "s/^INSERT_TIMESTEP$/INSERT_TIMESTEP=10/" parameters > temp 
+    mv temp parameters 
+
+    # now we have made the parameters file, launch the pasting and compilation script
+    ./CompilationScript
+    # now its compiled, launch the job 
+    #startedjobid=$(msub myscript.pbs) 
+    # okay we are done, lets change back out 
+    cd ..
+
+    # lets log what happened
+    #echo $filepath >> TinisRestartLog   
+    #echo $activejobsinthisdirectory >> TinisRestartLog   
+    #echo $startedjobid >> TinisRestartLog   
+    #startedjobid=""
 
 done
 
