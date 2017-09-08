@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # log the date we are run
-#date >> TinisRestartLog   
+date >> TinisRestartLog   
 
 # read in the stl filenames 
 for directoryname in {five2,five1}
@@ -46,17 +46,14 @@ do
 		sed "s/INSERT_UV_FILENAME/\"$uvFilename\"/" jobrestartparameters > parameters 
         
         ./CompilationScript
-	#	startedjobid=$(msub myscript.pbs) 
+		startedjobid=$(msub myscript.pbs) 
 	fi
 	# okay we are done, lets change back out 
 	cd ..
 
 	# lets log what happened
-	echo $filepath >> TinisRestartLog   
+	echo $directoryname >> TinisRestartLog   
 	echo $activejobsinthisdirectory >> TinisRestartLog   
 	echo $startedjobid >> TinisRestartLog   
 	startedjobid=""
-
 done
-
-

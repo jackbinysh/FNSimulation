@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# cd into the top level directory
-#cd /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017
 # log the date we are run
-#date >> TinisRestartLog   
+date >> TinisRestartLog   
 
 for directoryname in {five2,five1}
 do
@@ -24,15 +22,14 @@ do
     # now we have made the parameters file, launch the pasting and compilation script
     ./CompilationScript
     # now its compiled, launch the job 
-    #startedjobid=$(msub myscript.pbs) 
+    startedjobid=$(msub myscript.pbs) 
     # okay we are done, lets change back out 
     cd ..
 
     # lets log what happened
-    #echo $filepath >> TinisRestartLog   
-    #echo $activejobsinthisdirectory >> TinisRestartLog   
-    #echo $startedjobid >> TinisRestartLog   
-    #startedjobid=""
+    echo $directoryname >> TinisRestartLog   
+    echo $startedjobid >> TinisRestartLog   
+    startedjobid=""
 
 done
 
