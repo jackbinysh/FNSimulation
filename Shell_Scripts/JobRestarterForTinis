@@ -1,7 +1,0 @@
-#!/bin/bash
-logfile="$(dirname "$0")/TinisLogFile"
-date >> "$logfile"
-ssh -v -i /root/.ssh/id_rsa_cron matgqz@tinis "/home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017/jobrestartscript" 2> "$logfile"
-
-
-
