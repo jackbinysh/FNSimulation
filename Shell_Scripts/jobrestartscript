@@ -1,16 +1,14 @@
 #!/bin/bash
 
-# cd into the top level directory
-cd /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017
 # log the date we are run
-date >> TinisRestartLog   
+#date >> TinisRestartLog   
 
 # read in the stl filenames 
-for filepath in /home/maths/matgqz/Knot_Surface/Knot_surface_calc/stable_configuration_simulations_23_06_2017/{five2,five2b,five1,five1_alt,six1,six2,six3,seven1,seven2,seven6,seven7}
+for directoryname in {five2,five1}
 do
 
 	# go down into the folder
-	cd $filepath
+	cd $directoryname
 
 	# first up, check if a job is currently running in this folder, or if there is one pending. we do this by looking through the list of jobs
 	activejobsinthisdirectory=0
@@ -24,6 +22,7 @@ do
 			activejobsinthisdirectory=1
 		fi
 	done
+
 	# now, only do anything if there isnt an active job
 	if [ $activejobsinthisdirectory -eq 0 ]; then
 
@@ -32,44 +31,22 @@ do
 		uvFilename="uv_plot${latestuvvalue}.vtk"
 
 		# ok we've got our uv filename which we want to restart the code from
-		# first grab some details. what dimensions should we use?
-		dimension=$(head -5 $uvFilename | tail -1 | awk '{print $2}')
-		echo $dimension
 		echo $uvFilename
 
 
-		# okay, lets go into the C code, make these substitutions, and recompile the code
+		# okay, lets make a new parameters file, one which starts from the correct uv_file name
+		# first up, clear the old parameters file which was in this directory 
+        rm parameters
+        rm FN_Constants.h
 
-		# first up, copy the templated code in here
+		cp ../jobrestartparameters .
 		cp ../FN_Constants.h .
 
-		# set the surface filename  to nothing
-		sed "s/INSERT_SURFACE_FILENAME/\"\"/" FN_Constants.h > temp
-		mv temp FN_Constants.h 
-		# set FROM_UV_FILE 
-		sed 's/INSERT_INITIALISATION_TYPE/FROM_UV_FILE/' FN_Constants.h > temp
-		mv temp FN_Constants.h 
 		# put the uv filename in
-		sed "s/INSERT_UV_FILENAME/\"$uvFilename\"/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the dimensions
-		sed "s/INSERT_NX/$dimension/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		sed "s/INSERT_NY/$dimension/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		sed "s/INSERT_NZ/$dimension/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the skiptime settings
-		sed "s/INSERT_SKIPTIME/0/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-		# change the total desired runtime
-		sed "s/INSERT_RUNTIME/20000/" FN_Constants.h > temp 
-		mv temp FN_Constants.h 
-
-		# compile the code with this filename
-		module load intel impi GSL 
-		icpc -O3 -qopenmp FN_Knot.cpp TriCubicInterpolator.cpp -lgsl -lgslcblas -lm	
-		startedjobid=$(msub myscript.pbs) 
+		sed "s/INSERT_UV_FILENAME/\"$uvFilename\"/" jobrestartparameters > parameters 
+        
+        ./CompilationScript
+	#	startedjobid=$(msub myscript.pbs) 
 	fi
 	# okay we are done, lets change back out 
 	cd ..

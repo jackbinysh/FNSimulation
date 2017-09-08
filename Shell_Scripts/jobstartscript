@@ -9,56 +9,17 @@ for directoryname in {five2,five1}
 do
     # make a directory for the run, copy everything relevant into it	
     mkdir ${directoryname}
-    cp Makefile CompilationScript parameters myscript.pbs *.cpp *.h  $directoryname 
+    cp Makefile CompilationScript jobstartparameters myscript.pbs *.cpp *.h  $directoryname 
     # grab the relevant file from the stl files Gareth made
     stlfilepath=`echo ./Knotplot_Evolver_files/stl/${directoryname}.stl`
     cp $stlfilepath $directoryname
     # now everything is in the folder, lets cd into it
     cd $directoryname
 
-    # okay, lets make a parameters file from the template
-
-    # set FROM_SURFACE_FILE
-    sed 's/^INSERT_INITIALISATION_TYPE$/INSERT_INITIALISATION_TYPE=FROM_SURFACE_FILE/' parameters > temp
-    mv temp parameters 
+    # okay, lets modify the parameters file from the template, so we have the right filenames
 
     # set the surface filename 
-    sed "s/^INSERT_SURFACE_FILENAME$/INSERT_SURFACE_FILENAME=\"${filename}\"/" parameters > temp
-    mv temp parameters 
-
-    # put the uv filename in, as blank 
-    sed "s/^INSERT_UV_FILENAME$/INSERT_UV_FILENAME=\"\"/" parameters > temp 
-    mv temp parameters 
-
-    # change the total desired runtime
-    sed "s/^INSERT_RUNTIME$/INSERT_RUNTIME=20000/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_UVPRINTTIME$/INSERT_UVPRINTTIME=20000/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_VELOCITYPRINTTIME$/INSERT_VELOCITYPRINTTIME=20000/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_FREQUENTPRINTTIME$/INSERT_FREQUENTPRINTTIME=20000/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_SKIPTIME$/INSERT_SKIPTIME=10/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_GRIDSPACING$/INSERT_GRIDSPACING=10/" parameters > temp 
-    mv temp parameters 
-
-    # change the dimensions
-    sed "s/^INSERT_NX$/INSERT_NX=401/" parameters > temp 
-    mv temp parameters 
-    sed "s/^INSERT_NY$/INSERT_NY=401/" parameters > temp 
-    mv temp parameters 
-    sed "s/^INSERT_NZ$/INSERT_NZ=401/" parameters > temp 
-    mv temp parameters 
-
-    sed "s/^INSERT_TIMESTEP$/INSERT_TIMESTEP=10/" parameters > temp 
-    mv temp parameters 
+    sed "s/^INSERT_SURFACE_FILENAME$/INSERT_SURFACE_FILENAME=\"${directoryname}\"/" jobstartparameters > parameters 
 
     # now we have made the parameters file, launch the pasting and compilation script
     ./CompilationScript
