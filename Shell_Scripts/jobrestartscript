@@ -43,7 +43,7 @@ do
 		cp ../FN_Constants.h .
 
 		# put the uv filename in
-		sed "s/INSERT_UV_FILENAME/\"$uvFilename\"/" jobrestartparameters > parameters 
+		sed "s/INSERT_UV_FILENAME/INSERT_UV_FILENAME=\"$uvFilename\"/" jobrestartparameters > parameters 
         
         ./CompilationScript
 		startedjobid=$(msub myscript.pbs) 
