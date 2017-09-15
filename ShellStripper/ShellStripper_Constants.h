@@ -10,13 +10,14 @@ FROM_UV_FILE: Skip initialisation, run FN dynamics from uv file
 FROM_FUNCTION: Initialise from some function which can be implemented by the user in phi_calc_manual. eg using theta(x) = artcan(y-y0/x-x0) to give a pole at x0,y0 etc..:wq
  */
 //if ncomp > 1 (no. of components) then component files should be separated to 'XXXXX.txt" "XXXXX2.txt", ....
-std::string B_filename = "INSERT_UV_FILENAME";    //filename for phi field or uv field
+std::string B_filename = "test.vtk";    //filename for phi field or uv field
 
 // OPTION - what grid values do you want/ timestep
 //Grid points
-const int initialNx = INSERT_NX;   //No. points in x,y and z
-const int initialNy = INSERT_NY;
-const int initialNz = INSERT_NZ;
+const double h = 0.641566;            //grid spacing
+const int initialNx = 238;   //No. points in x,y and z
+const int initialNy = 238;
+const int initialNz = 238;
 
 // OPTION - do you want to resize the box? if so, when?
 const bool BoxResizeFlag = 0;

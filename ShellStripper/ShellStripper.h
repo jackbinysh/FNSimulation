@@ -27,7 +27,8 @@ inline int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie
 inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
 inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
 
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
+
+void extractinnerlayer(vector<double>&u,vector<double>&v,vector<double>&ucvmag,griddata& oldgriddata);
 
 void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata);
 
