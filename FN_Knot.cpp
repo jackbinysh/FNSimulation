@@ -134,37 +134,43 @@ int main (void)
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    print_knot(CurrentTime, knotcurves, griddata);
-                }
+    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
+    //            {
+    //                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+    //                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+    //                print_knot(CurrentTime, knotcurves, griddata);
+    //            }
 
-                // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+    //            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
+    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
+    //            {
+    //                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    if(!knotcurvesold.empty())
-                    {
-                        overlayknots(knotcurves,knotcurvesold, griddata);
-                        find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
-                        print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
-                    }
-                    knotcurvesold = knotcurves;
+    //                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+    //                if(!knotcurvesold.empty())
+    //                {
+    //                    overlayknots(knotcurves,knotcurvesold, griddata);
+    //                    find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
+    //                    print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
+    //                }
+    //                knotcurvesold = knotcurves;
 
-                    // at this point, let people know how things are going
-                    cout << "T = " << CurrentTime << endl;
-                    time (&rawtime);
-                    timeinfo = localtime (&rawtime);
-                    cout << "current time \t" << asctime(timeinfo) << "\n";
-                }
+    //                // at this point, let people know how things are going
+    //                cout << "T = " << CurrentTime << endl;
+    //                time (&rawtime);
+    //                timeinfo = localtime (&rawtime);
+    //                cout << "current time \t" << asctime(timeinfo) << "\n";
+    //            }
 
                 // print the UV, and ucrossv data
                 if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
                 {
+                    cout << "T = " << CurrentTime << endl;
+                    time (&rawtime);
+                    timeinfo = localtime (&rawtime);
+                    cout << "current time \t" << asctime(timeinfo) << "\n";
+                    uv_update_external(u,v,plans,griddata);
+
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
                 }
@@ -446,6 +452,15 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
     // now compute the FT's
     fftw_execute(*(plans.uext_to_uhat));
     fftw_execute(*(plans.vext_to_vhat));
+    fftw_complex* uhat = plans.uhat;
+    fftw_complex* vhat = plans.vhat;
+    int NComplex = Nx*Ny*(Nz/2 +1); 
+    double hcubed = h*h*h; 
+    for(int n=0;n<NComplex;n++)
+    {
+        uhat[n] = hcubed*uhat[n];
+        vhat[n] = hcubed*vhat[n];
+    }
 }
 
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata)
@@ -1110,7 +1125,7 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     // these two are used for the std::vectors the rest of the codebase is written in
     fftw_plan uhat_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhat, &(u[0]) , FFTW_MEASURE);
     fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, &(u[0]), uhat , FFTW_MEASURE);
-    fftw_plan vhat_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, vhat, &(u[0]) , FFTW_MEASURE);
+    fftw_plan vhat_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, vhat, &(v[0]) , FFTW_MEASURE);
     fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, &(v[0]), vhat , FFTW_MEASURE);
 
     // Now, the L matrices required for the RK4 update are time independent - we can precompute the exponentials - there are two matrices, L and Lhalf for each k:
@@ -1123,15 +1138,20 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
             {
                 int n = Ny*((Nz/2)+1)*nx +((Nz/2)+1)*ny + nz;
                 // lets just do this the ugly way - correct for the fact that the frequenices are ordered differnetly in the matrices
-                double kx,ky,kz,k;
-                if(nx<=Nx/2){kx=nx/(h*Nx);};
-                if(nx>Nx/2){kx=(nx-Nx)/(h*Nx);};
-                if(ny<=Ny/2){ky=ny/(h*Ny);};
-                if(ny>Ny/2){ky=(nx-Ny)/(h*Ny);};
-                kz=nz/(h*Nz);
+                double fx,fy,fz;
+                if(nx<=Nx/2){fx=nx/(h*Nx);};
+                if(nx>Nx/2){fx=(nx-Nx)/(h*Nx);};
+                if(ny<=Ny/2){fy=ny/(h*Ny);};
+                if(ny>Ny/2){fy=(ny-Ny)/(h*Ny);};
+                fz=nz/(h*Nz);
+
+                double kx = 2*M_PI*fx;
+                double ky = 2*M_PI*fy;
+                double kz = 2*M_PI*fz;
 
                 double ksq = kx*kx+ky*ky+kz*kz;
                 double kfour = ksq*ksq;
+
                 double epsilonsq = epsilon*epsilon;
                 double epsiloncub = epsilon*epsilon*epsilon;
                 double epsilonfour = epsilon*epsilon*epsilon*epsilon;
@@ -1172,14 +1192,20 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 {
                     for(int j=0;j<2;j++)
                     {
-                        temp[i][j]=eDdt[i][j]*Tinv[i][j];
+                        for(int q=0;q<2;q++)
+                        {
+                            temp[i][j]=eDdt[i][q]*Tinv[q][j];
+                        }
                     }
                 }
                 for(int i=0;i<2;i++)
                 {
                     for(int j=0;j<2;j++)
                     {
-                        L[4*n+2*i+j]=T[i][j]*temp[i][j];
+                        for(int q=0;q<2;q++)
+                        {
+                            L[4*n+2*i+j]=T[i][q]*temp[q][j];
+                        }
                     }
                 }
                 // Do L1/2
@@ -1187,14 +1213,20 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 {
                     for(int j=0;j<2;j++)
                     {
-                        temp[i][j]=eDdthalf[i][j]*Tinv[i][j];
+                        for(int q=0;q<2;q++)
+                        {
+                            temp[i][j]=eDdthalf[i][q]*Tinv[q][j];
+                        }
                     }
                 }
                 for(int i=0;i<2;i++)
                 {
                     for(int j=0;j<2;j++)
                     {
-                        Lhalf[4*n+2*i+j]=T[i][j]*temp[i][j];
+                        for(int q=0;q<2;q++)
+                        {
+                            Lhalf[4*n+2*i+j]=T[i][q]*temp[q][j];
+                        }
                     }
                 }
             }
@@ -1222,6 +1254,23 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     plans.uext_to_uhat = &uext_to_uhat;
     plans.vhat_to_vext = &vhat_to_vext;
     plans.vext_to_vhat = &vext_to_vhat;
+}
+
+void uv_update_external(vector<double>&u, vector<double>&v,const Plans plans,const griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    int Nreal = Nx*Ny*Nz; 
+    double oneoverNrealhcubed = (1/(Nreal*h))*(1/(Nreal*h))*(1/(Nreal*h));
+    fftw_execute(*(plans.uhat_to_uext));
+    fftw_execute(*(plans.vhat_to_vext));
+    for(int n=0;n<u.size();n++)
+    {
+        // scale the transform
+        u[n] = oneoverNrealhcubed*u[n];
+        v[n] = oneoverNrealhcubed*v[n];
+    }
 }
 
 void uv_update(Plans plans,const griddata& griddata)
@@ -1280,7 +1329,7 @@ void uv_update(Plans plans,const griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat now
 
     // add to unext
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
@@ -1299,7 +1348,7 @@ void uv_update(Plans plans,const griddata& griddata)
     }
 
     // now compute u1hat
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         double complex L00 = Lhalf[4*n+0+0];
         double complex L01 = Lhalf[4*n+0+1];
@@ -1331,7 +1380,7 @@ void uv_update(Plans plans,const griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat1 now
 
     // add to unext
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
@@ -1350,7 +1399,7 @@ void uv_update(Plans plans,const griddata& griddata)
     }
 
     // now compute u2hat
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         double complex L00 = Lhalf[4*n+0+0];
         double complex L01 = Lhalf[4*n+0+1];
@@ -1381,7 +1430,7 @@ void uv_update(Plans plans,const griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat2 now
 
     // add to unext
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
@@ -1400,16 +1449,12 @@ void uv_update(Plans plans,const griddata& griddata)
     }
 
     // now compute u3hat 
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         double complex L00 = L[4*n+0+0];
         double complex L01 = L[4*n+0+1];
-        double complex L10 = L[4*n+2*1+0];
-        double complex L11 = L[4*n+2*1+1];
         double complex Lhalf00 = Lhalf[4*n+0+0];
         double complex Lhalf01 = Lhalf[4*n+0+1];
-        double complex Lhalf10 = Lhalf[4*n+2*1+0];
-        double complex Lhalf11 = Lhalf[4*n+2*1+1];
 
         double complex Nu = uhattemp[n];
         double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
@@ -1436,7 +1481,7 @@ void uv_update(Plans plans,const griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat3 now
 
     // add to unext
-    for(int n=0;n<Nreal;n++)
+    for(int n=0;n<NComplex;n++)
     {
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
