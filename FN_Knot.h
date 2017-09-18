@@ -17,10 +17,12 @@
 #include <time.h>
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
+#include <complex.h>
+#include <fftw3.h>
 using namespace std;
 
-const double sixth = 1.0/6.0;
-const double ONETHIRD = 1.0/3.0;
+const double onesixth = 1.0/6.0;
+const double onethird = 1.0/3.0;
 const double oneoverepsilon = 1.0/epsilon;
 const double oneoverhsq = 1.0/(h*h);
 
@@ -33,6 +35,30 @@ struct parameters
 	gsl_vector *v,*f,*b;
     likely::TriCubicInterpolator* ucvmag;
     griddata mygriddata;
+};
+struct Plans 
+{
+
+    // the data
+    fftw_complex* uhat;
+    fftw_complex* vhat;
+    fftw_complex* uhatnext;
+    fftw_complex* vhatnext;
+    fftw_complex* uhattemp;
+    double* utemp;
+
+    double complex * L;
+    double complex * Lhalf;
+
+    // the plans
+    fftw_plan* uhat_to_utemp ;
+    fftw_plan* uhatnext_to_utemp ;
+    fftw_plan* utemp_to_uhattemp;
+    fftw_plan* uhattemp_to_utemp;
+    fftw_plan* uext_to_uhat;
+    fftw_plan* vext_to_vhat;
+    fftw_plan* uhat_to_uext;
+    fftw_plan* vhat_to_vext;
 };
 
 struct triangle
@@ -123,16 +149,16 @@ void phi_calc( vector<double>&phi,std::vector<triangle>& knotsurface,const gridd
 void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 
 //FitzHugh Nagumo functions
-void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const Plans plans,const griddata& griddata);
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata);
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
 void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime);
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
+void uv_update(Plans plans,const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
 void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata);
-
+void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& griddata);
 /*************************File reading and writing*****************************/
 
 
@@ -143,7 +169,7 @@ void print_B_phi( vector<double>&phi,const griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata);
 int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata);
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata); // for legacy purposes
 int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata);
 float FloatSwap( float f );
