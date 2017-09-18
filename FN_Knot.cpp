@@ -19,8 +19,8 @@
    The parameters epsilon, beta and gam are set to give rise to scroll waves (see Sutcliffe, Winfree, PRE 2003 and Maucher Sutcliffe PRL 2016) which eminate from a closed curve, on initialisation this curve corresponds to the boundary of the surface in the stl file.
 
    See below for various options to start the code from previous outputted data.*/
-#include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
-#include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used 
+#include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used
+#include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used
 #include <omp.h>
 #include <math.h>
 #include <string.h>
@@ -76,7 +76,7 @@ int main (void)
         else
         {
             if(option == FROM_FUNCTION)
-            { 
+            {
                 phi_calc_manual(phi,griddata);
             }
             else
@@ -100,9 +100,10 @@ int main (void)
     if(option!=FROM_UV_FILE)
     {
         cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,plans,griddata);
+        uv_initialise(phi,u,v,griddata);
     }
 
+    uhatvhat_initialise(plans, griddata);
     cout << "Updating u and v...\n";
     // initialising the start time to 0. it gets overwritten if we use a uv file
     int starttime = 0;
@@ -112,7 +113,7 @@ int main (void)
         int startpos = B_filename.find('t');
         int endpos = B_filename.find('.');
         string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
-        starttime = atoi(number.c_str()); 
+        starttime = atoi(number.c_str());
     }
     // initialise the time to the starttime
     double CurrentTime = starttime;
@@ -134,15 +135,15 @@ int main (void)
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
+    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )
     //            {
     //                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
     //                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
     //                print_knot(CurrentTime, knotcurves, griddata);
     //            }
 
-    //            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
+    //            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
+    //            if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )
     //            {
     //                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
@@ -163,7 +164,7 @@ int main (void)
     //            }
 
                 // print the UV, and ucrossv data
-                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
+                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))
                 {
                     cout << "T = " << CurrentTime << endl;
                     time (&rawtime);
@@ -436,7 +437,27 @@ void phi_calc_manual(vector<double>&phi, griddata& griddata)
 
 /*************************Functions for FN dynamics*****************************/
 
-void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Plans plans, const griddata& griddata)
+void uhatvhat_initialise(const Plans &plans, const griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    // now compute the FT's
+    fftw_execute(plans.utemp_to_uhattemp);
+    fftw_execute(plans.uext_to_uhat);
+    fftw_execute(plans.vext_to_vhat);
+    fftw_complex* uhat = plans.uhat;
+    fftw_complex* vhat = plans.vhat;
+    int NComplex = Nx*Ny*(Nz/2 +1);
+    double hcubed = h*h*h;
+    for(int n=0;n<NComplex;n++)
+    {
+        uhat[n] = hcubed*uhat[n];
+        vhat[n] = hcubed*vhat[n];
+    }
+}
+
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -449,18 +470,6 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
         v[n] = (sin(phi[n]) - 0.4);
     }
 
-    // now compute the FT's
-    fftw_execute(*(plans.uext_to_uhat));
-    fftw_execute(*(plans.vext_to_vhat));
-    fftw_complex* uhat = plans.uhat;
-    fftw_complex* vhat = plans.vhat;
-    int NComplex = Nx*Ny*(Nz/2 +1); 
-    double hcubed = h*h*h; 
-    for(int n=0;n<NComplex;n++)
-    {
-        uhat[n] = hcubed*uhat[n];
-        vhat[n] = hcubed*vhat[n];
-    }
 }
 
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata)
@@ -502,7 +511,7 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
 
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
 {
-    // first thing, clear the knotcurve object before we begin writing a new one 
+    // first thing, clear the knotcurve object before we begin writing a new one
     knotcurves.clear(); //empty vector with knot curve points
 
     int Nx = griddata.Nx;
@@ -537,7 +546,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     if(ucvmax<0.45) knotexists = false;
     else
     {
-        knotexists = true; 
+        knotexists = true;
     }
     if(knotexists)
     {
@@ -639,7 +648,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             }
             knotcurves[c].knotcurve.push_back(knotpoint());
             // one of the vectors in the plane we wish to perfrom our minimisation in
-            fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs); 
+            fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);
             fy = (graducvy - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvys);
             fz = (graducvz - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvzs);
             norm = sqrt(fx*fx + fy*fy + fz*fz);
@@ -663,9 +672,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             gsl_vector_set (ucv, 0, ucvxs);
             gsl_vector_set (ucv, 1, ucvys);
             gsl_vector_set (ucv, 2, ucvzs);
-            // take a cross product to get the other vector in the plane 
+            // take a cross product to get the other vector in the plane
             gsl_vector* b = gsl_vector_alloc (3);
-            cross_product(f,ucv,b); 
+            cross_product(f,ucv,b);
             // initial conditions
             gsl_vector* minimum = gsl_vector_alloc (2);
             gsl_vector_set (minimum, 0, 0);
@@ -692,7 +701,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 iter++;
                 status = gsl_multimin_fminimizer_iterate(minimizerstate);
 
-                if (status) 
+                if (status)
                     break;
 
                 minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
@@ -912,10 +921,10 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
 
         NP = knotcurves[c].knotcurve.size();
-        for(s=0; s<NP; s++)   
+        for(s=0; s<NP; s++)
         {
             // forward difference on the tangents
-            double dx = (knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,0,NP)].xcoord);   
+            double dx = (knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,0,NP)].xcoord);
             double dy = (knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,0,NP)].ycoord);
             double dz = (knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,0,NP)].zcoord);
             double deltas = sqrt(dx*dx+dy*dy+dz*dz);
@@ -925,7 +934,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             knotcurves[c].knotcurve[s].length = deltas;
             knotcurves[c].length +=deltas;
         }
-        for(s=0; s<NP; s++)  
+        for(s=0; s<NP; s++)
         {
             // backwards diff for the normals, amounting to a central diff overall
             double nx = 2.0*(knotcurves[c].knotcurve[s].tx-knotcurves[c].knotcurve[incp(s,-1,NP)].tx)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
@@ -950,7 +959,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             knotcurves[c].knotcurve[s].curvature = curvature ;
         }
         // torsions with a central difference
-        for(s=0; s<NP; s++)   
+        for(s=0; s<NP; s++)
         {
             double bx = knotcurves[c].knotcurve[s].bx;
             double by =  knotcurves[c].knotcurve[s].by;
@@ -967,7 +976,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
 
         // RIBBON TWIST AND WRITHE
 
-        for(s=0; s<NP; s++)   
+        for(s=0; s<NP; s++)
         {
 
             // twist of this segment
@@ -996,7 +1005,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 }
             }
 
-            //Add on writhe, twist 
+            //Add on writhe, twist
             knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
             knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
             // while we are computing the global quantites, get the average position too
@@ -1037,7 +1046,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             if(knotcurves[c].knotcurve[s].zcoord > zmax) {
                 knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
             };
-            if(knotcurves[c].knotcurve[s].zcoord < zmin) 
+            if(knotcurves[c].knotcurve[s].zcoord < zmin)
             {
                 knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
             };
@@ -1064,7 +1073,7 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
                 int intersection = 0;
                 intersection = intersect3D_SegmentPlane( knotcurves[c].knotcurve[t%NP], knotcurves[c].knotcurve[(t+1)%NP], knotcurvesold[c].knotcurve[s%NPold], knotcurvesold[c].knotcurve[(s+1)%NPold], IntersectionFraction, IntersectionPoint );
                 if(intersection ==1)
-                { 
+                {
                     double intersectiondistancesquare = (IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )*(IntersectionPoint[0] - knotcurvesold[c].knotcurve[s].xcoord )+ (IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )*(IntersectionPoint[1] - knotcurvesold[c].knotcurve[s].ycoord )+ (IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord )*(IntersectionPoint[2] - knotcurvesold[c].knotcurve[s].zcoord );
                     if(intersectiondistancesquare < closestdistancesquare)
                     {
@@ -1100,8 +1109,8 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
 
-    int Ncomplex = Nx*Ny*(Nz/2 +1); 
-    int Nreal = Nx*Ny*Nz; 
+    int Ncomplex = Nx*Ny*(Nz/2 +1);
+    int Nreal = Nx*Ny*Nz;
 
     // the matrices L and Lhalf
     double complex *L = new double complex[Ncomplex*4];
@@ -1122,11 +1131,12 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     fftw_plan utemp_to_uhattemp= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, utemp, uhattemp, FFTW_MEASURE);
     fftw_plan uhattemp_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, utemp, FFTW_MEASURE);
 
+
     // these two are used for the std::vectors the rest of the codebase is written in
-    fftw_plan uhat_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhat, &(u[0]) , FFTW_MEASURE);
-    fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, &(u[0]), uhat , FFTW_MEASURE);
-    fftw_plan vhat_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, vhat, &(v[0]) , FFTW_MEASURE);
-    fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, &(v[0]), vhat , FFTW_MEASURE);
+    fftw_plan uhat_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhat, reinterpret_cast<double*>(&(u[0])) , FFTW_MEASURE);
+    fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(u[0])), uhat , FFTW_MEASURE);
+    fftw_plan vhat_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, vhat, reinterpret_cast<double*>(&(v[0])) , FFTW_MEASURE);
+    fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(v[0])), vhat , FFTW_MEASURE);
 
     // Now, the L matrices required for the RK4 update are time independent - we can precompute the exponentials - there are two matrices, L and Lhalf for each k:
 
@@ -1167,23 +1177,23 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 double complex eDdthalf[2][2];
 
                 T[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
-                T[1][0] = 1; 
+                T[1][0] = 1;
                 T[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
-                T[1][1] = 1; 
+                T[1][1] = 1;
                 complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
-                Tinv[0][0] = T[1][1]/detT; 
-                Tinv[1][0] = -T[1][0]/detT; 
-                Tinv[0][1] = -T[0][1]/detT; 
-                Tinv[1][1] = T[0][0]/detT; 
+                Tinv[0][0] = T[1][1]/detT;
+                Tinv[1][0] = -T[1][0]/detT;
+                Tinv[0][1] = -T[0][1]/detT;
+                Tinv[1][1] = T[0][0]/detT;
 
-                eDdt[0][0] = cexp(omega1*dtime); 
-                eDdt[1][0] = 0; 
-                eDdt[0][1] = 0; 
+                eDdt[0][0] = cexp(omega1*dtime);
+                eDdt[1][0] = 0;
+                eDdt[0][1] = 0;
                 eDdt[1][1] = cexp(omega2*dtime);
 
-                eDdthalf[0][0] = cexp(omega1*0.5*dtime); 
-                eDdthalf[1][0] = 0; 
-                eDdthalf[0][1] = 0; 
+                eDdthalf[0][0] = cexp(omega1*0.5*dtime);
+                eDdthalf[1][0] = 0;
+                eDdthalf[0][1] = 0;
                 eDdthalf[1][1] = cexp(omega2*0.5*dtime);
 
                 // okay, now do the mulitplications:
@@ -1234,26 +1244,35 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     }
 
     // great okay, now just set up the plans struct for us to pass around
-    
+
     // data
     plans.uhat=uhat;
     plans.vhat=vhat;
     plans.uhatnext=uhatnext;
     plans.vhatnext=vhatnext;
     plans.uhattemp=uhattemp;
+    plans.utemp=utemp;
     plans.L=L;
     plans.Lhalf=Lhalf;
 
     // plans
-    plans.uhat_to_utemp = &uhat_to_utemp;
-    plans.uhatnext_to_utemp = &uhatnext_to_utemp;
-    plans.utemp_to_uhattemp = &utemp_to_uhattemp;
-    plans.uhattemp_to_utemp = &uhattemp_to_utemp;
+    plans.uhat_to_utemp = uhat_to_utemp;
+    plans.uhatnext_to_utemp = uhatnext_to_utemp;
+    plans.utemp_to_uhattemp = utemp_to_uhattemp;
+    plans.uhattemp_to_utemp = uhattemp_to_utemp;
 
-    plans.uhat_to_uext = &uhat_to_uext;
-    plans.uext_to_uhat = &uext_to_uhat;
-    plans.vhat_to_vext = &vhat_to_vext;
-    plans.vext_to_vhat = &vext_to_vhat;
+    plans.uhat_to_uext = uhat_to_uext;
+    plans.uext_to_uhat = uext_to_uhat;
+    plans.vhat_to_vext = vhat_to_vext;
+    plans.vext_to_vhat = vext_to_vhat;
+
+    fftw_execute(utemp_to_uhattemp);
+    fftw_execute(uext_to_uhat);
+    fftw_execute(vext_to_vhat);
+
+    fftw_execute(plans.utemp_to_uhattemp);
+    fftw_execute(plans.uext_to_uhat);
+    fftw_execute(plans.vext_to_vhat);
 }
 
 void uv_update_external(vector<double>&u, vector<double>&v,const Plans plans,const griddata& griddata)
@@ -1261,10 +1280,10 @@ void uv_update_external(vector<double>&u, vector<double>&v,const Plans plans,con
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
-    int Nreal = Nx*Ny*Nz; 
+    int Nreal = Nx*Ny*Nz;
     double oneoverNrealhcubed = (1/(Nreal*h))*(1/(Nreal*h))*(1/(Nreal*h));
-    fftw_execute(*(plans.uhat_to_uext));
-    fftw_execute(*(plans.vhat_to_vext));
+    fftw_execute(plans.uhat_to_uext);
+    fftw_execute(plans.vhat_to_vext);
     for(int n=0;n<u.size();n++)
     {
         // scale the transform
@@ -1288,17 +1307,17 @@ void uv_update(Plans plans,const griddata& griddata)
     double complex* L = plans.L;
     double complex* Lhalf = plans.Lhalf;
     // plans
-    fftw_plan uhat_to_utemp = *(plans.uhat_to_utemp);       
-    fftw_plan utemp_to_uhattemp = *(plans.utemp_to_uhattemp); 
-    fftw_plan uhattemp_to_utemp = *(plans.uhattemp_to_utemp);
+    fftw_plan uhat_to_utemp = plans.uhat_to_utemp;
+    fftw_plan utemp_to_uhattemp = plans.utemp_to_uhattemp;
+    fftw_plan uhattemp_to_utemp = plans.uhattemp_to_utemp;
 
     // some constants we will use:
-    int NComplex = Nx*Ny*(Nz/2 +1); 
-    int Nreal = Nx*Ny*Nz; 
-    double hcubed = h*h*h; 
+    int NComplex = Nx*Ny*(Nz/2 +1);
+    int Nreal = Nx*Ny*Nz;
+    double hcubed = h*h*h;
     double Nrealhcubed = Nreal*h*Nreal*h*Nreal*h;
     double oneoverNrealhcubed = (1/(Nreal*h))*(1/(Nreal*h))*(1/(Nreal*h));
-    
+
     //STEP 0
     for(int n=0;n<NComplex;n++)
     {
@@ -1309,9 +1328,9 @@ void uv_update(Plans plans,const griddata& griddata)
         uhatnext[n] = L00*uhat[n] + L01*vhat[n];
         vhatnext[n] = L10*uhat[n] + L11*vhat[n];
     }
-    
+
     // STEP 1
-    
+
     // Compute N(uhat)
 
     fftw_execute(uhat_to_utemp);
@@ -1321,7 +1340,7 @@ void uv_update(Plans plans,const griddata& griddata)
         // scale the transform
         utemp[n] = oneoverNrealhcubed*utemp[n];
         // compute the nonlinearity in real space
-        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n]; 
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
     }
 
     fftw_execute(utemp_to_uhattemp);
@@ -1372,7 +1391,7 @@ void uv_update(Plans plans,const griddata& griddata)
         // scale the transform
         utemp[n] = oneoverNrealhcubed*utemp[n];
         // compute the nonlinearity in real space
-        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n]; 
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
     }
 
     fftw_execute(utemp_to_uhattemp);
@@ -1422,7 +1441,7 @@ void uv_update(Plans plans,const griddata& griddata)
         // scale the transform
         utemp[n] = oneoverNrealhcubed*utemp[n];
         // compute the nonlinearity in real space
-        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n]; 
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
     }
 
     fftw_execute(utemp_to_uhattemp);
@@ -1448,7 +1467,7 @@ void uv_update(Plans plans,const griddata& griddata)
 
     }
 
-    // now compute u3hat 
+    // now compute u3hat
     for(int n=0;n<NComplex;n++)
     {
         double complex L00 = L[4*n+0+0];
@@ -1463,7 +1482,7 @@ void uv_update(Plans plans,const griddata& griddata)
     }
 
     // STEP 4
-        
+
     // Compute N(uhat3)
 
     fftw_execute(uhattemp_to_utemp);
@@ -1473,7 +1492,7 @@ void uv_update(Plans plans,const griddata& griddata)
         // scale the transform
         utemp[n] = oneoverNrealhcubed*utemp[n];
         // compute the nonlinearity in real space
-        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n]; 
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
     }
 
     fftw_execute(utemp_to_uhattemp);
@@ -1496,15 +1515,15 @@ void uv_update(Plans plans,const griddata& griddata)
 
     // TIDYING UP
     // at this point, uhatnext and vhatnext are fully updated - lets swap some pointers!
-    fftw_complex* temp= plans.uhat; 
+    fftw_complex* temp= plans.uhat;
     plans.uhat = plans.uhatnext;
     plans.uhatnext = temp;
 
-    temp= plans.vhat; 
+    temp= plans.vhat;
     plans.vhat = plans.vhatnext;
     plans.vhatnext = temp;
 
-    fftw_plan* temp2= plans.uhat_to_utemp; 
+    fftw_plan temp2= plans.uhat_to_utemp;
     plans.uhat_to_utemp = plans.uhatnext_to_utemp;
     plans.uhatnext_to_utemp = temp2;
 }
@@ -1652,7 +1671,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
         wrout.close();
 
         ss.str("");
-        ss.clear();       
+        ss.clear();
 
         ss << "knotplot" << c << "_" << t <<  ".vtk";
         ofstream knotout (ss.str().c_str());
@@ -1825,15 +1844,15 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ucvx, vector
     }
     if(fin.good())
     {
-        getline(fin,buff,' ' ); 
+        getline(fin,buff,' ' );
         if(getline(fin,buff,' ')) xdim = buff;
         if(getline(fin,buff,' ')) ydim = buff;
         if(getline(fin,buff,'\n')) zdim = buff;
-    } 
+    }
     fin.close();
-    int x = atoi(xdim.c_str()); 
-    int y= atoi(ydim.c_str()); 
-    int z = atoi(zdim.c_str()); 
+    int x = atoi(xdim.c_str());
+    int y= atoi(ydim.c_str());
+    int z = atoi(zdim.c_str());
 
     if(x!=griddata.Nx || y!=griddata.Ny ||z!=griddata.Nz)
     {
@@ -2046,8 +2065,8 @@ void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata
 void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata)
 {
     // the marked array has the following values
-    // 0 - not evaluated 
-    // -1 - a boundary, to be grown 
+    // 0 - not evaluated
+    // -1 - a boundary, to be grown
     // -2 - the interrior, already grown
     // -3 - a temporary state, marked as a boundary during the update
     // positive numbers - layers of shells already marked
@@ -2180,7 +2199,7 @@ void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double
 
     xcoord = xprime;
     ycoord = yprime;
-    zcoord = zprime; 
+    zcoord = zprime;
 
 }
 inline int circularmod(int i, int N)    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
@@ -2251,7 +2270,7 @@ inline int sign(int i)
     else return i/abs(i);
 }
 float FloatSwap( float f )
-{    
+{
     union
     {
         float f;
@@ -2267,12 +2286,12 @@ float FloatSwap( float f )
 }
 
 void ByteSwap(const char* TobeSwapped, char* swapped )
-{    
+{
     swapped[0] = TobeSwapped[3];
     swapped[1] = TobeSwapped[2];
     swapped[2] = TobeSwapped[1];
     swapped[3] = TobeSwapped[0];
-    return; 
+    return;
 }
 // this function takes two knots, and shifts the first one by grid spacing multiples until it literally lies over the second
 void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata)
