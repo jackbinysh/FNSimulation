@@ -164,7 +164,7 @@ int main (void)
     //            }
 
                 // print the UV, and ucrossv data
-                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))
+               // if(fmod(CurrentTime,UVPrintTime)<(dtime/2))
                 {
                     cout << "T = " << CurrentTime << endl;
                     time (&rawtime);
@@ -443,7 +443,6 @@ void uhatvhat_initialise(const Plans &plans, const griddata& griddata)
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
     // now compute the FT's
-    fftw_execute(plans.utemp_to_uhattemp);
     fftw_execute(plans.uext_to_uhat);
     fftw_execute(plans.vext_to_vhat);
     fftw_complex* uhat = plans.uhat;
@@ -1124,18 +1123,14 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     // the intermediate "RK4" arrays
     fftw_complex* uhattemp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
     double* utemp = (double*) fftw_malloc(sizeof(double) * Nreal);
-    // the plans
-    fftw_plan uhat_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhat, utemp, FFTW_MEASURE);
-    fftw_plan uhatnext_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhatnext, utemp, FFTW_MEASURE);
-
+    // the temp buffer in real space and FT space
     fftw_plan utemp_to_uhattemp= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, utemp, uhattemp, FFTW_MEASURE);
     fftw_plan uhattemp_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, utemp, FFTW_MEASURE);
-
-
-    // these two are used for the std::vectors the rest of the codebase is written in
-    fftw_plan uhat_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhat, reinterpret_cast<double*>(&(u[0])) , FFTW_MEASURE);
+    // these  are used for the std::vectors the rest of the codebase is written in
+    fftw_plan uhattemp_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(u[0])) , FFTW_MEASURE);
+    // YES THE NAMING HERE IS DELIBERATE- just use uhattemp as a buffer
+    fftw_plan uhattemp_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(v[0])) , FFTW_MEASURE);
     fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(u[0])), uhat , FFTW_MEASURE);
-    fftw_plan vhat_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, vhat, reinterpret_cast<double*>(&(v[0])) , FFTW_MEASURE);
     fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(v[0])), vhat , FFTW_MEASURE);
 
     // Now, the L matrices required for the RK4 update are time independent - we can precompute the exponentials - there are two matrices, L and Lhalf for each k:
@@ -1256,23 +1251,13 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     plans.Lhalf=Lhalf;
 
     // plans
-    plans.uhat_to_utemp = uhat_to_utemp;
-    plans.uhatnext_to_utemp = uhatnext_to_utemp;
     plans.utemp_to_uhattemp = utemp_to_uhattemp;
     plans.uhattemp_to_utemp = uhattemp_to_utemp;
-
-    plans.uhat_to_uext = uhat_to_uext;
+    plans.uhattemp_to_uext = uhattemp_to_uext;
     plans.uext_to_uhat = uext_to_uhat;
-    plans.vhat_to_vext = vhat_to_vext;
+    plans.uhattemp_to_vext = uhattemp_to_vext;
     plans.vext_to_vhat = vext_to_vhat;
 
-    fftw_execute(utemp_to_uhattemp);
-    fftw_execute(uext_to_uhat);
-    fftw_execute(vext_to_vhat);
-
-    fftw_execute(plans.utemp_to_uhattemp);
-    fftw_execute(plans.uext_to_uhat);
-    fftw_execute(plans.vext_to_vhat);
 }
 
 void uv_update_external(vector<double>&u, vector<double>&v,const Plans plans,const griddata& griddata)
@@ -1280,10 +1265,25 @@ void uv_update_external(vector<double>&u, vector<double>&v,const Plans plans,con
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    int NComplex = Nx*Ny*(Nz/2 +1);
     int Nreal = Nx*Ny*Nz;
-    double oneoverNrealhcubed = (1/(Nreal*h))*(1/(Nreal*h))*(1/(Nreal*h));
-    fftw_execute(plans.uhat_to_uext);
-    fftw_execute(plans.vhat_to_vext);
+    double oneoverNrealhcubed = (1/((double)(Nreal)))*(1/(h*h*h));
+
+    // copy uhat into the buffer
+    for(int n=0;n<NComplex;n++)
+    {
+       plans.uhattemp[n] = plans.uhat[n];
+    }
+
+    fftw_execute(plans.uhattemp_to_uext);
+
+    // copy vhat into the buffer
+    for(int n=0;n<NComplex;n++)
+    {
+        plans.uhattemp[n] = plans.vhat[n];
+    }
+    fftw_execute(plans.uhattemp_to_vext);
+
     for(int n=0;n<u.size();n++)
     {
         // scale the transform
@@ -1307,7 +1307,6 @@ void uv_update(Plans plans,const griddata& griddata)
     double complex* L = plans.L;
     double complex* Lhalf = plans.Lhalf;
     // plans
-    fftw_plan uhat_to_utemp = plans.uhat_to_utemp;
     fftw_plan utemp_to_uhattemp = plans.utemp_to_uhattemp;
     fftw_plan uhattemp_to_utemp = plans.uhattemp_to_utemp;
 
@@ -1315,8 +1314,14 @@ void uv_update(Plans plans,const griddata& griddata)
     int NComplex = Nx*Ny*(Nz/2 +1);
     int Nreal = Nx*Ny*Nz;
     double hcubed = h*h*h;
-    double Nrealhcubed = Nreal*h*Nreal*h*Nreal*h;
-    double oneoverNrealhcubed = (1/(Nreal*h))*(1/(Nreal*h))*(1/(Nreal*h));
+    double Nrealhcubed = Nreal*h*h*h;
+    double oneoverNrealhcubed = (1/((double)(Nreal)))*(1/(h*h*h));
+
+    // copy uhat into the temp buffer - FFTW overwrities this buffer when it does the transform
+    for(int n=0;n<NComplex;n++)
+    {
+        uhattemp[n] = uhat[n];
+    }
 
     //STEP 0
     for(int n=0;n<NComplex;n++)
@@ -1333,7 +1338,7 @@ void uv_update(Plans plans,const griddata& griddata)
 
     // Compute N(uhat)
 
-    fftw_execute(uhat_to_utemp);
+    fftw_execute(uhattemp_to_utemp);
 
     for(int n=0;n<Nreal;n++)
     {
@@ -1513,19 +1518,11 @@ void uv_update(Plans plans,const griddata& griddata)
 
     }
 
-    // TIDYING UP
-    // at this point, uhatnext and vhatnext are fully updated - lets swap some pointers!
-    fftw_complex* temp= plans.uhat;
-    plans.uhat = plans.uhatnext;
-    plans.uhatnext = temp;
-
-    temp= plans.vhat;
-    plans.vhat = plans.vhatnext;
-    plans.vhatnext = temp;
-
-    fftw_plan temp2= plans.uhat_to_utemp;
-    plans.uhat_to_utemp = plans.uhatnext_to_utemp;
-    plans.uhatnext_to_utemp = temp2;
+    for(int n=0;n<NComplex;n++)
+    {
+        uhat[n] = uhatnext[n];
+        vhat[n] = vhatnext[n];
+    }
 }
 
 /*************************File reading and writing*****************************/

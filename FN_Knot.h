@@ -51,14 +51,12 @@ struct Plans
     double complex * Lhalf;
 
     // the plans
-    fftw_plan uhat_to_utemp ;
-    fftw_plan uhatnext_to_utemp ;
     fftw_plan utemp_to_uhattemp;
     fftw_plan uhattemp_to_utemp;
     fftw_plan uext_to_uhat;
     fftw_plan vext_to_vhat;
-    fftw_plan uhat_to_uext;
-    fftw_plan vhat_to_vext;
+    fftw_plan uhattemp_to_uext;
+    fftw_plan uhattemp_to_vext;
 };
 
 struct triangle
