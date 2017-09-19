@@ -164,7 +164,7 @@ int main (void)
     //            }
 
                 // print the UV, and ucrossv data
-               // if(fmod(CurrentTime,UVPrintTime)<(dtime/2))
+                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))
                 {
                     cout << "T = " << CurrentTime << endl;
                     time (&rawtime);
@@ -1114,6 +1114,10 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
     // the matrices L and Lhalf
     double complex *L = new double complex[Ncomplex*4];
     double complex *Lhalf = new double complex[Ncomplex*4];
+    for(int n=0;n<Ncomplex*4;n++)
+    {
+        L[n]=Lhalf[n]=0;
+    }
 
     // the FT's of u and v
     fftw_complex* uhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
@@ -1161,26 +1165,41 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 double epsiloncub = epsilon*epsilon*epsilon;
                 double epsilonfour = epsilon*epsilon*epsilon*epsilon;
 
+                // the eigenvalues of the system
                 double complex root = csqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
                 double complex omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
                 double complex omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
 
+                // the matrices of eigenvectors, T and T-1.
+                double complex V[2][2];
                 double complex T[2][2];
                 double complex Tinv[2][2];
-                double complex temp[2][2];
                 double complex eDdt[2][2];
                 double complex eDdthalf[2][2];
+               // the eigenvectors, unnormalised
+                V[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
+                V[1][0] = 1;
+                V[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
+                V[1][1] = 1;
 
-                T[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
-                T[1][0] = 1;
-                T[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
-                T[1][1] = 1;
+                double complex norm1 = csqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
+                double complex norm2 = csqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
+                // now normalised
+                T[0][0] = V[0][0]/norm1;
+                T[1][0] = V[1][0]/norm1;
+
+                T[0][1] = V[0][1]/norm2;
+                T[1][1] = V[1][1]/norm2;
+
+                // now the inverse
                 complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
                 Tinv[0][0] = T[1][1]/detT;
                 Tinv[1][0] = -T[1][0]/detT;
                 Tinv[0][1] = -T[0][1]/detT;
                 Tinv[1][1] = T[0][0]/detT;
 
+                // their exponentiations
+                complex double ans = cexp(omega1*dtime);
                 eDdt[0][0] = cexp(omega1*dtime);
                 eDdt[1][0] = 0;
                 eDdt[0][1] = 0;
@@ -1191,6 +1210,14 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 eDdthalf[0][1] = 0;
                 eDdthalf[1][1] = cexp(omega2*0.5*dtime);
 
+                double complex temp[2][2];
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        temp[i][j]=0;
+                    }
+                }
                 // okay, now do the mulitplications:
                 // Do L
                 for(int i=0;i<2;i++)
@@ -1199,7 +1226,9 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                     {
                         for(int q=0;q<2;q++)
                         {
-                            temp[i][j]=eDdt[i][q]*Tinv[q][j];
+                            temp[i][j]+=eDdt[i][q]*Tinv[q][j];
+                            complex double temporary = temp[i][j];
+                            complex double temporary2 = temporary;
                         }
                     }
                 }
@@ -1209,7 +1238,9 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                     {
                         for(int q=0;q<2;q++)
                         {
-                            L[4*n+2*i+j]=T[i][q]*temp[q][j];
+                            L[4*n+2*i+j]+=T[i][q]*temp[q][j];
+                            complex double temporary = L[4*n+2*i+j];
+                            complex double temporary2 = temporary;
                         }
                     }
                 }
@@ -1218,9 +1249,16 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                 {
                     for(int j=0;j<2;j++)
                     {
+                        temp[i][j]=0;
+                    }
+                }
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
                         for(int q=0;q<2;q++)
                         {
-                            temp[i][j]=eDdthalf[i][q]*Tinv[q][j];
+                            temp[i][j]+=eDdthalf[i][q]*Tinv[q][j];
                         }
                     }
                 }
@@ -1230,7 +1268,7 @@ void Initialise(vector<double>&u, vector<double>&v,Plans& plans,const griddata& 
                     {
                         for(int q=0;q<2;q++)
                         {
-                            Lhalf[4*n+2*i+j]=T[i][q]*temp[q][j];
+                            Lhalf[4*n+2*i+j]+=T[i][q]*temp[q][j];
                         }
                     }
                 }
