@@ -127,10 +127,9 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const 
 void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata);
 void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
 void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime);
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&marked, const griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
 void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata);
 
 /*************************File reading and writing*****************************/
@@ -153,6 +152,5 @@ void ByteSwap(const char* TobeSwapped, char* swapped );
 // things for the grown function
 
 inline int incabsorb(int i, int p, int N);
-void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata);
-void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata);
-
+void grow(vector<int>&marked,const griddata& griddata);
+void ConstructTube(vector<double>&ucvmag, vector<int>&marked, griddata& griddata,int numiterations);
