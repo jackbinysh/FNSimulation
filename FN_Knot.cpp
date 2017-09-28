@@ -115,8 +115,11 @@ int main (void)
     }
     // initialise the time to the starttime
     double CurrentTime = starttime;
-    int iterationcounter = 0;
-
+    int CurrentIteration = (int)(CurrentTime/dtime);
+    int FrequentKnotplotPrintIteration = (int)(FrequentKnotplotPrintTime/dtime);
+    int VelocityKnotplotPrintIteration = (int)(VelocityKnotplotPrintTime/dtime);
+    int InitialSkipIteration = (int)(InitialSkipTime/dtime);
+    int UVPrintIteration = (int)(UVPrintTime/dtime);
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
@@ -128,19 +131,9 @@ int main (void)
         {
 #pragma omp single
             {
-                // in this section we do all the on the fly analysis. A few things happen
-
-
-                // if we want to do the box resizing, it happens here
-                if(BoxResizeFlag && ( abs(CurrentTime-BoxResizeTime) < (dtime/2) ))   
-                {
-                    cout << "resizingbox";
-                    resizebox(u,v,ucvx,ucvy,ucvz,knotcurves,ku,kv,griddata);
-                }
-
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - FrequentKnotplotPrintTime*round(CurrentTime/FrequentKnotplotPrintTime))<(dtime/2) ) )  
+                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
@@ -148,7 +141,7 @@ int main (void)
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one 
-                if( ( CurrentTime > InitialSkipTime ) && ( fabs( CurrentTime - VelocityKnotplotPrintTime*round(CurrentTime/VelocityKnotplotPrintTime))<(dtime/2) ) )  
+                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
@@ -169,14 +162,14 @@ int main (void)
                 }
 
                 // print the UV, and ucrossv data
-                if(fmod(CurrentTime,UVPrintTime)<(dtime/2))  
+                if(CurrentIteration%UVPrintIteration==0)
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
                 }
                 //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
-                iterationcounter++;
-                CurrentTime  = starttime + ((double)(iterationcounter) * dtime);
+                CurrentIteration++;
+                CurrentTime  = starttime + ((double)(CurrentIteration) * dtime);
             }
             uv_update(u,v,ku,kv,griddata);
         }
