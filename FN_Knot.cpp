@@ -121,28 +121,29 @@ int main (void)
     int VelocityKnotplotPrintIteration = (int)(VelocityKnotplotPrintTime/dtime);
     int InitialSkipIteration = (int)(InitialSkipTime/dtime);
     int UVPrintIteration = (int)(UVPrintTime/dtime);
+    int RecentreIteration = (int)(1/dtime);
     // initialising timers
     time_t then = time(NULL);
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx,VelocityKnotplotPrintIteration ,FrequentKnotplotPrintIteration ,CurrentIteration,marked,InitialSkipIteration,UVPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx,VelocityKnotplotPrintIteration,RecentreIteration ,FrequentKnotplotPrintIteration ,CurrentIteration,marked,InitialSkipIteration,UVPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
         {
 #pragma omp single
             {
-                if( ( CurrentIteration > InitialSkipIteration ))
+                if( ( CurrentIteration > InitialSkipIteration && CurrentIteration%RecentreIteration==0))
                 {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    ConstructTube(ucvmag, marked,griddata,20);
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
+                    ConstructTube(ucvmag, marked,griddata,15);
                 }
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
                 if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     print_knot(CurrentTime, knotcurves, griddata);
                 }
@@ -150,7 +151,7 @@ int main (void)
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
                 if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
                 {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
 
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     if(!knotcurvesold.empty())
@@ -174,7 +175,7 @@ int main (void)
                     cout << "current time \t" << asctime(timeinfo) << "\n";
 
                     print_marked( marked, CurrentTime,  griddata);
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
                 }
                 //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
@@ -453,7 +454,7 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
     }
 }
 
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata)
+void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const vector<int>&marked,const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -466,25 +467,35 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
         {
             for(k=0; k<Nz; k++)   //Central difference
             {
-                kup = gridinc(k,1,Nz,2);
-                kdown = gridinc(k,-1,Nz,2);
-                dxu = 0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
-                dxv = 0.5*(v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-v[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
-                dyu = 0.5*(u[pt(i,gridinc(j,1,Ny,1),k,griddata)]-u[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
-                dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k,griddata)]-v[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
-                dzu = 0.5*(u[pt(i,j,kup,griddata)]-u[pt(i,j,kdown,griddata)])/h;
-                dzv = 0.5*(v[pt(i,j,kup,griddata)]-v[pt(i,j,kdown,griddata)])/h;
-                //          dxu =(-u[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*u[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+u[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
-                //          dxv =(-v[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*v[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+v[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
-                //          dyu =(-u[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*u[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*u[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+u[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
-                //          dyv =(-v[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*v[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*v[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+v[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
-                //          dzu =(-u[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*u[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*u[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+u[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
-                //          dzv =(-v[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*v[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*v[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+v[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
                 n = pt(i,j,k,griddata);
-                ucvx[n] = dyu*dzv - dzu*dyv;
-                ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
-                ucvz[n] = dxu*dyv - dyu*dxv;
-                ucvmag[n] = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
+                if(marked[n]==2)
+                {
+                    kup = gridinc(k,1,Nz,2);
+                    kdown = gridinc(k,-1,Nz,2);
+                    dxu = 0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
+                    dxv = 0.5*(v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-v[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;
+                    dyu = 0.5*(u[pt(i,gridinc(j,1,Ny,1),k,griddata)]-u[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
+                    dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k,griddata)]-v[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
+                    dzu = 0.5*(u[pt(i,j,kup,griddata)]-u[pt(i,j,kdown,griddata)])/h;
+                    dzv = 0.5*(v[pt(i,j,kup,griddata)]-v[pt(i,j,kdown,griddata)])/h;
+                    //          dxu =(-u[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*u[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+u[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
+                    //          dxv =(-v[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*v[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+v[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
+                    //          dyu =(-u[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*u[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*u[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+u[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
+                    //          dyv =(-v[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*v[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*v[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+v[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
+                    //          dzu =(-u[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*u[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*u[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+u[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
+                    //          dzv =(-v[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*v[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*v[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+v[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
+                    ucvx[n] = dyu*dzv - dzu*dyv;
+                    ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
+                    ucvz[n] = dxu*dyv - dyu*dxv;
+                    ucvmag[n] = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
+                }
+                else
+                {
+                    ucvx[n] = 0;
+                    ucvy[n] = 0;
+                    ucvz[n] = 0;
+                    ucvmag[n]=0;
+                }
             }
         }
     }
@@ -1100,13 +1111,16 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
             for(k=0; k<Nz; k++)   //Central difference
             {
                 n = pt(i,j,k,griddata);
-                kup = gridinc(k,1,Nz,2);
-                kdown = gridinc(k,-1,Nz,2);
-                kup = gridinc(k,1,Nz,2);
-                kdown = gridinc(k,-1,Nz,2);
-                D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
-                ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
-                kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+                if(marked[n]==1 || marked[n]==2)
+                {
+                    kup = gridinc(k,1,Nz,2);
+                    kdown = gridinc(k,-1,Nz,2);
+                    kup = gridinc(k,1,Nz,2);
+                    kdown = gridinc(k,-1,Nz,2);
+                    D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
+                    ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
+                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+                }
             }
         }
     }
@@ -1142,20 +1156,23 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
                 {
                     n = pt(i,j,k,griddata);
 
-                    iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
-                    idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
-                    jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
-                    jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
-                    kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
-                    kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
-                    double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
-                    double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
+                    if(marked[n]==1 || marked[n]==2)
+                    {
+                        iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
+                        idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
+                        jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
+                        jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
+                        kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
+                        kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
+                        double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
+                        double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
 
-                    D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
+                        D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
 
 
-                    ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
-                    kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
+                        ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
+                        kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
+                    }
                 }
             }
         }
@@ -1722,7 +1739,7 @@ void ConstructTube(vector<double>&ucvmag, vector<int>&marked, griddata& griddata
 
 
     // first up, an inner core layer
-    for(int i=0;i<numiterations/2;i++)
+    for(int i=0;i<numiterations/4;i++)
     {
         grow(marked,griddata);
     }
