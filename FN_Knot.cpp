@@ -71,7 +71,7 @@ int main (void)
         if(option == FROM_UV_FILE)
         {
             cout << "Reading input file...\n";
-            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,griddata)) return 1;
+            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,marked,griddata)) return 1;
         }
         else
         {
@@ -1488,7 +1488,7 @@ int phi_file_read(vector<double>&phi,const griddata& griddata)
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<int>& marked,griddata& griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -1543,8 +1543,70 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
     {
         uvfile_read_BINARY(u,v,griddata);
     }
+
+    // now read in the marked array too
+    markedfile_read(marked,griddata);
+
     return 0;
 }
+int markedfile_read(vector<int>&marked,griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    int i,j,k,n;
+    // we hack this together as so: the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
+    int startpos = B_filename.find('t');
+    int endpos = B_filename.find('.');
+    string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
+    string name = "marked"+number+".vtk";
+    string temp,buff;
+    stringstream ss;
+    ifstream fin (name.c_str());
+
+    for(i=0;i<10;i++)
+    {
+        if(fin.good())
+        {
+            if(getline(fin,buff)) temp = buff;
+        }
+        else
+        {
+            cout << "Something went wrong!\n";
+            return 1;
+        }
+    }
+
+    for(k=0; k<Nz; k++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(i=0; i<Nx; i++)
+            {
+                n=pt(i,j,k,griddata);
+                ss.clear();
+                ss.str("");
+                if(fin.good())
+                {
+                    if(getline(fin,buff))
+                    {
+                        ss << buff;
+                        ss >> marked[n];
+                    }
+                }
+                else
+                {
+                    cout << "Something went wrong!\n";
+                    return 1;
+                }
+            }
+        }
+    }
+
+    fin.close();
+    return 0;
+}
+
 
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata)
 {

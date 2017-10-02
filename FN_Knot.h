@@ -137,12 +137,13 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
 
 
 void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata);
+int markedfile_read(vector<int>&marked,griddata& griddata);
 
 void print_B_phi( vector<double>&phi,const griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata);
 int phi_file_read(vector<double>&phi,const griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata);
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy, vector<double>& ucvz, vector<int> &marked, griddata& griddata);
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata); // for legacy purposes
 int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata);
 float FloatSwap( float f );
