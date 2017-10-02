@@ -61,6 +61,7 @@ int main (void)
     vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<triangle> knotsurface;    //structure for storing knot surface coordinates
     // GSL initialization
+    gsl_set_error_handler_off();
     const gsl_multimin_fminimizer_type *Type;
     gsl_multimin_fminimizer *minimizerstate;
     Type = gsl_multimin_fminimizer_nmsimplex2;
@@ -159,8 +160,8 @@ int main (void)
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
 
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    if(!knotcurvesold.empty())
+                    int status = find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                    if(0==status && !knotcurvesold.empty())
                     {
                         overlayknots(knotcurves,knotcurvesold, griddata);
                         find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
@@ -507,7 +508,7 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
     }
 }
 
-void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
+int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
 {
     // first thing, clear the knotcurve object before we begin writing a new one
     knotcurves.clear(); //empty vector with knot curve points
@@ -700,7 +701,10 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 status = gsl_multimin_fminimizer_iterate(minimizerstate);
 
                 if (status)
+                {
+                    cout << "error in minimizers, aborting knotfinding";
                     break;
+                }
 
                 minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
                 status = gsl_multimin_test_size (minimizersize, 1e-2);
@@ -709,19 +713,27 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             while (status == GSL_CONTINUE && iter < 500);
 
 
-            gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
-            gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
-            gsl_vector_add(f,b);
-            gsl_vector_add(v,f);
-            knotcurves[c].knotcurve[s].xcoord = gsl_vector_get(v, 0);
-            knotcurves[c].knotcurve[s].ycoord= gsl_vector_get(v, 1);
-            knotcurves[c].knotcurve[s].zcoord= gsl_vector_get(v, 2);
+            if(status==0)
+            {
+                gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
+                gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
+                gsl_vector_add(f,b);
+                gsl_vector_add(v,f);
+                knotcurves[c].knotcurve[s].xcoord = gsl_vector_get(v, 0);
+                knotcurves[c].knotcurve[s].ycoord= gsl_vector_get(v, 1);
+                knotcurves[c].knotcurve[s].zcoord= gsl_vector_get(v, 2);
+            }
 
             gsl_vector_free(v);
             gsl_vector_free(f);
             gsl_vector_free(b);
             gsl_vector_free(ucv);
             gsl_vector_free(stepsize);
+
+            if(status!=0)
+            {
+                return 1;
+            }
 
             xdiff = knotcurves[c].knotcurve[0].xcoord - knotcurves[c].knotcurve[s].xcoord;     //distance from start/end point
             ydiff = knotcurves[c].knotcurve[0].ycoord - knotcurves[c].knotcurve[s].ycoord;
@@ -1050,6 +1062,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             };
         }
     }
+
+    return 0;
 }
 
 void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime)

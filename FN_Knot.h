@@ -126,7 +126,7 @@ void phi_calc_manual( vector<double>&phi,const griddata& griddata);
 //FitzHugh Nagumo functions
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
 void crossgrad_calc(vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag, const vector<int>&marked, const griddata& griddata);
-void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
+int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
 void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime);
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&markedlist, const griddata& griddata);
 // 3d geometry functions
