@@ -50,6 +50,12 @@ int main (void)
     vector<double>ku(4*Nx*Ny*Nz);
     vector<double>kv(4*Nx*Ny*Nz);
     vector<int>marked(Nx*Ny*Nz,2);
+    vector<int>markedlist(Nx*Ny*Nz);
+    // beging by saying every point needs evaluating
+    for(int s = 0; s<Nx*Ny*Nz;s++)
+    {
+        markedlist[s]=s;
+    }
     // objects to hold information about the knotcurve we find, andthe surface we read in
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
@@ -127,21 +133,21 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx,VelocityKnotplotPrintIteration,RecentreIteration ,FrequentKnotplotPrintIteration ,CurrentIteration,marked,InitialSkipIteration,UVPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx,VelocityKnotplotPrintIteration,RecentreIteration ,FrequentKnotplotPrintIteration ,CurrentIteration,marked,markedlist,InitialSkipIteration,UVPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
         {
 #pragma omp single
             {
-                if( ( CurrentIteration > InitialSkipIteration && CurrentIteration%RecentreIteration==0))
+                if( ( CurrentIteration >= InitialSkipIteration && CurrentIteration%RecentreIteration==0))
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
-                    ConstructTube(ucvmag, marked,griddata,15);
+                    ConstructTube(ucvmag,marked, markedlist,griddata,15);
                 }
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
+                if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
@@ -149,7 +155,7 @@ int main (void)
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
-                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
+                if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
 
@@ -182,7 +188,7 @@ int main (void)
                 CurrentIteration++;
                 CurrentTime  = ((double)(CurrentIteration) * dtime);
             }
-            uv_update(u,v,ku,kv,marked,griddata);
+            uv_update(u,v,ku,kv,markedlist,griddata);
         }
     }
     return 0;
@@ -1094,35 +1100,27 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
         }
     }
 }
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&marked, const griddata& griddata)
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&markedlist, const griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
-    int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
+    int i,j,k,l,kup,kdown,iup,idown,jup,jdown;
     double D2u;
     const int arraysize = Nx*Ny*Nz;
     // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
 #pragma omp for
-    for(i=0;i<Nx;i++)
+    for(int s=0;s<markedlist.size();s++)
     {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)   //Central difference
-            {
-                n = pt(i,j,k,griddata);
-                if(marked[n]==1 || marked[n]==2)
-                {
-                    kup = gridinc(k,1,Nz,2);
-                    kdown = gridinc(k,-1,Nz,2);
-                    kup = gridinc(k,1,Nz,2);
-                    kdown = gridinc(k,-1,Nz,2);
-                    D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
-                    ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
-                    kv[n] = epsilon*(u[n] + beta - gam*v[n]);
-                }
-            }
-        }
+        int n = markedlist[s];
+        pttoindices(n,i,j,k,griddata);
+        kup = gridinc(k,1,Nz,2);
+        kdown = gridinc(k,-1,Nz,2);
+        kup = gridinc(k,1,Nz,2);
+        kdown = gridinc(k,-1,Nz,2);
+        D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
+        ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
+        kv[n] = epsilon*(u[n] + beta - gam*v[n]);
     }
     // 2nd and 3rd loops
     double inc ;
@@ -1148,46 +1146,34 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
             break;
         }
 #pragma omp for 
-        for(i=0;i<Nx;i++)
+        for(int s=0;s<markedlist.size();s++)
         {
-            for(j=0; j<Ny; j++)
-            {
-                for(k=0; k<Nz; k++)   //Central difference
-                {
-                    n = pt(i,j,k,griddata);
+           int n = markedlist[s];
+            pttoindices(n,i,j,k,griddata);
 
-                    if(marked[n]==1 || marked[n]==2)
-                    {
-                        iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
-                        idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
-                        jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
-                        jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
-                        kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
-                        kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
-                        double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
-                        double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
+            iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
+            idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
+            jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
+            jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
+            kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
+            kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
+            double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
+            double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
 
-                        D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
+            D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
 
 
-                        ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
-                        kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
-                    }
-                }
-            }
+            ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
+            kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
         }
     }
 #pragma omp for 
-    for(n=0;n<Nx*Ny*Nz;n++)
+    for(int s=0;s<markedlist.size();s++)
     {
-
-        if(marked[n]==1 || marked[n]==2)
-        {
-            u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
-            v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
-        }
+        int n = markedlist[s];
+        u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
+        v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
     }
-
 }
 
 /*************************File reading and writing*****************************/
@@ -1782,43 +1768,7 @@ int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& gridda
 
     return 0;
 }
-void ConstructTube(vector<double>&ucvmag, vector<int>&marked, griddata& griddata,int numiterations)
-{
-    // reset marked, and set it up with the correct ucrossv
-    for(int n = 0; n<ucvmag.size();n++)
-    {
-        if(ucvmag[n]>0.7 && marked[n]==2)
-        {
-            marked[n]=-1;
-        }
-        else
-        {
-            marked[n]=0;
-        }
-    }
 
-    // okay now marked contains our starting point - lets grow the shell!
-
-
-    // first up, an inner core layer
-    for(int i=0;i<numiterations/4;i++)
-    {
-        grow(marked,griddata);
-    }
-
-    for(int n = 0; n<ucvmag.size();n++)
-    {
-        if(marked[n]==1){marked[n]=2;};
-    }
-
-    // now an outer layer
-    for(int i=0;i<numiterations/2;i++)
-    {
-        grow(marked,griddata);
-    }
-
-    // the interior of our tube comes out marked as 1, with the outermost boundary layer marked as -1.
-}
 
 void grow(vector<int>&marked,const griddata& griddata)
 {
@@ -2023,6 +1973,17 @@ inline  int pt( int i,  int j,  int k,const griddata& griddata)       //convert 
 {
     return (i*griddata.Ny*griddata.Nz+j*griddata.Nz+k);
 }
+inline  int pttoindices(int n, int &i,  int &j,  int &k,const griddata& griddata)       //convert i,j,k to single index
+{
+    int NyNzi = n - n%(griddata.Ny*griddata.Nz) ;
+    i = NyNzi/(griddata.Ny*griddata.Nz);
+
+    int Nzjplusk = n%(griddata.Ny*griddata.Nz);
+    int Nzj = Nzjplusk - Nzjplusk%(griddata.Nz) ;
+    j = Nzj/griddata.Nz;
+
+    k = Nzjplusk%griddata.Nz;
+}
 inline int sign(int i)
 {
     if(i==0) return 0;
@@ -2090,3 +2051,51 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
     }
 }
 
+
+void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, griddata &griddata, int numiterations)
+{
+    // reset marked, and set it up with the correct ucrossv
+    for(int n = 0; n<ucvmag.size();n++)
+    {
+        if(ucvmag[n]>0.7 && marked[n]==2)
+        {
+            marked[n]=-1;
+        }
+        else
+        {
+            marked[n]=0;
+        }
+    }
+
+    // okay now marked contains our starting point - lets grow the shell!
+
+
+    // first up, an inner core layer
+    for(int i=0;i<numiterations/4;i++)
+    {
+        grow(marked,griddata);
+    }
+
+    for(int n = 0; n<ucvmag.size();n++)
+    {
+        if(marked[n]==1){marked[n]=2;};
+    }
+
+    // now an outer layer
+    for(int i=0;i<numiterations/2;i++)
+    {
+        grow(marked,griddata);
+    }
+
+    // the interior of our tube comes out marked as 1, with the outermost boundary layer marked as -1.
+    // now construct a list of all the marked points
+
+    markedlist.resize(0);
+    for(int n = 0; n<ucvmag.size();n++)
+    {
+        if(marked[n]==1 || marked[n]==2)
+        {
+            markedlist.push_back(n);
+        }
+    }
+}
