@@ -125,7 +125,7 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, iterationcounter,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
         {
@@ -169,7 +169,7 @@ int main (void)
                 }
                 //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
                 CurrentIteration++;
-                CurrentTime  = starttime + ((double)(CurrentIteration) * dtime);
+                CurrentTime  = ((double)(CurrentIteration) * dtime);
             }
             uv_update(u,v,ku,kv,griddata);
         }
