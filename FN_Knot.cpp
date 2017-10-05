@@ -31,10 +31,11 @@
 
 int main (void)
 {
-    griddata griddata;
+    Griddata griddata;
     griddata.Nx = initialNx;
     griddata.Ny = initialNy;
     griddata.Nz = initialNz;
+    griddata.h = initialh;
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
@@ -78,7 +79,7 @@ int main (void)
         if(option == FROM_UV_FILE)
         {
             cout << "Reading input file...\n";
-            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,marked,griddata)) return 1;
+            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,marked,griddata)) return 1;
         }
         else
         {
@@ -156,7 +157,7 @@ int main (void)
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
-                if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
+                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
 
@@ -383,7 +384,7 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const griddata& griddata)
+void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -420,7 +421,7 @@ void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const griddata& 
     print_B_phi(phi,griddata);
 
 }
-void phi_calc_manual(vector<double>&phi, griddata& griddata)
+void phi_calc_manual(vector<double>&phi, Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -447,7 +448,7 @@ void phi_calc_manual(vector<double>&phi, griddata& griddata)
 
 /*************************Functions for FN dynamics*****************************/
 
-void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const griddata& griddata)
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -461,11 +462,12 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
     }
 }
 
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const vector<int>&marked,const griddata& griddata)
+void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const vector<int>&marked,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    double h = griddata.h;
     int i,j,k,n,kup,kdown;
     double dxu,dyu,dzu,dxv,dyv,dzv;
     for(i=0;i<Nx;i++)
@@ -508,7 +510,7 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
     }
 }
 
-int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata)
+int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const Griddata& griddata)
 {
     // first thing, clear the knotcurve object before we begin writing a new one
     knotcurves.clear(); //empty vector with knot curve points
@@ -516,6 +518,7 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    double h = griddata.h;
 
     // initialise the tricubic interpolator for ucvmag
     likely::TriCubicInterpolator interpolateducvmag(ucvmag, h, Nx,Ny,Nz);
@@ -1066,7 +1069,7 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
     return 0;
 }
 
-void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime)
+void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const Griddata& griddata,const double deltatime)
 {
     for(int c=0;c<knotcurvesold.size();c++)
     {
@@ -1114,14 +1117,22 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
         }
     }
 }
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&markedlist, const griddata& griddata)
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&markedlist, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
-    int i,j,k,l,kup,kdown,iup,idown,jup,jdown;
+    const double h = griddata.h;
+    int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
     double D2u;
     const int arraysize = Nx*Ny*Nz;
+
+
+    // some constants we will use over and over below:
+    const double sixth = 1.0/6.0;
+    const double ONETHIRD = 1.0/3.0;
+    const double oneoverepsilon = 1.0/epsilon;
+    const double oneoverhsq = 1.0/(h*h);
     // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
 #pragma omp for
     for(int s=0;s<markedlist.size();s++)
@@ -1192,11 +1203,12 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 
 /*************************File reading and writing*****************************/
 
-void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
+void print_marked( vector<int>&marked,int shelllabel, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    double h = griddata.h;
     int i,j,k,n;
     stringstream ss;
     ss << "marked"<<shelllabel <<".vtk";
@@ -1223,11 +1235,12 @@ void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata)
     }
     uvout.close();
 }
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata)
+void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    double h = griddata.h;
     int i,j,k,n;
     stringstream ss;
     ss << "uv_plot" << t << ".vtk";
@@ -1289,11 +1302,12 @@ void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<d
     uvout.close();
 }
 
-void print_B_phi( vector<double>&phi, const griddata& griddata)
+void print_B_phi( vector<double>&phi, const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
     int Nz = griddata.Nz;
+    double h = griddata.h;
     int i,j,k,n;
     string fn = "phi.vtk";
 
@@ -1320,7 +1334,7 @@ void print_B_phi( vector<double>&phi, const griddata& griddata)
 }
 
 
-void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata)
+void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata)
 {
     for( int c=0; c < (knotcurves.size()) ; c++)
     {
@@ -1434,7 +1448,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddat
     }
 }
 
-int phi_file_read(vector<double>&phi,const griddata& griddata)
+int phi_file_read(vector<double>&phi,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1488,7 +1502,7 @@ int phi_file_read(vector<double>&phi,const griddata& griddata)
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<int>& marked,griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<double>&ucvmag,vector<int>& marked,griddata& griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -1504,36 +1518,6 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
             return 1;
         }
     }
-    if(fin.good())
-    {
-        getline(fin,buff,' ' );
-        if(getline(fin,buff,' ')) xdim = buff;
-        if(getline(fin,buff,' ')) ydim = buff;
-        if(getline(fin,buff,'\n')) zdim = buff;
-    }
-    fin.close();
-    int x = atoi(xdim.c_str());
-    int y= atoi(ydim.c_str());
-    int z = atoi(zdim.c_str());
-
-    if(x!=griddata.Nx || y!=griddata.Ny ||z!=griddata.Nz)
-    {
-        cout << "CAREFUL! the gridsize you read in from the uv file isnt equal to the one you set! resizing to the uv file values read in \n";
-        ucvx.resize(x*y*z);
-        ucvy.resize(x*y*z);
-        ucvz.resize(x*y*z);
-        // better resize our scratchpad too
-        ku.resize(4*x*y*z);
-        kv.resize(4*x*y*z);
-        u.resize(x*y*z);
-        v.resize(x*y*z);
-
-        griddata.Nx = x;
-        griddata.Ny = y;
-        griddata.Nz = z;
-    }
-
-    // grab the dimensions read in, resize u and v, and warn the user if they dont match!
 
     if(datatype.compare("ASCII")==0)
     {
@@ -1544,8 +1528,56 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
         uvfile_read_BINARY(u,v,griddata);
     }
 
-    // now read in the marked array too
     markedfile_read(marked,griddata);
+
+    // okay we've read in the file - now, did we want to interpolate?
+    if(interpolationflag)
+    {
+        cout << "interpolating grid \n";
+
+        Griddata interpolatedgriddata;
+        interpolatedgriddata.Nx = interpolatedNx;
+        interpolatedgriddata.Ny = interpolatedNy;
+        interpolatedgriddata.Nz = interpolatedNz;
+        interpolatedgriddata.h = ((initialNx-1)*initialh)/(interpolatedNx-1);
+
+        vector<double>interpolatedugrid(interpolatedNx*interpolatedNy*interpolatedNz);
+        vector<double>interpolatedvgrid(interpolatedNx*interpolatedNy*interpolatedNz);
+
+        // interpolate u and v
+        likely::TriCubicInterpolator interpolatedu(u, initialh, initialNx,initialNy,initialNz);
+        likely::TriCubicInterpolator interpolatedv(v, initialh, initialNx,initialNy,initialNz);
+        for(int i=0;i<interpolatedNx;i++)
+        {
+            for(int j=0; j<interpolatedNy; j++)
+            {
+                for(int k=0; k<interpolatedNz; k++)   //Central difference
+                {
+
+                    // get the point in space this gridpoint corresponds to
+                    double px= x(i,interpolatedgriddata);
+                    double py= y(j,interpolatedgriddata);
+                    double pz= z(k,interpolatedgriddata);
+                    // interpolate
+                    interpolatedugrid[pt(i,j,k,interpolatedgriddata)]= interpolatedu(px,py,pz);
+                    interpolatedvgrid[pt(i,j,k,interpolatedgriddata)]= interpolatedv(px,py,pz);
+                }
+            }
+        }
+
+        // resize all arrays, set the new u and v arrays, and set the new griddata
+        ucvx.resize(interpolatedNx*interpolatedNy*interpolatedNz);
+        ucvy.resize(interpolatedNx*interpolatedNy*interpolatedNz);
+        ucvz.resize(interpolatedNx*interpolatedNy*interpolatedNz);
+        ucvmag.resize(interpolatedNx*interpolatedNy*interpolatedNz);
+        ku.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
+        kv.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
+
+        u = interpolatedugrid;
+        v = interpolatedvgrid;
+
+        griddata=interpolatedgriddata;
+    }
 
     return 0;
 }
@@ -1608,7 +1640,7 @@ int markedfile_read(vector<int>&marked,griddata& griddata)
 }
 
 
-int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata)
+int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1698,7 +1730,7 @@ int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddat
     return 0;
 }
 
-int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata)
+int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1782,7 +1814,6 @@ int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& gridda
 
     return 0;
 }
-
 
 void grow(vector<int>&marked,const griddata& griddata)
 {
@@ -1870,7 +1901,7 @@ double my_f(const gsl_vector* minimum, void* params)
     int i,j,k,idwn,jdwn,kdwn,modidwn,modjdwn,modkdwn,m,pts,iinc,jinc,kinc;
     double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
     struct parameters* myparameters = (struct parameters *) params;
-    griddata griddata = myparameters->mygriddata;
+    Griddata griddata = myparameters->mygriddata;
     likely::TriCubicInterpolator* interpolateducvmag = myparameters->ucvmag;
     double Nx = myparameters->mygriddata.Nx;
     double Ny = myparameters->mygriddata.Ny;
@@ -1971,19 +2002,19 @@ inline int gridinc(int i, int p, int N, int direction )    //increment with refl
     }
     return 0;
 }
-inline double x(int i,const griddata& griddata)
+inline double x(int i,const Griddata& griddata)
 {
-    return (i+0.5-griddata.Nx/2.0)*h;
+    return (i+0.5-griddata.Nx/2.0)*griddata.h;
 }
-inline double y(int i,const griddata& griddata)
+inline double y(int i,const Griddata& griddata)
 {
-    return (i+0.5-griddata.Ny/2.0)*h;
+    return (i+0.5-griddata.Ny/2.0)*griddata.h;
 }
-inline double z(int i,const griddata& griddata)
+inline double z(int i,const Griddata& griddata)
 {
-    return (i+0.5-griddata.Nz/2.0)*h;
+    return (i+0.5-griddata.Nz/2.0)*griddata.h;
 }
-inline  int pt( int i,  int j,  int k,const griddata& griddata)       //convert i,j,k to single index
+inline  int pt( int i,  int j,  int k,const Griddata& griddata)       //convert i,j,k to single index
 {
     return (i*griddata.Ny*griddata.Nz+j*griddata.Nz+k);
 }
@@ -2028,7 +2059,7 @@ void ByteSwap(const char* TobeSwapped, char* swapped )
     return;
 }
 // this function takes two knots, and shifts the first one by grid spacing multiples until it literally lies over the second
-void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata)
+void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const Griddata& griddata)
 {
     for(int c = 0; c <knotcurves.size();c++)
     {
@@ -2039,17 +2070,17 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
 
         // we mod out by the lattice spacing in all of these
         // how many lattice spacings go into these deltas?
-        int xlatticeshift = (int) (round(deltax/(griddata.Nx *h)));
-        int ylatticeshift = (int) (round(deltay/(griddata.Ny *h)));
-        int zlatticeshift = (int) (round(deltaz/(griddata.Nz *h)));
+        int xlatticeshift = (int) (round(deltax/(griddata.Nx *griddata.h)));
+        int ylatticeshift = (int) (round(deltay/(griddata.Ny *griddata.h)));
+        int zlatticeshift = (int) (round(deltaz/(griddata.Nz *griddata.h)));
 
         // we should shift the knotcurve points by this much , to properly be able to compare the curves
 
         for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
         {
-            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *h);
-            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *h);
-            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *h);
+            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
+            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
+            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
         }
         // now we've done these shifts, we'd better move the knotcurve average position too.
         knotcurves[c].xavgpos = 0;
