@@ -1502,7 +1502,7 @@ int phi_file_read(vector<double>&phi,const Griddata& griddata)
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<double>&ucvmag,vector<int>& marked,griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy, vector<double>& ucvz, vector<double>&ucvmag, vector<int>& marked, Griddata &griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -1543,10 +1543,21 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
 
         vector<double>interpolatedugrid(interpolatedNx*interpolatedNy*interpolatedNz);
         vector<double>interpolatedvgrid(interpolatedNx*interpolatedNy*interpolatedNz);
+        vector<int>interpolatedmarkedgrid(interpolatedNx*interpolatedNy*interpolatedNz);
 
         // interpolate u and v
         likely::TriCubicInterpolator interpolatedu(u, initialh, initialNx,initialNy,initialNz);
         likely::TriCubicInterpolator interpolatedv(v, initialh, initialNx,initialNy,initialNz);
+
+
+        // construct a double version of marked
+        vector<double> dmarked(marked.size());
+        for(int i=0;i<marked.size();i++)
+        {
+            dmarked[i] = (double)(marked[i]);
+        }
+        likely::TriCubicInterpolator interpolatedmarked(dmarked, initialh, initialNx,initialNy,initialNz);
+
         for(int i=0;i<interpolatedNx;i++)
         {
             for(int j=0; j<interpolatedNy; j++)
@@ -1561,6 +1572,8 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
                     // interpolate
                     interpolatedugrid[pt(i,j,k,interpolatedgriddata)]= interpolatedu(px,py,pz);
                     interpolatedvgrid[pt(i,j,k,interpolatedgriddata)]= interpolatedv(px,py,pz);
+
+                    interpolatedmarkedgrid[pt(i,j,k,interpolatedgriddata)]= (int)( round(interpolatedmarked(px,py,pz)) );
                 }
             }
         }
@@ -1576,12 +1589,14 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
         u = interpolatedugrid;
         v = interpolatedvgrid;
 
+        marked=interpolatedmarkedgrid;
+
         griddata=interpolatedgriddata;
     }
 
     return 0;
 }
-int markedfile_read(vector<int>&marked,griddata& griddata)
+int markedfile_read(vector<int>&marked,Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -1815,7 +1830,7 @@ int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& gridda
     return 0;
 }
 
-void grow(vector<int>&marked,const griddata& griddata)
+void grow(vector<int>&marked,const Griddata& griddata)
 {
     // the marked array has the following values
     // 0 - not evaluated
@@ -2018,7 +2033,7 @@ inline  int pt( int i,  int j,  int k,const Griddata& griddata)       //convert 
 {
     return (i*griddata.Ny*griddata.Nz+j*griddata.Nz+k);
 }
-inline  int pttoindices(int n, int &i,  int &j,  int &k,const griddata& griddata)       //convert i,j,k to single index
+inline  int pttoindices(int n, int &i,  int &j,  int &k,const Griddata& griddata)       //convert i,j,k to single index
 {
     int NyNzi = n - n%(griddata.Ny*griddata.Nz) ;
     i = NyNzi/(griddata.Ny*griddata.Nz);
@@ -2097,7 +2112,7 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
 }
 
 
-void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, griddata &griddata, int numiterations)
+void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, int numiterations)
 {
     // reset marked, and set it up with the correct ucrossv
     for(int n = 0; n<ucvmag.size();n++)

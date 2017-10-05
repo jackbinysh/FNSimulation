@@ -139,7 +139,7 @@ void print_B_phi( vector<double>&phi,const Griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const Griddata& griddata);
 int phi_file_read(vector<double>&phi,const Griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata);
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy, vector<double>& ucvz, vector<int> &marked, Griddata& griddata);
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<double>&ucvmag,vector<int>& marked,Griddata& griddata);
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddata); // for legacy purposes
 int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& griddata);
 float FloatSwap( float f );
