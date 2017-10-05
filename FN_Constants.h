@@ -37,10 +37,20 @@ const double InitialSkipTime = INSERT_SKIPTIME;       // amout to skip before be
 
 // OPTION - what grid values do you want/ timestep
 //Grid points
-const double h = INSERT_GRIDSPACING;            //grid spacing
+const double initialh = INSERT_GRIDSPACING;            //grid spacing
 const int initialNx = INSERT_NX;   //No. points in x,y and z
 const int initialNy = INSERT_NY;
 const int initialNz = INSERT_NZ;
+
+// OPTION - do you want to read in a coarse uv file , and interpolate onto a finer grid? If so,
+// first, set the flag to 1 if you want, 0 if you dont.
+// give the # points in each dimension, which should be > initialNx - the spacing will be set by (initialNx-1)*h/(interpolatedNx-1)
+const int interpolationflag = 1 ;
+const int interpolatedNx = INSERT_INTERPOLATED_NX;   //No. points in x,y and z
+const int interpolatedNy = INSERT_INTERPOLATED_NY;
+const int interpolatedNz = INSERT_INTERPOLATED_NZ;
+
+
 // timestep
 const double dtime = INSERT_TIMESTEP;         //size of each time step
 
@@ -52,9 +62,9 @@ const double BoxResizeTime = 1000;
 
 // OPTION - how big should the knot be in the box, do you want it tilted or displaced?
 //Size boundaries of knot (now autoscaled)
-const double xmax = 8*initialNx*h/10.0;
-const double ymax = 8*initialNy*h/10.0;
-const double zmax = 8*initialNz*h/10.0;
+const double xmax = 8*initialNx*initialh/10.0;
+const double ymax = 8*initialNy*initialh/10.0;
+const double zmax = 8*initialNz*initialh/10.0;
 /** two rotation angles for the initial stl file, and a displacement vector for the file **/
 const double initialthetarotation = 0;
 const double initialxdisplacement = 0;

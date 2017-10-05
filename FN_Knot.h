@@ -19,20 +19,17 @@
 #include <gsl/gsl_vector.h>
 using namespace std;
 
-const double sixth = 1.0/6.0;
-const double ONETHIRD = 1.0/3.0;
-const double oneoverepsilon = 1.0/epsilon;
-const double oneoverhsq = 1.0/(h*h);
 
-struct griddata 
+struct Griddata
 {
-	double Nx,Ny,Nz;	
+    int Nx,Ny,Nz;
+    double h;
 };
 struct parameters
 {
 	gsl_vector *v,*f,*b;
     likely::TriCubicInterpolator* ucvmag;
-    griddata mygriddata;
+    Griddata mygriddata;
 };
 
 struct triangle
@@ -95,11 +92,11 @@ struct knotcurve
 /*************************General maths and integer functions*****************************/
 
 // little inline guys
-inline double x(int i, const griddata& griddata);
-inline double y(int i,const griddata& griddata);
-inline double z(int i,const griddata& griddata);
+inline double x(int i, const Griddata &griddata);
+inline double y(int i, const Griddata &griddata);
+inline double z(int i, const Griddata &griddata);
 inline int sign(int i);
-inline  int pt( int i,  int j,  int k,const griddata& griddata);       //convert i,j,k to single index
+inline  int pt(int i,  int j,  int k, const Griddata &griddata);       //convert i,j,k to single index
 inline int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
 inline int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
@@ -118,34 +115,34 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc( vector<double>&phi,std::vector<triangle>& knotsurface,const griddata& griddata);
+void phi_calc(vector<double>&phi, std::vector<triangle>& knotsurface, const Griddata &griddata);
 
-void phi_calc_manual( vector<double>&phi,const griddata& griddata);
+void phi_calc_manual( vector<double>&phi,const Griddata& griddata);
 
 //FitzHugh Nagumo functions
-void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const griddata& griddata);
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const griddata& griddata);
-void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag,vector<double>&u,vector<knotcurve>& knotcurves,double t, gsl_multimin_fminimizer* minimizerstate, const griddata& griddata);
-void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& knotcurvesold,const griddata& griddata,const double deltatime);
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const griddata& griddata);
+void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const Griddata& griddata);
+void crossgrad_calc(vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag, const Griddata &griddata);
+void find_knot_properties(vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag, vector<double>&u, vector<knotcurve>& knotcurves, double t, gsl_multimin_fminimizer* minimizerstate, const Griddata &griddata);
+void find_knot_velocity(const vector<knotcurve>& knotcurves, vector<knotcurve>& knotcurvesold, const Griddata &griddata, const double deltatime);
+void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const Griddata &griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
-void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,griddata& oldgriddata);
-void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const griddata& griddata);
+void resizebox(vector<double>&u,vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<knotcurve>&knotcurves,vector<double>&ku,vector<double>&kv,Griddata& oldgriddata);
+void overlayknots(vector<knotcurve>& knotcurves, const vector<knotcurve>& knotcurvesold, const Griddata &griddata);
 
 /*************************File reading and writing*****************************/
 
 
 
-void print_marked( vector<int>&marked,int shelllabel, const griddata& griddata);
+void print_marked(vector<int>&marked, int shelllabel, const Griddata &griddata);
 
-void print_B_phi( vector<double>&phi,const griddata& griddata);
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const griddata& griddata);
-int phi_file_read(vector<double>&phi,const griddata& griddata);
-void print_knot( double t, vector<knotcurve>& knotcurves,const griddata& griddata);
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,griddata& griddata);
-int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const griddata& griddata); // for legacy purposes
-int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const griddata& griddata);
+void print_B_phi(vector<double>&phi, const Griddata &griddata);
+void print_uv(vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag, double t, const Griddata &griddata);
+int phi_file_read(vector<double>&phi, const Griddata &griddata);
+void print_knot(double t, vector<knotcurve>& knotcurves, const Griddata &griddata);
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy, vector<double>& ucvz, vector<double> &ucvmag, Griddata &griddata);
+int uvfile_read_ASCII(vector<double>&u, vector<double>&v, const Griddata &griddata); // for legacy purposes
+int uvfile_read_BINARY(vector<double>&u, vector<double>&v, const Griddata &griddata);
 float FloatSwap( float f );
 void ByteSwap(const char* TobeSwapped, char* swapped );
 
@@ -153,6 +150,6 @@ void ByteSwap(const char* TobeSwapped, char* swapped );
 // things for the grown function
 
 inline int incabsorb(int i, int p, int N);
-void growshell(vector<double>&u,vector<int>& marked,double ucrit, const griddata& griddata);
-void grow(const vector<double>&u,vector<int>&marked,double ucrit,const griddata& griddata);
+void growshell(vector<double>&u,vector<int>& marked,double ucrit, const Griddata& griddata);
+void grow(const vector<double>&u,vector<int>&marked,double ucrit,const Griddata& griddata);
 
