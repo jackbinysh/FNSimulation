@@ -150,4 +150,4 @@ void ByteSwap(const char* TobeSwapped, char* swapped );
 
 inline int incabsorb(int i, int p, int N);
 void grow(vector<int>&marked,const Griddata& griddata);
-void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, int numiterations);
+void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, double radius);

@@ -45,7 +45,8 @@ const int initialNz = INSERT_NZ;
 // OPTION - do you want to read in a coarse uv file , and interpolate onto a finer grid? If so,
 // first, set the flag to 1 if you want, 0 if you dont.
 // give the # points in each dimension, which should be > initialNx - the spacing will be set by (initialNx-1)*h/(interpolatedNx-1)
-const int interpolationflag = 1 ;
+const int interpolationflag = INSERT_INTERPOLATION_FLAG;
+const double radius = INSERT_RADIUS;
 const int interpolatedNx = INSERT_INTERPOLATED_NX;   //No. points in x,y and z
 const int interpolatedNy = INSERT_INTERPOLATED_NY;
 const int interpolatedNz = INSERT_INTERPOLATED_NZ;

@@ -144,7 +144,7 @@ int main (void)
                 if( ( CurrentIteration >= InitialSkipIteration && CurrentIteration%RecentreIteration==0))
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
-                    ConstructTube(ucvmag,marked, markedlist,griddata,15);
+                    ConstructTube(ucvmag,marked, markedlist,griddata,radius);
                 }
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
@@ -2112,12 +2112,15 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
 }
 
 
-void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, int numiterations)
+void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, double radius)
 {
+    // convert the radius into a number of gridpoints
+    int numiterations = (int)(radius/griddata.h);
+
     // reset marked, and set it up with the correct ucrossv
     for(int n = 0; n<ucvmag.size();n++)
     {
-        if(ucvmag[n]>0.7 && marked[n]==2)
+        if(ucvmag[n]>0.9 && marked[n]==2)
         {
             marked[n]=-1;
         }
