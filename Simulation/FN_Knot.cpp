@@ -144,7 +144,7 @@ int main (void)
                 if( ( CurrentIteration >= InitialSkipIteration && CurrentIteration%RecentreIteration==0))
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
-                    ConstructTube(ucvmag,marked, markedlist,griddata,radius);
+                    ConstructTube(ucvmag,marked, markedlist,knotcurves,griddata,radius);
                 }
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
@@ -1173,7 +1173,7 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 #pragma omp for 
         for(int s=0;s<markedlist.size();s++)
         {
-           int n = markedlist[s];
+            int n = markedlist[s];
             pttoindices(n,i,j,k,griddata);
 
             iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
@@ -2111,48 +2111,61 @@ void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcur
     }
 }
 
-
-void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, Griddata &griddata, double radius)
+void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, const vector<knotcurve>& knotcurves, Griddata &griddata, double radius)
 {
-    // convert the radius into a number of gridpoints
+    // reset marked
+    for(int n = 0; n<ucvmag.size();n++)
+    {
+        marked[n]=0;
+    }
+
+    int c = 0;
+    int NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
     int numiterations = (int)(radius/griddata.h);
-
-    // reset marked, and set it up with the correct ucrossv
-    for(int n = 0; n<ucvmag.size();n++)
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    double h = griddata.h;
+    for(int s=0; s<NP; s++)
     {
-        if(ucvmag[n]>0.9 && marked[n]==2)
+       int icentral = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
+       int jcentral = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
+       int kcentral = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
+        // construct a ball of radius "radius" around each point in the knotcurve object. we circumscribe it in a cube which is then looped over
+        for(int i =-numiterations;i<=numiterations;i++)
         {
-            marked[n]=-1;
+            for(int j=-numiterations ;j<=numiterations;j++)
+            {
+                for(int k =-numiterations;k<=numiterations;k++)
+                {
+                    int modi = circularmod(i+icentral,Nx);
+                    int modj = circularmod(j+jcentral,Ny);
+                    int modk = circularmod(k+kcentral,Nz);
+                    int n = pt(modi,modj,modk,griddata);
+
+                    double dxsq = (x(i+icentral,griddata)-x(icentral,griddata))*(x(i+icentral,griddata)-x(icentral,griddata));
+                    double dysq = (y(i+icentral,griddata)-y(jcentral,griddata))*(y(j+jcentral,griddata)-y(jcentral,griddata));
+                    double dzsq = (z(i+icentral,griddata)-z(kcentral,griddata))*(z(k+kcentral,griddata)-z(kcentral,griddata));
+
+                    double r = sqrt(dxsq + dysq + dzsq);
+
+                    if(r < radius/2)
+                    {
+                        marked[n]=2;
+                    }
+                    else
+                    {
+                        if(r < radius)
+                        {
+                            marked[n]=1;
+                        }
+                    }
+                }
+            }
         }
-        else
-        {
-            marked[n]=0;
-        }
     }
 
-    // okay now marked contains our starting point - lets grow the shell!
-
-
-    // first up, an inner core layer
-    for(int i=0;i<numiterations/4;i++)
-    {
-        grow(marked,griddata);
-    }
-
-    for(int n = 0; n<ucvmag.size();n++)
-    {
-        if(marked[n]==1){marked[n]=2;};
-    }
-
-    // now an outer layer
-    for(int i=0;i<numiterations/2;i++)
-    {
-        grow(marked,griddata);
-    }
-
-    // the interior of our tube comes out marked as 1, with the outermost boundary layer marked as -1.
     // now construct a list of all the marked points
-
     markedlist.resize(0);
     for(int n = 0; n<ucvmag.size();n++)
     {
@@ -2161,4 +2174,5 @@ void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& mark
             markedlist.push_back(n);
         }
     }
+
 }
