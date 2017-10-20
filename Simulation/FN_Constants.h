@@ -79,3 +79,6 @@ const double epsilon = 0.3;                //parameters for F-N eqns
 const double beta = 0.7;
 const double gam = 0.5;
 
+const double ufix = -1.03279;
+const double vfix = -0.66558;
+

@@ -463,7 +463,7 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
     }
 }
 
-void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag,const vector<int>&marked,const Griddata& griddata)
+void crossgrad_calc( vector<double>&u, vector<double>&v,vector<double>&ucvx,vector<double>&ucvy,vector<double>&ucvz,vector<double>&ucvmag,const vector<int>&marked,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -488,23 +488,19 @@ void crossgrad_calc( vector<double>&u, vector<double>&v, vector<double>&ucvx, ve
                     dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k,griddata)]-v[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
                     dzu = 0.5*(u[pt(i,j,kup,griddata)]-u[pt(i,j,kdown,griddata)])/h;
                     dzv = 0.5*(v[pt(i,j,kup,griddata)]-v[pt(i,j,kdown,griddata)])/h;
-                    //          dxu =(-u[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*u[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*u[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+u[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
-                    //          dxv =(-v[pt(gridinc(i,2,Nx,0),j,k,griddata)]+8*v[pt(gridinc(i,1,Nx,0),j,k,griddata)]-8*v[pt(gridinc(i,-1,Nx,0),j,k,griddata)]+v[pt(gridinc(i,-2,Nx,0),j,k,griddata)])/(12*h);
-                    //          dyu =(-u[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*u[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*u[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+u[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
-                    //          dyv =(-v[pt(gridinc(j,2,Ny,1),j,k,griddata)]+8*v[pt(gridinc(j,1,Ny,1),j,k,griddata)]-8*v[pt(gridinc(j,-1,Ny,1),j,k,griddata)]+v[pt(gridinc(j,-2,Ny,1),j,k,griddata)])/(12*h);
-                    //          dzu =(-u[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*u[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*u[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+u[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
-                    //          dzv =(-v[pt(gridinc(k,2,Nz,2),j,k,griddata)]+8*v[pt(gridinc(k,1,Nz,2),j,k,griddata)]-8*v[pt(gridinc(k,-1,Nz,2),j,k,griddata)]+v[pt(gridinc(k,-2,Nz,2),j,k,griddata)])/(12*h);
-                    ucvx[n] = dyu*dzv - dzu*dyv;
-                    ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
-                    ucvz[n] = dxu*dyv - dyu*dxv;
-                    ucvmag[n] = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
+                    double ucvx = dyu*dzv - dzu*dyv;
+                    double ucvy = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
+                    double ucvz = dxu*dyv - dyu*dxv;
+                    ucvmag[n] = sqrt(ucvx*ucvx + ucvy*ucvy + ucvz*ucvz);
                 }
                 else
                 {
-                    ucvx[n] = 0;
-                    ucvy[n] = 0;
-                    ucvz[n] = 0;
                     ucvmag[n]=0;
+                    if(marked[n]==0)
+                    {
+                        u[n] = ufix;
+                        v[n] = vfix;
+                    }
                 }
             }
         }
@@ -2150,7 +2146,7 @@ void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& mark
 
                     double r = sqrt(dxsq + dysq + dzsq);
 
-                    if(r < radius/2)
+                    if(r < 5 ) 
                     {
                         marked[n]=2;
                     }
