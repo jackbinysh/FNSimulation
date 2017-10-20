@@ -1211,7 +1211,7 @@ void print_marked( vector<int>&marked,int shelllabel, const Griddata& griddata)
     ss << "marked"<<shelllabel <<".vtk";
     ofstream uvout (ss.str().c_str());
 
-    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
+    uvout << "# vtk DataFile Version 3.0\n" << "Marked spacing " << radius << "\nASCII\nDATASET STRUCTURED_POINTS\n";
     uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
     uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
     uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
