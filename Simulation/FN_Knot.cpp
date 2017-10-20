@@ -488,10 +488,10 @@ void crossgrad_calc( vector<double>&u, vector<double>&v,vector<double>&ucvx,vect
                     dyv = 0.5*(v[pt(i,gridinc(j,1,Ny,1),k,griddata)]-v[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
                     dzu = 0.5*(u[pt(i,j,kup,griddata)]-u[pt(i,j,kdown,griddata)])/h;
                     dzv = 0.5*(v[pt(i,j,kup,griddata)]-v[pt(i,j,kdown,griddata)])/h;
-                    double ucvx = dyu*dzv - dzu*dyv;
-                    double ucvy = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
-                    double ucvz = dxu*dyv - dyu*dxv;
-                    ucvmag[n] = sqrt(ucvx*ucvx + ucvy*ucvy + ucvz*ucvz);
+                    ucvx[n] = dyu*dzv - dzu*dyv;
+                    ucvy[n] = dzu*dxv - dxu*dzv;    //Grad u cross Grad v
+                    ucvz[n] = dxu*dyv - dyu*dxv;
+                    ucvmag[n] = sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]);
                 }
                 else
                 {
