@@ -141,11 +141,6 @@ int main (void)
         {
 #pragma omp single
             {
-                if( ( CurrentIteration >= InitialSkipIteration && CurrentIteration%RecentreIteration==0))
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
-                    ConstructTube(ucvmag,marked, markedlist,knotcurves,griddata,radius);
-                }
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
@@ -170,6 +165,12 @@ int main (void)
                     }
                     knotcurvesold = knotcurves;
 
+                }
+
+                if( ( CurrentIteration >= InitialSkipIteration && CurrentIteration%RecentreIteration==0))
+                {
+                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,marked,griddata); //find Grad u cross Grad v
+                    ConstructTube(ucvmag,marked, markedlist,knotcurves,griddata,radius);
                 }
 
 
@@ -2144,8 +2145,8 @@ void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& mark
                     int n = pt(modi,modj,modk,griddata);
 
                     double dxsq = (x(i+icentral,griddata)-x(icentral,griddata))*(x(i+icentral,griddata)-x(icentral,griddata));
-                    double dysq = (y(i+icentral,griddata)-y(jcentral,griddata))*(y(j+jcentral,griddata)-y(jcentral,griddata));
-                    double dzsq = (z(i+icentral,griddata)-z(kcentral,griddata))*(z(k+kcentral,griddata)-z(kcentral,griddata));
+                    double dysq = (y(j+jcentral,griddata)-y(jcentral,griddata))*(y(j+jcentral,griddata)-y(jcentral,griddata));
+                    double dzsq = (z(k+kcentral,griddata)-z(kcentral,griddata))*(z(k+kcentral,griddata)-z(kcentral,griddata));
 
                     double r = sqrt(dxsq + dysq + dzsq);
 
@@ -2155,7 +2156,8 @@ void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& mark
                     }
                     else
                     {
-                        if(r < radius)
+                        // the & is needed here to stop 1's overwriting 2's from earlier points.
+                        if(r < radius && marked[n]==0)
                         {
                             marked[n]=1;
                         }
