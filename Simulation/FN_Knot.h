@@ -127,7 +127,6 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves, vector<knotcurve>& 
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const Griddata &griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
-void overlayknots(vector<knotcurve>& knotcurves, const vector<knotcurve>& knotcurvesold, const Griddata &griddata);
 
 /*************************File reading and writing*****************************/
 
