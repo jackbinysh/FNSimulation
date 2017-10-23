@@ -1,9 +1,3 @@
-//  FN_knot_code.h
-//
-//
-//  Created by Carl Whitfield on 17/05/2016.
-//
-//  Last modified 3/11/16
 #include "FN_Constants.h"
 #include "TriCubicInterpolator.h"
 #include <stdlib.h>
@@ -19,6 +13,8 @@
 #include <gsl/gsl_vector.h>
 using namespace std;
 
+#ifndef FNKNOT_H
+#define FNKNOT_H
 
 struct Griddata
 {
@@ -65,6 +61,9 @@ struct knotpoint
     double vx;       //grad vector x coord
     double vy;       //grad vector y coord
     double vz;       //grad vector z coord
+    double kappaNx;  //curvature vector x component
+    double kappaNy;  //curvature vector x component
+    double kappaNz;  //curvature vector x component
     double vdotnx;       //grad vector x coord
     double vdotny;       //grad vector x coord
     double vdotnz;       //grad vector y coord
@@ -89,34 +88,42 @@ struct knotcurve
     double yavgpos;
     double zavgpos;
 };
+
+struct Link
+{
+    std::vector<knotcurve> Components;
+    int NumComponents;
+    int NumPoints;
+    double length;   //total length of line
+    double writhe;
+    double twist;
+};
+
 /*************************General maths and integer functions*****************************/
 
 // little inline guys
-inline double x(int i, const Griddata &griddata);
-inline double y(int i, const Griddata &griddata);
-inline double z(int i, const Griddata &griddata);
-inline int sign(int i);
-inline  int pttoindices(int n, int &i,  int &j,  int &k,const Griddata& griddata);       //convert i,j,k to single index
-inline  int pt(int i,  int j,  int k, const Griddata &griddata);       //convert i,j,k to single index
-inline int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
-inline int incp(int i, int p, int N);    //increment i with p for periodic boundary
-inline int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
-inline int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
+double x(int i, const Griddata &griddata);
+double y(int i, const Griddata &griddata);
+double z(int i, const Griddata &griddata);
+int sign(int i);
+int pttoindices(int n, int &i,  int &j,  int &k,const Griddata& griddata);       //convert i,j,k to single index
+int pt(int i,  int j,  int k, const Griddata &griddata);       //convert i,j,k to single index
+int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
+int incp(int i, int p, int N);    //increment i with p for periodic boundary
+int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
+int gridinc(int i, int p, int N, int direction );    //increment with reflecting boundary between -1 and 0 and N-1 and N
 
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
 void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double dispx,const double dispy,const double dispz);
 /*************************Functions for knot initialisation*****************************/
 
-double initialise_knot(std::vector<triangle>& knotsurface);
-
-double init_from_surface_file(std::vector<triangle>& knotsurface);
 
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc(vector<double>&phi, std::vector<triangle>& knotsurface, const Griddata &griddata);
+void phi_calc_surface(vector<double>&phi, std::vector<triangle>& knotsurface, const Griddata &griddata);
 
 void phi_calc_manual( vector<double>&phi,const Griddata& griddata);
 
@@ -129,22 +136,8 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
-/*************************File reading and writing*****************************/
-
-void print_marked( vector<int>&marked,int shelllabel, const Griddata& griddata);
-int markedfile_read(vector<int>&marked,Griddata& griddata);
-
-void print_B_phi( vector<double>&phi,const Griddata& griddata);
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const Griddata& griddata);
-void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata);
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<double>&ucvmag,vector<int>& marked,Griddata& griddata);
-int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddata); // for legacy purposes
-int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& griddata);
-float FloatSwap( float f );
-void ByteSwap(const char* TobeSwapped, char* swapped );
-
-
-// things for the grown function
-
-inline int incabsorb(int i, int p, int N);
 void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, const vector<knotcurve>& knotcurves, Griddata &griddata, double radius);
+
+int incabsorb(int i, int p, int N);
+
+#endif //FNKNOT_H
