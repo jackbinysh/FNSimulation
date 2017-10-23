@@ -64,8 +64,6 @@ int main (void)
 
     // setting things from globals
     int starttime = 0;
-    double CurrentTime = starttime;
-    int CurrentIteration = (int)(CurrentTime/dtime);
     int FrequentKnotplotPrintIteration = (int)(FrequentKnotplotPrintTime/dtime);
     int VelocityKnotplotPrintIteration = (int)(VelocityKnotplotPrintTime/dtime);
     int InitialSkipIteration = (int)(InitialSkipTime/dtime);
@@ -119,6 +117,8 @@ int main (void)
     // UPDATE
     cout << "Updating u and v...\n";
 
+    double CurrentTime = starttime;
+    int CurrentIteration = (int)(CurrentTime/dtime);
 #pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
