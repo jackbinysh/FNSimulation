@@ -68,40 +68,31 @@ int main (void)
     Type = gsl_multimin_fminimizer_nmsimplex2;
     minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
 
-
-    if (option == FROM_PHI_FILE)
+    if(option == FROM_UV_FILE)
     {
         cout << "Reading input file...\n";
-        phi_file_read(phi,griddata);
+        if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,marked,griddata)) return 1;
     }
     else
     {
-        if(option == FROM_UV_FILE)
+        if(option == FROM_FUNCTION)
         {
-            cout << "Reading input file...\n";
-            if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,marked,griddata)) return 1;
+            phi_calc_manual(phi,griddata);
         }
         else
         {
-            if(option == FROM_FUNCTION)
+            //Initialise knot
+            if(initialise_knot(knotsurface)==0)
             {
-                phi_calc_manual(phi,griddata);
+                cout << "Error reading input option. Aborting...\n";
+                return 1;
             }
-            else
-            {
-                //Initialise knot
-                if(initialise_knot(knotsurface)==0)
-                {
-                    cout << "Error reading input option. Aborting...\n";
-                    return 1;
-                }
 
-                if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-                cout << knotsurface.size() << '\n';
+            if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
+            cout << knotsurface.size() << '\n';
 
-                //Calculate phi for initial conditions
-                phi_calc(phi,knotsurface,griddata);
-            }
+            //Calculate phi for initial conditions
+            phi_calc(phi,knotsurface,griddata);
         }
     }
     vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
@@ -159,7 +150,6 @@ int main (void)
                     int status = find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     if(0==status && !knotcurvesold.empty())
                     {
-                        overlayknots(knotcurves,knotcurvesold, griddata);
                         find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
                         print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
                     }
@@ -1026,41 +1016,86 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
 
         // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
         // but for storage and display, we should put it all in the box
-        double xmax = x(griddata.Nx -1 ,griddata);
-        double xmin = x(0,griddata);
-        double deltax = griddata.Nx * h;
-        double ymax = y(griddata.Ny -1,griddata);
-        double ymin = y(0,griddata);
-        double deltay = griddata.Ny * h;
-        double zmax = z(griddata.Nz -1 ,griddata);
-        double zmin = z(0,griddata);
-        double deltaz = griddata.Nz * h;
 
+        // (1) construct the proper periodic co-ordinates from our ghost grid
+        double xupperlim = x(griddata.Nx -1 ,griddata);
+        double xlowerlim = x(0,griddata);
+        double deltax = griddata.Nx * h;
+        double yupperlim = y(griddata.Ny -1,griddata);
+        double ylowerlim = y(0,griddata);
+        double deltay = griddata.Ny * h;
+        double zupperlim = z(griddata.Nz -1 ,griddata);
+        double zlowermin = z(0,griddata);
+        double deltaz = griddata.Nz * h;
         for(s=0; s<NP; s++)
         {
             knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord;
             knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord;
             knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord;
-            if(knotcurves[c].knotcurve[s].xcoord > xmax) {
+            if(knotcurves[c].knotcurve[s].xcoord > xupperlim) {
                 knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax;
             } ;
-            if(knotcurves[c].knotcurve[s].xcoord < xmin) {
+            if(knotcurves[c].knotcurve[s].xcoord < xlowerlim) {
                 knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
             };
-            if(knotcurves[c].knotcurve[s].ycoord > ymax) {
+            if(knotcurves[c].knotcurve[s].ycoord > yupperlim) {
                 knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
             };
-            if(knotcurves[c].knotcurve[s].ycoord < ymin) {
+            if(knotcurves[c].knotcurve[s].ycoord < ylowerlim) {
                 knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
             };
-            if(knotcurves[c].knotcurve[s].zcoord > zmax) {
+            if(knotcurves[c].knotcurve[s].zcoord > zupperlim) {
                 knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
             };
-            if(knotcurves[c].knotcurve[s].zcoord < zmin)
+            if(knotcurves[c].knotcurve[s].zcoord < zlowermin)
             {
                 knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
             };
         }
+
+        // (2) standardise the knot such that the top right corner of the bounding box lies in the "actual" grid. This bounding box point may only lie
+        // off grid in the +ve x y z direction.
+        double xmax=knotcurves[c].knotcurve[0].xcoord;
+        double ymax=knotcurves[c].knotcurve[0].ycoord;
+        double zmax=knotcurves[c].knotcurve[0].zcoord;
+        for(s=0; s<NP; s++)
+        {
+            if(knotcurves[c].knotcurve[s].xcoord>xmax)
+            {
+                xmax = knotcurves[c].knotcurve[s].xcoord;
+            }
+            if(knotcurves[c].knotcurve[s].ycoord>ymax)
+            {
+                ymax = knotcurves[c].knotcurve[s].ycoord;
+            }
+            if(knotcurves[c].knotcurve[s].zcoord>zmax)
+            {
+                zmax = knotcurves[c].knotcurve[s].zcoord;
+            }
+        }
+
+            // get how many lattice shifts are needed
+            int xlatticeshift = (int) (round(xmax/(griddata.Nx *griddata.h)));
+            int ylatticeshift = (int) (round(ymax/(griddata.Ny *griddata.h)));
+            int zlatticeshift = (int) (round(zmax/(griddata.Nz *griddata.h)));
+            // perform the shift
+
+            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+            {
+                knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
+                knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
+                knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
+            }
+            // now we've done these shifts, we'd better move the knotcurve average position too.
+            knotcurves[c].xavgpos = 0;
+            knotcurves[c].yavgpos = 0;
+            knotcurves[c].zavgpos = 0;
+            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+            {
+                knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+                knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+                knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
+            }
     }
 
     return 0;
@@ -1445,61 +1480,7 @@ void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddat
     }
 }
 
-int phi_file_read(vector<double>&phi,const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    string temp,buff;
-    stringstream ss;
-    ifstream fin (B_filename.c_str());
-    int i,j,k,n;
-
-    for(i=0;i<10;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff)) temp = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n=pt(i,j,k,griddata);
-                ss.clear();
-                ss.str("");
-                if(fin.good())
-                {
-                    if(getline(fin,buff))
-                    {
-                        ss << buff;
-                        ss >> phi[n];
-                    }
-                }
-                else
-                {
-                    cout << "Something went wrong!\n";
-                    return 1;
-                }
-            }
-        }
-    }
-
-    fin.close();
-
-    return 0;
-}
-
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy, vector<double>& ucvz, vector<double>&ucvmag, vector<int>& marked, Griddata &griddata)
+int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz, vector<double>& ucvmag,vector<int>& marked,Griddata& griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -1827,49 +1808,6 @@ int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& gridda
     return 0;
 }
 
-void grow(vector<int>&marked,const Griddata& griddata)
-{
-    // the marked array has the following values
-    // 0 - not evaluated
-    // -1 - a boundary, to be grown
-    // 1 - the interrior, already grown
-    // -3 - a temporary state, marked as a boundary during the update
-    // positive numbers - layers of shells already marked
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    for(int i=0;i<Nx;i++)
-    {
-        for(int j=0; j<Ny; j++)
-        {
-            for(int k=0; k<Nz; k++)   //Central difference
-            {
-                int n = pt(i,j,k,griddata);
-                if(marked[n] ==-1)
-                {
-
-                    for(int iinc=-1;iinc<=1;iinc++)
-                    {
-                        for(int jinc=-1; jinc<=1; jinc++)
-                        {
-                            for(int kinc=-1; kinc<=1; kinc++)   //Central difference
-                            {
-                                int neighboringn = pt(incp(i,iinc,Nx),incp(j,jinc,Ny),incp(k,kinc,Nz),griddata);
-                                if(marked[neighboringn] == 0 ) marked[neighboringn] = -3;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    for(int n = 0; n<Nx*Ny*Nz;n++)
-    {
-        if(marked[n]==-1){marked[n] =1;}
-        if(marked[n]==-3){marked[n] =-1;}
-    }
-}
-
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
@@ -1909,9 +1847,6 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 
 double my_f(const gsl_vector* minimum, void* params)
 {
-
-    int i,j,k,idwn,jdwn,kdwn,modidwn,modjdwn,modkdwn,m,pts,iinc,jinc,kinc;
-    double ucvxs, ucvys, ucvzs,  xd, yd ,zd, xdiff, ydiff, zdiff, prefactor;
     struct parameters* myparameters = (struct parameters *) params;
     Griddata griddata = myparameters->mygriddata;
     likely::TriCubicInterpolator* interpolateducvmag = myparameters->ucvmag;
@@ -2069,43 +2004,6 @@ void ByteSwap(const char* TobeSwapped, char* swapped )
     swapped[2] = TobeSwapped[1];
     swapped[3] = TobeSwapped[0];
     return;
-}
-// this function takes two knots, and shifts the first one by grid spacing multiples until it literally lies over the second
-void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const Griddata& griddata)
-{
-    for(int c = 0; c <knotcurves.size();c++)
-    {
-        // how the average position is displaced between the two
-        double deltax = knotcurves[c].xavgpos - knotcurvesold[c].xavgpos;
-        double deltay = knotcurves[c].yavgpos - knotcurvesold[c].yavgpos;
-        double deltaz = knotcurves[c].zavgpos - knotcurvesold[c].zavgpos;
-
-        // we mod out by the lattice spacing in all of these
-        // how many lattice spacings go into these deltas?
-        int xlatticeshift = (int) (round(deltax/(griddata.Nx *griddata.h)));
-        int ylatticeshift = (int) (round(deltay/(griddata.Ny *griddata.h)));
-        int zlatticeshift = (int) (round(deltaz/(griddata.Nz *griddata.h)));
-
-        // we should shift the knotcurve points by this much , to properly be able to compare the curves
-
-        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-        {
-            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
-            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
-            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
-        }
-        // now we've done these shifts, we'd better move the knotcurve average position too.
-        knotcurves[c].xavgpos = 0;
-        knotcurves[c].yavgpos = 0;
-        knotcurves[c].zavgpos = 0;
-        double NP = knotcurves[c].knotcurve.size();
-        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-        {
-            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
-            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
-            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
-        }
-    }
 }
 
 void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, const vector<knotcurve>& knotcurves, Griddata &griddata, double radius)

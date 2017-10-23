@@ -128,7 +128,6 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
 void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const vector<int>&markedlist, const Griddata& griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
-void overlayknots(vector<knotcurve>& knotcurves,const vector<knotcurve>& knotcurvesold,const Griddata& griddata);
 
 /*************************File reading and writing*****************************/
 
@@ -137,7 +136,6 @@ int markedfile_read(vector<int>&marked,Griddata& griddata);
 
 void print_B_phi( vector<double>&phi,const Griddata& griddata);
 void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const Griddata& griddata);
-int phi_file_read(vector<double>&phi,const Griddata& griddata);
 void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata);
 int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz,vector<double>&ucvmag,vector<int>& marked,Griddata& griddata);
 int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddata); // for legacy purposes
@@ -149,5 +147,4 @@ void ByteSwap(const char* TobeSwapped, char* swapped );
 // things for the grown function
 
 inline int incabsorb(int i, int p, int N);
-void grow(vector<int>&marked,const Griddata& griddata);
 void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& markedlist, const vector<knotcurve>& knotcurves, Griddata &griddata, double radius);
