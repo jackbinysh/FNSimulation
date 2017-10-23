@@ -20,7 +20,9 @@
 
    See below for various options to start the code from previous outputted data.*/
 #include "FN_Knot.h"    //contains user defined variables for the simulation, and the parameters used 
-#include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used 
+#include "Initialisation.h"    //contains user defined variables for the simulation, and the parameters used
+#include "TriCubicInterpolator.h"    //contains user defined variables for the simulation, and the parameters used
+#include "ReadingWriting.h"    //contains user defined variables for the simulation, and the parameters used
 #include <omp.h>
 #include <math.h>
 #include <string.h>
@@ -60,50 +62,8 @@ int main (void)
     Type = gsl_multimin_fminimizer_nmsimplex2;
     minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
 
-    if(option == FROM_UV_FILE)
-    {
-        cout << "Reading input file...\n";
-        if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,griddata)) return 1;
-    }
-    else
-    {
-        if(option == FROM_FUNCTION)
-        {
-            phi_calc_manual(phi,griddata);
-        }
-        else
-        {
-            //Initialise knot
-            if(initialise_knot(knotsurface)==0)
-            {
-                cout << "Error reading input option. Aborting...\n";
-                return 1;
-            }
-
-            if(option == FROM_SURFACE_FILE) cout << "Total no. of surface points: ";
-            cout << knotsurface.size() << '\n';
-
-            //Calculate phi for initial conditions
-            phi_calc(phi,knotsurface,griddata);
-        }
-    }
-    vector<triangle> ().swap(knotsurface);   //empty knotsurface memory
-    if(option!=FROM_UV_FILE)
-    {
-        cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,griddata);
-    }
-
-    cout << "Updating u and v...\n";
-    // initialising the start time to 0. it gets overwritten if we use a uv file
+    // setting things from globals
     int starttime = 0;
-    if(option == FROM_UV_FILE)
-    {
-        // we hack this together as so: the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
-        string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
-        starttime = atoi(number.c_str());
-    }
-    // initialise the time to the starttime
     double CurrentTime = starttime;
     int CurrentIteration = (int)(CurrentTime/dtime);
     int FrequentKnotplotPrintIteration = (int)(FrequentKnotplotPrintTime/dtime);
@@ -114,6 +74,51 @@ int main (void)
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
+
+    // INITIALISATION
+
+    switch(option)
+    {
+    case FROM_UV_FILE:
+    {
+        cout << "Reading input file...\n";
+        if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,griddata)){return 1;}
+        // get the start time -  we hack this together as so:
+        // the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
+        string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
+        starttime = atoi(number.c_str());
+        break;
+    }
+    case FROM_FUNCTION:
+    {
+        phi_calc_manual(phi,griddata);
+        cout << "Calculating u and v...\n";
+        uv_initialise(phi,u,v,griddata);
+        break;
+    }
+    case FROM_SURFACE_FILE:
+    {
+        init_from_surface_file(knotsurface);
+        phi_calc_surface(phi,knotsurface,griddata);
+        cout << "Calculating u and v...\n";
+        uv_initialise(phi,u,v,griddata);
+        break;
+    }
+    case FROM_CURVE_FILE:
+    {
+        Link Curve;
+        InitialiseFromFile(Curve);
+        cout << "calculating the solid angle..." << endl;
+        phi_calc_curve(phi,Curve,griddata);
+        cout << "Calculating u and v...\n";
+        uv_initialise(phi,u,v,griddata);
+    }
+
+    }
+
+    // UPDATE
+    cout << "Updating u and v...\n";
+
 #pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
     {
         while(CurrentTime <= TTime)
@@ -165,160 +170,6 @@ int main (void)
     return 0;
 }
 
-/*************************Functions for knot initialisation*****************************/
-double initialise_knot(vector<triangle>& knotsurface)
-{
-    double L;
-    switch (option)
-    {
-    case FROM_SURFACE_FILE: L = init_from_surface_file(knotsurface);
-        break;
-
-    default: L=0;
-        break;
-    }
-
-    return L;
-}
-
-double init_from_surface_file(vector<triangle>& knotsurface)
-{
-    string filename, buff;
-    stringstream ss;
-    double A = 0;   //total area
-    int i=0;
-    int j;
-    double r10,r20,r21,s,xcoord,ycoord,zcoord;
-    string temp;
-    ifstream knotin;
-    /*  For recording max and min input values*/
-    double maxxin = 0;
-    double maxyin = 0;
-    double maxzin = 0;
-    double minxin = 0;
-    double minyin = 0;
-    double minzin = 0;
-
-    ss.clear();
-    ss.str("");
-    ss << knot_filename << ".stl";
-
-    filename = ss.str();
-    knotin.open(filename.c_str());
-    if(knotin.good())
-    {
-        if(getline(knotin,buff)) temp = buff;
-    }
-    else cout << "Error reading file\n";
-    while(knotin.good())   //read in points for knot
-    {
-        if(getline(knotin,buff))  //read in surface normal
-        {
-            ss.clear();
-            ss.str("");
-            ss << buff;
-            ss >> temp;
-            if(temp.compare("endsolid") == 0) break;
-            knotsurface.push_back(triangle());
-            ss >> temp >> knotsurface[i].normal[0] >> knotsurface[i].normal[1] >> knotsurface[i].normal[2];
-        }
-
-        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-        knotsurface[i].centre[0] = 0;
-        knotsurface[i].centre[1] = 0;
-        knotsurface[i].centre[2] = 0;
-        for(j=0;j<3;j++)
-        {
-            if(getline(knotin,buff))  //read in vertices
-            {
-                ss.clear();
-                ss.str("");
-                ss << buff;
-                ss >> temp >> xcoord >> ycoord >> zcoord;
-
-                if(xcoord>maxxin) maxxin = xcoord;
-                if(ycoord>maxyin) maxyin = ycoord;
-                if(zcoord>maxzin) maxzin = zcoord;
-                if(xcoord<minxin) minxin = xcoord;
-                if(ycoord<minyin) minyin = ycoord;
-                if(zcoord<minzin) minzin = zcoord;
-
-                knotsurface[i].xvertex[j] = xcoord;
-                knotsurface[i].yvertex[j] = ycoord;
-                knotsurface[i].zvertex[j] = zcoord;
-                knotsurface[i].centre[0] += knotsurface[i].xvertex[j]/3.0;
-                knotsurface[i].centre[1] += knotsurface[i].yvertex[j]/3.0;
-                knotsurface[i].centre[2] += knotsurface[i].zvertex[j]/3.0;
-            }
-        }
-        //cout << i << " (" << knotsurface[i].centre[0] << ',' << knotsurface[i].centre[1] << ',' << knotsurface[i].centre[2] << ") , (" << knotsurface[i].normal[0] << ',' << knotsurface[i].normal[1] << ',' << knotsurface[i].normal[2] << ") \n";
-
-        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-        if(getline(knotin,buff)) temp = buff;   //read in "outer loop"
-
-        i++;
-    }
-
-
-    /* Work out space scaling for knot surface */
-    double scale[3];
-    double midpoint[3];
-    double norm;
-    scalefunction(scale,midpoint,maxxin,minxin,maxyin,minyin,maxzin,minzin);
-
-    /*Rescale points and normals to fit grid properly*/
-    for(i=0;i<knotsurface.size();i++)
-    {
-        for(j=0;j<3;j++)
-        {
-            knotsurface[i].xvertex[j] = scale[0]*(knotsurface[i].xvertex[j] - midpoint[0]);
-            knotsurface[i].yvertex[j] = scale[1]*(knotsurface[i].yvertex[j] - midpoint[1]);
-            knotsurface[i].zvertex[j] = scale[2]*(knotsurface[i].zvertex[j] - midpoint[2]);
-            knotsurface[i].centre[j] = scale[j]*(knotsurface[i].centre[j] - midpoint[j]);
-        }
-
-        norm = sqrt(scale[1]*scale[1]*scale[2]*scale[2]*knotsurface[i].normal[0]*knotsurface[i].normal[0] +
-                        scale[0]*scale[0]*scale[2]*scale[2]*knotsurface[i].normal[1]*knotsurface[i].normal[1] +
-                        scale[0]*scale[0]*scale[1]*scale[1]*knotsurface[i].normal[2]*knotsurface[i].normal[2]);
-
-        knotsurface[i].normal[0] *= scale[1]*scale[2]/norm;
-        knotsurface[i].normal[1] *= scale[0]*scale[2]/norm;
-        knotsurface[i].normal[2] *= scale[0]*scale[1]/norm;
-
-        /*Check surface normal is correct
-      p1x = knotsurface[i].xvertex[1] - knotsurface[i].xvertex[0];
-      p1y = knotsurface[i].yvertex[1] - knotsurface[i].yvertex[0];
-      p1z = knotsurface[i].zvertex[1] - knotsurface[i].zvertex[0];
-      p2x = knotsurface[i].xvertex[2] - knotsurface[i].xvertex[0];
-      p2y = knotsurface[i].yvertex[2] - knotsurface[i].yvertex[0];
-      p2z = knotsurface[i].zvertex[2] - knotsurface[i].zvertex[0];
-      nx = p1y*p2z - p2y*p1z;
-      ny = p1z*p2x - p2z*p1x;
-      nz = p1x*p2y - p2x*p1y;
-      norm = sqrt(nx*nx+ny*ny+nz*nz);
-      nx = nx/norm;
-      ny = ny/norm;
-      nz = nz/norm;
-      cout << nx*knotsurface[i].normal[0] + ny*knotsurface[i].normal[1] + nz*knotsurface[i].normal[2] << '\n';
-      */
-
-        r10 = sqrt((knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[1]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[1]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[1]-knotsurface[i].zvertex[0]));
-        r20 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[0]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[0]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[0]));
-        r21 = sqrt((knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1])*(knotsurface[i].xvertex[2]-knotsurface[i].xvertex[1]) + (knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1])*(knotsurface[i].yvertex[2]-knotsurface[i].yvertex[1]) + (knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1])*(knotsurface[i].zvertex[2]-knotsurface[i].zvertex[1]));
-        s = (r10+r20+r21)/2;
-        knotsurface[i].area = sqrt(s*(s-r10)*(s-r20)*(s-r21));
-        A += knotsurface[i].area;
-
-        // apply any rotations and displacements  of the initial coniditions the user has specified
-        for(j=0;j<3;j++) rotatedisplace(knotsurface[i].xvertex[j],knotsurface[i].yvertex[j],knotsurface[i].zvertex[j],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
-        rotatedisplace(knotsurface[i].normal[0],knotsurface[i].normal[1],knotsurface[i].normal[2],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
-        rotatedisplace(knotsurface[i].centre[0],knotsurface[i].centre[1],knotsurface[i].centre[2],initialthetarotation,initialxdisplacement,initialydisplacement,initialzdisplacement);
-    }
-
-    cout << "Input scaled by: " << scale[0] << ' ' << scale[1] << ' ' << scale[2] << " in x,y and z\n";
-
-    return A;
-}
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
 {
     bool nonzeroheight[3];  //marker: true if this dimension has non zero height in stl file
@@ -349,72 +200,6 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
     }
 #endif
 }
-
-/*************************Functions for B and Phi calcs*****************************/
-
-void phi_calc(vector<double>&phi,vector<triangle>& knotsurface, const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    int i,j,k,n,s;
-    double rx,ry,rz,r;
-    cout << "Calculating scalar potential...\n";
-#pragma omp parallel default(none) shared (Nx,Ny,Nz,griddata, knotsurface, phi ) private ( i, j, k, n, s, rx, ry, rz , r)
-    {
-#pragma omp for
-        for(i=0;i<Nx;i++)
-        {
-            for(j=0; j<Ny; j++)
-            {
-                for(k=0; k<Nz; k++)
-                {
-                    n = pt(i,j,k,griddata);
-                    phi[n] = 0;
-                    for(s=0;s<knotsurface.size();s++)
-                    {
-                        rx = knotsurface[s].centre[0]-x(i,griddata);
-                        ry = knotsurface[s].centre[1]-y(j,griddata);
-                        rz = knotsurface[s].centre[2]-z(k,griddata);
-                        r = sqrt(rx*rx+ry*ry+rz*rz);
-                        if(r>0) phi[n] += (rx*knotsurface[s].normal[0] + ry*knotsurface[s].normal[1] + rz*knotsurface[s].normal[2])*knotsurface[s].area/(2*r*r*r);
-                    }
-                    while(phi[n]>M_PI) phi[n] -= 2*M_PI;
-                    while(phi[n]<-M_PI) phi[n] += 2*M_PI;
-                }
-            }
-        }
-    }
-    cout << "Printing B and phi...\n";
-    print_B_phi(phi,griddata);
-
-}
-void phi_calc_manual(vector<double>&phi, Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    int i,j,k,n;
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)
-            {
-                n = pt(i,j,k,griddata);
-                phi[n] = 0;
-                double theta = 0.5;
-                phi[n] = atan2(y(j,griddata)-lambda,x(i,griddata)-lambda)- atan2(y(j,griddata),-sin(theta)*z(k,griddata) +cos(theta)*x(i,griddata));
-                while(phi[n]>M_PI) phi[n] -= 2*M_PI;
-                while(phi[n]<-M_PI) phi[n] += 2*M_PI;
-            }
-        }
-    }
-    cout << "Printing B and phi...\n";
-    print_B_phi(phi,griddata);
-}
-
-/*************************Functions for FN dynamics*****************************/
 
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Griddata& griddata)
 {
@@ -1032,28 +817,28 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             }
         }
 
-            // get how many lattice shifts are needed
-            int xlatticeshift = (int) (round(xmax/(griddata.Nx *griddata.h)));
-            int ylatticeshift = (int) (round(ymax/(griddata.Ny *griddata.h)));
-            int zlatticeshift = (int) (round(zmax/(griddata.Nz *griddata.h)));
-            // perform the shift
+        // get how many lattice shifts are needed
+        int xlatticeshift = (int) (round(xmax/(griddata.Nx *griddata.h)));
+        int ylatticeshift = (int) (round(ymax/(griddata.Ny *griddata.h)));
+        int zlatticeshift = (int) (round(zmax/(griddata.Nz *griddata.h)));
+        // perform the shift
 
-            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-            {
-                knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
-                knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
-                knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
-            }
-            // now we've done these shifts, we'd better move the knotcurve average position too.
-            knotcurves[c].xavgpos = 0;
-            knotcurves[c].yavgpos = 0;
-            knotcurves[c].zavgpos = 0;
-            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-            {
-                knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
-                knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
-                knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
-            }
+        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+        {
+            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
+            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
+            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
+        }
+        // now we've done these shifts, we'd better move the knotcurve average position too.
+        knotcurves[c].xavgpos = 0;
+        knotcurves[c].yavgpos = 0;
+        knotcurves[c].zavgpos = 0;
+        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+        {
+            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
+        }
     }
 }
 
@@ -1200,503 +985,6 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
 
 /*************************File reading and writing*****************************/
 
-void print_marked( vector<int>&marked,int shelllabel, const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    double h = griddata.h;
-    int i,j,k,n;
-    stringstream ss;
-    ss << shelllabel<< "marked.vtk";
-    ofstream uvout (ss.str().c_str());
-
-    uvout << "# vtk DataFile Version 3.0\nUV fields\nASCII\nDATASET STRUCTURED_POINTS\n";
-    uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
-    uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
-    uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
-    uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
-    uvout << "SCALARS marked float\nLOOKUP_TABLE default\n";
-
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n = pt(i,j,k,griddata);
-                uvout << marked[n] << '\n';
-            }
-        }
-    }
-    uvout.close();
-}
-void print_uv( vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz,vector<double>&ucvmag, double t, const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    double h = griddata.h;
-    int i,j,k,n;
-    stringstream ss;
-    ss << "uv_plot" << t << ".vtk";
-    ofstream uvout (ss.str().c_str(),std::ios::binary | std::ios::out);
-
-    uvout << "# vtk DataFile Version 3.0\nUV fields\nBINARY\nDATASET STRUCTURED_POINTS\n";
-    uvout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
-    uvout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
-    uvout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
-    uvout << "POINT_DATA " << Nx*Ny*Nz << '\n';
-    uvout << "SCALARS u float\nLOOKUP_TABLE default\n";
-
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n = pt(i,j,k,griddata);
-                float val =  FloatSwap(u[n]);
-                uvout.write((char*) &val, sizeof(float));
-            }
-        }
-    }
-
-    uvout << "\n" << "SCALARS v float\nLOOKUP_TABLE default\n";
-
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n = pt(i,j,k,griddata);
-                float val =  FloatSwap(v[n]);
-                uvout.write( (char*) &val, sizeof(float));
-            }
-        }
-    }
-
-    uvout << "\n" << "SCALARS ucrossv float\nLOOKUP_TABLE default\n";
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n = pt(i,j,k,griddata);
-                //float val = FloatSwap(sqrt(ucvx[n]*ucvx[n] + ucvy[n]*ucvy[n] + ucvz[n]*ucvz[n]));
-                float val = FloatSwap(ucvmag[n]);
-                uvout.write( (char*) &val, sizeof(float));
-            }
-        }
-    }
-
-    uvout.close();
-}
-
-void print_B_phi( vector<double>&phi, const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    double h = griddata.h;
-    int i,j,k,n;
-    string fn = "phi.vtk";
-
-    ofstream Bout (fn.c_str());
-
-    Bout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET STRUCTURED_POINTS\n";
-    Bout << "DIMENSIONS " << Nx << ' ' << Ny << ' ' << Nz << '\n';
-    Bout << "ORIGIN " << x(0,griddata) << ' ' << y(0,griddata) << ' ' << z(0,griddata) << '\n';
-    Bout << "SPACING " << h << ' ' << h << ' ' << h << '\n';
-    Bout << "POINT_DATA " << Nx*Ny*Nz << '\n';
-    Bout << "SCALARS Phi float\nLOOKUP_TABLE default\n";
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n = pt(i,j,k,griddata);
-                Bout << phi[n] << '\n';
-            }
-        }
-    }
-    Bout.close();
-}
-
-
-void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata)
-{
-    for( int c=0; c < (knotcurves.size()) ; c++)
-    {
-
-        /***Write values to file*******/
-        stringstream ss;
-        ss << "globaldata" << "_" << c <<  ".txt";
-        ofstream wrout (ss.str().c_str(), std::ofstream::app);
-        wrout << t << '\t' << knotcurves[c].writhe << '\t' << knotcurves[c].twist << '\t' << knotcurves[c].length << '\n';
-        wrout.close();
-
-        ss.str("");
-        ss.clear();
-
-        ss << "knotplot" << c << "_" << t <<  ".vtk";
-        ofstream knotout (ss.str().c_str());
-
-        int i;
-        int n = knotcurves[c].knotcurve.size();
-
-        knotout << "# vtk DataFile Version 3.0\nKnot\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-        knotout << "POINTS " << n << " float\n";
-
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].xcoord << ' ' << knotcurves[c].knotcurve[i].ycoord << ' ' << knotcurves[c].knotcurve[i].zcoord << '\n';
-        }
-
-        knotout << "\n\nCELLS " << n << ' ' << 3*n << '\n';
-
-        for(i=0; i<n; i++)
-        {
-            knotout << 2 << ' ' << i << ' ' << incp(i,1,n) << '\n';
-        }
-
-        knotout << "\n\nCELL_TYPES " << n << '\n';
-
-        for(i=0; i<n; i++)
-        {
-            knotout << "3\n";
-        }
-
-        knotout << "\n\nPOINT_DATA " << n << "\n\n";
-
-        knotout << "\nSCALARS Curvature float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].curvature << '\n'; }
-
-        knotout << "\nSCALARS Torsion float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].torsion << '\n';
-        }
-
-        knotout << "\nVECTORS A float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].ax << ' ' << knotcurves[c].knotcurve[i].ay << ' ' << knotcurves[c].knotcurve[i].az << '\n';
-        }
-
-        knotout << "\nVECTORS V float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vx << ' ' << knotcurves[c].knotcurve[i].vy << ' ' << knotcurves[c].knotcurve[i].vz << '\n';
-        }
-        knotout << "\nVECTORS t float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].tx << ' ' << knotcurves[c].knotcurve[i].ty << ' ' << knotcurves[c].knotcurve[i].tz << '\n';
-        }
-        knotout << "\nVECTORS n float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].nx << ' ' << knotcurves[c].knotcurve[i].ny << ' ' << knotcurves[c].knotcurve[i].nz << '\n';
-        }
-        knotout << "\nVECTORS b float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].bx << ' ' << knotcurves[c].knotcurve[i].by << ' ' << knotcurves[c].knotcurve[i].bz << '\n';
-        }
-        knotout << "\nVECTORS vdotn float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vdotnx << ' ' << knotcurves[c].knotcurve[i].vdotny << ' ' << knotcurves[c].knotcurve[i].vdotnz << '\n';
-        }
-        knotout << "\nVECTORS vdotb float\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].vdotbx << ' ' << knotcurves[c].knotcurve[i].vdotby << ' ' << knotcurves[c].knotcurve[i].vdotbz << '\n';
-        }
-        knotout << "\n\nCELL_DATA " << n << "\n\n";
-        knotout << "\nSCALARS Writhe float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].writhe << '\n';
-        }
-
-        knotout << "\nSCALARS Twist float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].twist << '\n';
-        }
-
-        knotout << "\nSCALARS Length float\nLOOKUP_TABLE default\n";
-        for(i=0; i<n; i++)
-        {
-            knotout << knotcurves[c].knotcurve[i].length << '\n';
-        }
-        knotout.close();
-    }
-}
-
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz, vector<double>& ucvmag,Griddata& griddata)
-{
-    string buff,datatype,dimensions,xdim,ydim,zdim;
-    ifstream fin (B_filename.c_str());
-    for(int i=0;i<4;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff) &&(i==2)) datatype = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    if(datatype.compare("ASCII")==0)
-    {
-        uvfile_read_ASCII(u,v,griddata);
-    }
-    else if(datatype.compare("BINARY")==0)
-    {
-        uvfile_read_BINARY(u,v,griddata);
-    }
-
-    // okay we've read in the file - now, did we want to interpolate?
-    if(interpolationflag)
-    {
-        cout << "interpolating grid \n";
-
-        Griddata interpolatedgriddata;
-        interpolatedgriddata.Nx = interpolatedNx;
-        interpolatedgriddata.Ny = interpolatedNy;
-        interpolatedgriddata.Nz = interpolatedNz;
-        interpolatedgriddata.h = ((initialNx-1)*initialh)/(interpolatedNx-1);
-
-        vector<double>interpolatedugrid(interpolatedNx*interpolatedNy*interpolatedNz);
-        vector<double>interpolatedvgrid(interpolatedNx*interpolatedNy*interpolatedNz);
-
-        // interpolate u and v
-        likely::TriCubicInterpolator interpolatedu(u, initialh, initialNx,initialNy,initialNz);
-        likely::TriCubicInterpolator interpolatedv(v, initialh, initialNx,initialNy,initialNz);
-        for(int i=0;i<interpolatedNx;i++)
-        {
-            for(int j=0; j<interpolatedNy; j++)
-            {
-                for(int k=0; k<interpolatedNz; k++)   //Central difference
-                {
-
-                    // get the point in space this gridpoint corresponds to
-                    double px= x(i,interpolatedgriddata);
-                    double py= y(j,interpolatedgriddata);
-                    double pz= z(k,interpolatedgriddata);
-                    // interpolate
-                    interpolatedugrid[pt(i,j,k,interpolatedgriddata)]= interpolatedu(px,py,pz);
-                    interpolatedvgrid[pt(i,j,k,interpolatedgriddata)]= interpolatedv(px,py,pz);
-                }
-            }
-        }
-
-        // resize all arrays, set the new u and v arrays, and set the new griddata
-        ucvx.resize(interpolatedNx*interpolatedNy*interpolatedNz);
-        ucvy.resize(interpolatedNx*interpolatedNy*interpolatedNz);
-        ucvz.resize(interpolatedNx*interpolatedNy*interpolatedNz);
-        ucvmag.resize(interpolatedNx*interpolatedNy*interpolatedNz);
-        ku.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
-        kv.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
-
-        u = interpolatedugrid;
-        v = interpolatedvgrid;
-
-        griddata=interpolatedgriddata;
-    }
-
-    return 0;
-}
-
-int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    string temp,buff;
-    stringstream ss;
-    ifstream fin (B_filename.c_str());
-    int i,j,k,n;
-
-    for(i=0;i<10;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff)) temp = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n=pt(i,j,k,griddata);
-                ss.clear();
-                ss.str("");
-                if(fin.good())
-                {
-                    if(getline(fin,buff))
-                    {
-                        ss << buff;
-                        ss >> u[n];
-                    }
-                }
-                else
-                {
-                    cout << "Something went wrong!\n";
-                    return 1;
-                }
-            }
-        }
-    }
-
-    for(i=0;i<2;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff)) temp = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n=pt(i,j,k,griddata);
-                ss.clear();
-                ss.str("");
-                if(fin.good())
-                {
-                    if(getline(fin,buff)) ss << buff;
-                    ss >> v[n];
-                }
-                else
-                {
-                    cout << "Something went wrong!\n";
-                    return 1;
-                }
-            }
-        }
-    }
-
-    fin.close();
-
-    return 0;
-}
-
-int uvfile_read_BINARY(vector<double>&u, vector<double>&v,const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    string temp,buff;
-    stringstream ss;
-    ifstream fin (B_filename.c_str(), std::ios::in  | std::ios::binary);
-    int i,j,k,n;
-
-    for(i=0;i<10;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff)) temp = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n=pt(i,j,k,griddata);
-                char* memblock;
-                char* swapped;
-                memblock = new char [sizeof(float)];
-                swapped = new char [sizeof(float)];
-                fin.read(memblock,sizeof(float));
-                ByteSwap(memblock, swapped);
-                float value = 12;
-                memcpy(&value, swapped, 4);
-                u[n] = value;
-                delete[] memblock;
-                delete[] swapped;
-            }
-        }
-    }
-
-    for(i=0;i<3;i++)
-    {
-        if(fin.good())
-        {
-            if(getline(fin,buff)) temp = buff;
-        }
-        else
-        {
-            cout << "Something went wrong!\n";
-            return 1;
-        }
-    }
-
-    for(k=0; k<Nz; k++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(i=0; i<Nx; i++)
-            {
-                n=pt(i,j,k,griddata);
-                char* memblock;
-                char* swapped;
-                memblock = new char [sizeof(float)];
-                swapped = new char [sizeof(float)];
-                fin.read(memblock,sizeof(float));
-                ByteSwap(memblock, swapped);
-                float value = 12;
-                memcpy(&value, swapped, 4);
-                v[n] = value;
-                delete[] memblock;
-                delete[] swapped;
-            }
-        }
-    }
-
-    fin.close();
-
-    return 0;
-}
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint )
 {
     double ux = SegmentEnd.xcoord - SegmentStart.xcoord ;
@@ -1788,33 +1076,33 @@ void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double
     zcoord = zprime;
 
 }
-inline int circularmod(int i, int N)    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
+int circularmod(int i, int N)    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 {
     if(i<0) return N - ((-i)%N);
     else return i%N;
 }
 // inlined functions for incrementing things respecting boundaries
-inline int incp(int i, int p, int N)    //increment i with p for periodic boundary
+int incp(int i, int p, int N)    //increment i with p for periodic boundary
 {
     if(i+p<0) return (N+i+p);
     else return ((i+p)%N);
 }
 
-inline int incw(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+int incw(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {
     if(i+p<0) return (-(i+p+1));
     if(i+p>N-1) return (2*N-(i+p+1));
     return (i+p);
 }
 
-inline int incabsorb(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
+int incabsorb(int i, int p, int N)    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {
     if(i+p<0) return (0);
     if(i+p>N-1) return (N-1);
     return (i+p);
 }
 // this function is specifically designed to incremenet, in the direction specified, respecting the boundary conditions, which are global enums
-inline int gridinc(int i, int p, int N, int direction )    //increment with reflecting boundary between -1 and 0 and N-1 and N
+int gridinc(int i, int p, int N, int direction )    //increment with reflecting boundary between -1 and 0 and N-1 and N
 {
 
     if(BoundaryType == ALLREFLECTING)
@@ -1834,48 +1122,24 @@ inline int gridinc(int i, int p, int N, int direction )    //increment with refl
     }
     return 0;
 }
-inline double x(int i,const Griddata& griddata)
+double x(int i,const Griddata& griddata)
 {
     return (i+0.5-griddata.Nx/2.0)*griddata.h;
 }
-inline double y(int i,const Griddata& griddata)
+double y(int i,const Griddata& griddata)
 {
     return (i+0.5-griddata.Ny/2.0)*griddata.h;
 }
-inline double z(int i,const Griddata& griddata)
+double z(int i,const Griddata& griddata)
 {
     return (i+0.5-griddata.Nz/2.0)*griddata.h;
 }
-inline  int pt( int i,  int j,  int k,const Griddata& griddata)       //convert i,j,k to single index
+int pt( int i,  int j,  int k,const Griddata& griddata)       //convert i,j,k to single index
 {
     return (i*griddata.Ny*griddata.Nz+j*griddata.Nz+k);
 }
-inline int sign(int i)
+int sign(int i)
 {
     if(i==0) return 0;
     else return i/abs(i);
-}
-float FloatSwap( float f )
-{    
-    union
-    {
-        float f;
-        char b[4];
-    } dat1, dat2;
-
-    dat1.f = f;
-    dat2.b[0] = dat1.b[3];
-    dat2.b[1] = dat1.b[2];
-    dat2.b[2] = dat1.b[1];
-    dat2.b[3] = dat1.b[0];
-    return dat2.f;
-}
-
-void ByteSwap(const char* TobeSwapped, char* swapped )
-{    
-    swapped[0] = TobeSwapped[3];
-    swapped[1] = TobeSwapped[2];
-    swapped[2] = TobeSwapped[1];
-    swapped[3] = TobeSwapped[0];
-    return;
 }
