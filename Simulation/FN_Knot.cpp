@@ -108,8 +108,6 @@ int main (void)
     if(option == FROM_UV_FILE)
     {
         // we hack this together as so: the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
-        int startpos = B_filename.find('t');
-        int endpos = B_filename.find('.');
         string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
         starttime = atoi(number.c_str());
     }
@@ -122,7 +120,6 @@ int main (void)
     int UVPrintIteration = (int)(UVPrintTime/dtime);
     int RecentreIteration = (int)(1/dtime);
     // initialising timers
-    time_t then = time(NULL);
     time_t rawtime;
     time (&rawtime);
     struct tm * timeinfo;
@@ -343,7 +340,6 @@ double init_from_surface_file(vector<triangle>& knotsurface)
 }
 void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
 {
-    int i;
     bool nonzeroheight[3];  //marker: true if this dimension has non zero height in stl file
     if(maxxin-minxin>0) { scale[0] = xmax/(maxxin-minxin); nonzeroheight[0] = true; }
     else { scale[0] = 1;  nonzeroheight[0] = false; }
@@ -545,7 +541,7 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
         knotcurves[c].knotcurve[0].ycoord=y(jmax,griddata);
         knotcurves[c].knotcurve[0].zcoord=z(kmax,griddata);
 
-        int idwn,jdwn,kdwn, modidwn, modjdwn, modkdwn,m,pts,iinc,jinc,kinc,attempts;
+        int idwn,jdwn,kdwn, modidwn, modjdwn, modkdwn,m,iinc,jinc,kinc;
         double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, fx, fy, fz, xdiff, ydiff, zdiff;
         int s=1;
         bool finish=false;
@@ -566,7 +562,6 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
             modkdwn = circularmod(kdwn,Nz);
             if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
             if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
-            pts=0;
             ucvxs=0;
             ucvys=0;
             ucvzs=0;
@@ -610,7 +605,6 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
             // again, bear in mind these numbers can be into the "ghost" grids
             if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
             if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
-            pts=0;
             graducvx=0;
             graducvy=0;
             graducvz=0;
@@ -1848,11 +1842,7 @@ int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knot
 double my_f(const gsl_vector* minimum, void* params)
 {
     struct parameters* myparameters = (struct parameters *) params;
-    Griddata griddata = myparameters->mygriddata;
     likely::TriCubicInterpolator* interpolateducvmag = myparameters->ucvmag;
-    double Nx = myparameters->mygriddata.Nx;
-    double Ny = myparameters->mygriddata.Ny;
-    double Nz = myparameters->mygriddata.Nz;
     gsl_vector* tempf = gsl_vector_alloc (3);
     gsl_vector* tempv = gsl_vector_alloc (3);
     gsl_vector* tempb = gsl_vector_alloc (3);
