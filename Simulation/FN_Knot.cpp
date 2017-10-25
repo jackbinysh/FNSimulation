@@ -84,40 +84,40 @@ int main (void)
 
     switch(option)
     {
-    case FROM_UV_FILE:
-    {
-        cout << "Reading input file...\n";
-        if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,marked,griddata)){return 1;}
-        // get the start time -  we hack this together as so:
-        // the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
-        string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
-        starttime = atoi(number.c_str());
-        break;
-    }
-    case FROM_FUNCTION:
-    {
-        phi_calc_manual(phi,griddata);
-        cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,griddata);
-        break;
-    }
-    case FROM_SURFACE_FILE:
-    {
-        init_from_surface_file(knotsurface);
-        phi_calc_surface(phi,knotsurface,griddata);
-        cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,griddata);
-        break;
-    }
-    case FROM_CURVE_FILE:
-    {
-        Link Curve;
-        InitialiseFromFile(Curve);
-        cout << "calculating the solid angle..." << endl;
-        phi_calc_curve(phi,Curve,griddata);
-        cout << "Calculating u and v...\n";
-        uv_initialise(phi,u,v,griddata);
-    }
+        case FROM_UV_FILE:
+            {
+                cout << "Reading input file...\n";
+                if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,marked,griddata)){return 1;}
+                // get the start time -  we hack this together as so:
+                // the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
+                string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
+                starttime = atoi(number.c_str());
+                break;
+            }
+        case FROM_FUNCTION:
+            {
+                phi_calc_manual(phi,griddata);
+                cout << "Calculating u and v...\n";
+                uv_initialise(phi,u,v,griddata);
+                break;
+            }
+        case FROM_SURFACE_FILE:
+            {
+                init_from_surface_file(knotsurface);
+                phi_calc_surface(phi,knotsurface,griddata);
+                cout << "Calculating u and v...\n";
+                uv_initialise(phi,u,v,griddata);
+                break;
+            }
+        case FROM_CURVE_FILE:
+            {
+                Link Curve;
+                InitialiseFromFile(Curve);
+                cout << "calculating the solid angle..." << endl;
+                phi_calc_curve(phi,Curve,griddata);
+                cout << "Calculating u and v...\n";
+                uv_initialise(phi,u,v,griddata);
+            }
 
     }
 
@@ -292,590 +292,680 @@ int find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doubl
 
     int c =0;
     bool knotexists = true;
+    vector<int> marked(Nx*Ny*Nz,0);
 
-    double   ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
-    int n,i,j,k,imax,jmax,kmax;
-    for(i=0;i<Nx;i++)
+    while(knotexists)
     {
-        for(j=0; j<Ny; j++)
+        double   ucvmax = -1.0; // should always be +ve, so setting it to an initially -ve # means it always gets written to once.
+        int n,i,j,k,imax,jmax,kmax;
+        for(i=0;i<Nx;i++)
         {
-            for(k=0; k<Nz; k++)   //Central difference
+            for(j=0; j<Ny; j++)
             {
-                n = pt(i,j,k,griddata);
-                if( ucvmag[n] > ucvmax)
+                for(k=0; k<Nz; k++)   //Central difference
                 {
-                    ucvmax = ucvmag[n];
-                    imax = i;
-                    jmax = j;
-                    kmax=k;
+                    n = pt(i,j,k,griddata);
+                    if( ucvmag[n] > ucvmax && marked[n]==0)
+                    {
+                        ucvmax = ucvmag[n];
+                        imax = i;
+                        jmax = j;
+                        kmax=k;
+
+                    }
                 }
             }
         }
+
+        if(ucvmax<0.45) knotexists = false;
+
+        if(knotexists)
+        {
+            knotcurves.push_back(knotcurve() );
+            knotcurves[c].knotcurve.push_back(knotpoint());
+            knotcurves[c].knotcurve[0].xcoord=x(imax,griddata);
+            knotcurves[c].knotcurve[0].ycoord=y(jmax,griddata);
+            knotcurves[c].knotcurve[0].zcoord=z(kmax,griddata);
+
+            int idwn,jdwn,kdwn, modidwn, modjdwn, modkdwn,m,iinc,jinc,kinc;
+            double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, fx, fy, fz, xdiff, ydiff, zdiff;
+            int s=1;
+            bool finish=false;
+            // we will discard the first few points from the knot, using this flag
+            bool burnin=true;
+            /*calculate local direction of grad u x grad v (the tangent to the knot curve) at point s-1, then move to point s by moving along tangent + unit confinement force*/
+            while (finish==false)
+            {
+
+                /**Find nearest gridpoint**/
+                idwn = (int) ((knotcurves[c].knotcurve[s-1].xcoord/h) - 0.5 + Nx/2.0);
+                jdwn = (int) ((knotcurves[c].knotcurve[s-1].ycoord/h) - 0.5 + Ny/2.0);
+                kdwn = (int) ((knotcurves[c].knotcurve[s-1].zcoord/h) - 0.5 + Nz/2.0);
+                // idwn etc can be off the actual grid , into "ghost" grids around the real one. this is useful for knotcurve tracing over periodic boundaries
+                // but we also need the corresponding real grid positions!
+                modidwn = circularmod(idwn,Nx);
+                modjdwn = circularmod(jdwn,Ny);
+                modkdwn = circularmod(kdwn,Nz);
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                ucvxs=0;
+                ucvys=0;
+                ucvzs=0;
+                /*curve to gridpoint down distance*/
+                xd = (knotcurves[c].knotcurve[s-1].xcoord - x(idwn,griddata))/h;
+                yd = (knotcurves[c].knotcurve[s-1].ycoord - y(jdwn,griddata))/h;
+                zd = (knotcurves[c].knotcurve[s-1].zcoord - z(kdwn,griddata))/h;
+                for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+                {
+                    /* Work out increments*/
+                    iinc = m%2;
+                    jinc = (m/2)%2;
+                    kinc = (m/4)%2;
+                    /*Loop over nearest points*/
+                    i = gridinc(modidwn, iinc, Nx,0);
+                    j = gridinc(modjdwn, jinc, Ny,1);
+                    k = gridinc(modkdwn,kinc, Nz,2);
+                    prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+                    /*interpolate grad u x grad v over nearest points*/
+                    ucvxs += prefactor*ucvx[pt(i,j,k,griddata)];
+                    ucvys += prefactor*ucvy[pt(i,j,k,griddata)];
+                    ucvzs += prefactor*ucvz[pt(i,j,k,griddata)];
+                }
+                double norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
+                ucvxs = ucvxs/norm; //normalise
+                ucvys = ucvys/norm; //normalise
+                ucvzs = ucvzs/norm; //normalise
+
+                // okay we have our first guess, move forward in this direction
+                double testx = knotcurves[c].knotcurve[s-1].xcoord + 0.5*ucvxs*lambda/(2*M_PI);
+                double testy = knotcurves[c].knotcurve[s-1].ycoord + 0.5*ucvys*lambda/(2*M_PI);
+                double testz = knotcurves[c].knotcurve[s-1].zcoord + 0.5*ucvzs*lambda/(2*M_PI);
+
+                // now get the grad at this point
+                idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
+                jdwn = (int) ((testy/h) - 0.5 + Ny/2.0);
+                kdwn = (int) ((testz/h) - 0.5 + Nz/2.0);
+                modidwn = circularmod(idwn,Nx);
+                modjdwn = circularmod(jdwn,Ny);
+                modkdwn = circularmod(kdwn,Nz);
+                // again, bear in mind these numbers can be into the "ghost" grids
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                graducvx=0;
+                graducvy=0;
+                graducvz=0;
+                /*curve to gridpoint down distance*/
+                xd = (testx - x(idwn,griddata))/h;
+                yd = (testy - y(jdwn,griddata))/h;
+                zd = (testz - z(kdwn,griddata))/h;
+                for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
+                {
+                    /* Work out increments*/
+                    iinc = m%2;
+                    jinc = (m/2)%2;
+                    kinc = (m/4)%2;
+                    /*Loop over nearest points*/
+                    i = gridinc(modidwn, iinc, Nx,0);
+                    j = gridinc(modjdwn, jinc, Ny,1);
+                    k = gridinc(modkdwn,kinc, Nz,2);
+                    prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
+                    /*interpolate gradients of |grad u x grad v|*/
+                    graducvx += prefactor*(sqrt(ucvx[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvx[pt(gridinc(i,1,Nx,0),j,k,griddata)] + ucvy[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvy[pt(gridinc(i,1,Nx,0),j,k,griddata)] + ucvz[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvz[pt(gridinc(i,1,Nx,0),j,k,griddata)]) - sqrt(ucvx[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvx[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + ucvy[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvy[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + ucvz[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvz[pt(gridinc(i,-1,Nx,0),j,k,griddata)]))/(2*h);
+                    graducvy += prefactor*(sqrt(ucvx[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvx[pt(i,gridinc(j,1,Ny,1),k,griddata)] + ucvy[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvy[pt(i,gridinc(j,1,Ny,1),k,griddata)] + ucvz[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvz[pt(i,gridinc(j,1,Ny,1),k,griddata)]) - sqrt(ucvx[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvx[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + ucvy[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvy[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + ucvz[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvz[pt(i,gridinc(j,-1,Ny,1),k,griddata)]))/(2*h);
+                    graducvz += prefactor*(sqrt(ucvx[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvx[pt(i,j,gridinc(k,1,Nz,2),griddata)] + ucvy[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvy[pt(i,j,gridinc(k,1,Nz,2),griddata)] + ucvz[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvz[pt(i,j,gridinc(k,1,Nz,2),griddata)]) - sqrt(ucvx[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvx[pt(i,j,gridinc(k,-1,Nz,2),griddata)] + ucvy[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvy[pt(i,j,gridinc(k,-1,Nz,2),griddata)] + ucvz[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvz[pt(i,j,gridinc(k,-1,Nz,2),griddata)]))/(2*h);
+
+                }
+                knotcurves[c].knotcurve.push_back(knotpoint());
+                // one of the vectors in the plane we wish to perfrom our minimisation in
+                fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);
+                fy = (graducvy - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvys);
+                fz = (graducvz - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvzs);
+                norm = sqrt(fx*fx + fy*fy + fz*fz);
+                fx = fx/norm;
+                fy = fy/norm;
+                fz = fz/norm;
+
+                // okay we have our direction to perfrom the line minimisation in
+                // the point
+                gsl_vector* v = gsl_vector_alloc (3);
+                gsl_vector_set (v, 0, testx);
+                gsl_vector_set (v, 1, testy);
+                gsl_vector_set (v, 2, testz);
+                // one vector in the plane we with to minimize in
+                gsl_vector* f = gsl_vector_alloc (3);
+                gsl_vector_set (f, 0, fx);
+                gsl_vector_set (f, 1, fy);
+                gsl_vector_set (f, 2, fz);
+                // the ucv vector
+                gsl_vector* ucv = gsl_vector_alloc (3);
+                gsl_vector_set (ucv, 0, ucvxs);
+                gsl_vector_set (ucv, 1, ucvys);
+                gsl_vector_set (ucv, 2, ucvzs);
+                // take a cross product to get the other vector in the plane
+                gsl_vector* b = gsl_vector_alloc (3);
+                cross_product(f,ucv,b);
+                // initial conditions
+                gsl_vector* minimum = gsl_vector_alloc (2);
+                gsl_vector_set (minimum, 0, 0);
+                gsl_vector_set (minimum, 1, 0);
+                struct parameters params; struct parameters* pparams = &params;
+                pparams->ucvmag=&interpolateducvmag;
+                pparams->v = v; pparams->f = f;pparams->b=b;
+                pparams->mygriddata = griddata;
+                // some initial values
+                gsl_multimin_function F;
+                F.n=2;
+                F.f = &my_f;
+                F.params = (void*) pparams;
+                gsl_vector* stepsize = gsl_vector_alloc (2);
+                gsl_vector_set (stepsize, 0, lambda/(8*M_PI));
+                gsl_vector_set (stepsize, 1, lambda/(8*M_PI));
+                gsl_multimin_fminimizer_set (minimizerstate, &F, minimum, stepsize);
+
+                int iter=0;
+                int status =0;
+                double minimizersize=0;
+                do
+                {
+                    iter++;
+                    status = gsl_multimin_fminimizer_iterate(minimizerstate);
+
+                    if (status)
+                    {
+                        cout << "error in minimizers, aborting knotfinding";
+                        break;
+                    }
+
+                    minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
+                    status = gsl_multimin_test_size (minimizersize, 1e-2);
+
+                }
+                while (status == GSL_CONTINUE && iter < 500);
+
+
+                if(status==0)
+                {
+                    gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
+                    gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
+                    gsl_vector_add(f,b);
+                    gsl_vector_add(v,f);
+                    knotcurves[c].knotcurve[s].xcoord = gsl_vector_get(v, 0);
+                    knotcurves[c].knotcurve[s].ycoord= gsl_vector_get(v, 1);
+                    knotcurves[c].knotcurve[s].zcoord= gsl_vector_get(v, 2);
+                }
+
+                gsl_vector_free(v);
+                gsl_vector_free(f);
+                gsl_vector_free(b);
+                gsl_vector_free(ucv);
+                gsl_vector_free(stepsize);
+
+                if(status!=0)
+                {
+                    return 1;
+                }
+
+                xdiff = knotcurves[c].knotcurve[0].xcoord - knotcurves[c].knotcurve[s].xcoord;     //distance from start/end point
+                ydiff = knotcurves[c].knotcurve[0].ycoord - knotcurves[c].knotcurve[s].ycoord;
+                zdiff = knotcurves[c].knotcurve[0].zcoord - knotcurves[c].knotcurve[s].zcoord;
+                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <3*h  && s > 10) finish = true;
+                if(s>50000) finish = true;
+
+                // okay, we just added a point in position s in the vector
+                // if we have a few points in the vector, discard the first few and restart the whole thing - burn it in
+                int newstartingposition =5;
+                if(s==newstartingposition && burnin)
+                {
+                    knotcurves[c].knotcurve.erase(knotcurves[c].knotcurve.begin(),knotcurves[c].knotcurve.begin()+newstartingposition);
+                    s =0;
+                    burnin =false;
+                }
+
+                s++;
+            }
+
+            int NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
+
+
+            /*******Vertex averaging*********/
+
+            double totlength, dl, dx,dy,dz;
+            for(i=0;i<3;i++)   //repeat a couple of times because of end point
+            {
+                totlength=0;
+                for(s=0; s<NP; s++)   //Work out total length of curve
+                {
+                    dx = knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[s].xcoord;
+                    dy = knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[s].ycoord;
+                    dz = knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[s].zcoord;
+                    totlength += sqrt(dx*dx + dy*dy + dz*dz);
+                }
+                dl = totlength/NP;
+                for(s=0; s<NP; s++)    //Move points to have spacing dl
+                {
+                    dx = knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[s].xcoord;
+                    dy = knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[s].ycoord;
+                    dz = knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[s].zcoord;
+                    double norm = sqrt(dx*dx + dy*dy + dz*dz);
+                    knotcurves[c].knotcurve[incp(s,1,NP)].xcoord = knotcurves[c].knotcurve[s].xcoord + dl*dx/norm;
+                    knotcurves[c].knotcurve[incp(s,1,NP)].ycoord = knotcurves[c].knotcurve[s].ycoord + dl*dy/norm;
+                    knotcurves[c].knotcurve[incp(s,1,NP)].zcoord = knotcurves[c].knotcurve[s].zcoord + dl*dz/norm;
+                }
+            }
+
+            /*************Curve Smoothing*******************/
+            vector<double> coord(NP);
+            gsl_fft_real_wavetable * real;
+            gsl_fft_halfcomplex_wavetable * hc;
+            gsl_fft_real_workspace * work;
+            work = gsl_fft_real_workspace_alloc (NP);
+            real = gsl_fft_real_wavetable_alloc (NP);
+            hc = gsl_fft_halfcomplex_wavetable_alloc (NP);
+            for(j=1; j<4; j++)
+            {
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].xcoord ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ycoord ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].zcoord ; break;
+                }
+                double* data = coord.data();
+                // take the fft
+                gsl_fft_real_transform (data, 1, NP, real, work);
+                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
+                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
+                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
+                // plug in above. im doing a rough length calc below, this might be overkill.
+                // at the moment its just a hard filter, we can choose others though.
+                // compute a rough length to set scale
+                double filter;
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
+                for (i = 0; i < NP; ++i)
+                {
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
+                    data[i] *= filter;
+                };
+                // transform back
+                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].xcoord = coord[i] ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ycoord = coord[i] ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].zcoord = coord[i] ; break;
+                }
+            }
+
+
+
+            /******************Interpolate direction of grad u for twist calc*******/
+            /**Find nearest gridpoint**/
+            double dxu, dyu, dzu, dxup, dyup, dzup;
+            for(s=0; s<NP; s++)
+            {
+                idwn = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
+                jdwn = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
+                kdwn = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
+                modidwn = circularmod(idwn,Nx);
+                modjdwn = circularmod(jdwn,Ny);
+                modkdwn = circularmod(kdwn,Nz);
+                if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
+                if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
+                dxu=0;
+                dyu=0;
+                dzu=0;
+                /*curve to gridpoint down distance*/
+                xd = (knotcurves[c].knotcurve[s].xcoord - x(idwn,griddata))/h;
+                yd = (knotcurves[c].knotcurve[s].ycoord - y(jdwn,griddata))/h;
+                zd = (knotcurves[c].knotcurve[s].zcoord - z(kdwn,griddata))/h;
+                for(m=0;m<8;m++)  //linear interpolation of 8 NNs
+                {
+                    /* Work out increments*/
+                    iinc = m%2;
+                    jinc = (m/2)%2;
+                    kinc = (m/4)%2;
+                    /*Loop over nearest points*/
+                    i = gridinc(modidwn, iinc, Nx,0);
+                    j = gridinc(modjdwn, jinc, Ny,1);
+                    k = gridinc(modkdwn,kinc, Nz,2);
+                    prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);   //terms of the form (1-xd)(1-yd)zd etc. (interpolation coefficient)
+                    /*interpolate grad u over nearest points*/
+                    dxu += prefactor*0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] -  u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;  //central diff
+                    dyu += prefactor*0.5*(u[pt(i,gridinc(j,1,Ny,1),k,griddata)] -  u[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
+                    dzu += prefactor*0.5*(u[pt(i,j,gridinc(k,1,Nz,2),griddata)] -  u[pt(i,j,gridinc(k,-1,Nz,2),griddata)])/h;
+                }
+                //project du onto perp of tangent direction first
+                dx = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,-1,NP)].xcoord);   //central diff as a is defined on the points
+                dy = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,-1,NP)].ycoord);
+                dz = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,-1,NP)].zcoord);
+                dxup = dxu - (dxu*dx + dyu*dy + dzu*dz)*dx/(dx*dx+dy*dy+dz*dz);               //Grad u_j * (delta_ij - t_i t_j)
+                dyup = dyu - (dxu*dx + dyu*dy + dzu*dz)*dy/(dx*dx+dy*dy+dz*dz);
+                dzup = dzu - (dxu*dx + dyu*dy + dzu*dz)*dz/(dx*dx+dy*dy+dz*dz);
+                /*Vector a is the normalised gradient of u, should point in direction of max u perp to t*/
+                double norm = sqrt(dxup*dxup+dyup*dyup+dzup*dzup);
+                knotcurves[c].knotcurve[s].ax = dxup/norm;
+                knotcurves[c].knotcurve[s].ay = dyup/norm;
+                knotcurves[c].knotcurve[s].az = dzup/norm;
+            }
+
+            for(j=1; j<4; j++)
+            {
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ax ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ay ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].az ; break;
+                }
+                double* data = coord.data();
+                // take the fft
+                gsl_fft_real_transform (data, 1, NP, real, work);
+                // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
+                // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
+                // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
+                // plug in above. im doing a rough length calc below, this might be overkill.
+                // at the moment its just a hard filter, we can choose others though.
+                // compute a rough length to set scale
+                double filter;
+                const double cutoff = 2*M_PI*(totlength/(1*lambda));
+                for (i = 0; i < NP; ++i)
+                {
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
+                    data[i] *= filter;
+                };
+                // transform back
+                gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
+                switch(j)
+                {
+                    case 1 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ax= coord[i] ; break;
+                    case 2 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ay= coord[i] ; break;
+                    case 3 :
+                        for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].az = coord[i] ; break;
+                }
+            }
+            gsl_fft_real_wavetable_free (real);
+            gsl_fft_halfcomplex_wavetable_free (hc);
+            gsl_fft_real_workspace_free (work);
+
+
+            // CURVE GEOMETRY - get curvatures, torsions, frennet serret frame
+
+
+            NP = knotcurves[c].knotcurve.size();
+            for(s=0; s<NP; s++)
+            {
+                // forward difference on the tangents
+                double dx = (knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,0,NP)].xcoord);
+                double dy = (knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,0,NP)].ycoord);
+                double dz = (knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,0,NP)].zcoord);
+                double deltas = sqrt(dx*dx+dy*dy+dz*dz);
+                knotcurves[c].knotcurve[s].tx = dx/(deltas);
+                knotcurves[c].knotcurve[s].ty = dy/(deltas);
+                knotcurves[c].knotcurve[s].tz = dz/(deltas);
+                knotcurves[c].knotcurve[s].length = deltas;
+                knotcurves[c].length +=deltas;
+            }
+            for(s=0; s<NP; s++)
+            {
+                // backwards diff for the normals, amounting to a central diff overall
+                double nx = 2.0*(knotcurves[c].knotcurve[s].tx-knotcurves[c].knotcurve[incp(s,-1,NP)].tx)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+                double ny = 2.0*(knotcurves[c].knotcurve[s].ty-knotcurves[c].knotcurve[incp(s,-1,NP)].ty)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+                double nz = 2.0*(knotcurves[c].knotcurve[s].tz-knotcurves[c].knotcurve[incp(s,-1,NP)].tz)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+                double curvature = sqrt(nx*nx+ny*ny+nz*nz);
+                nx /=curvature;
+                ny /=curvature;
+                nz /=curvature;
+                double tx = knotcurves[c].knotcurve[s].tx ;
+                double ty =  knotcurves[c].knotcurve[s].ty ;
+                double tz = knotcurves[c].knotcurve[s].tz ;
+                double bx = ty*nz - tz*ny;
+                double by = tz*nx - tx*nz;
+                double bz = tx*ny - ty*nx;
+                knotcurves[c].knotcurve[s].nx = nx ;
+                knotcurves[c].knotcurve[s].ny = ny ;
+                knotcurves[c].knotcurve[s].nz = nz ;
+                knotcurves[c].knotcurve[s].bx = bx ;
+                knotcurves[c].knotcurve[s].by = by ;
+                knotcurves[c].knotcurve[s].bz = bz ;
+                knotcurves[c].knotcurve[s].curvature = curvature ;
+            }
+            // torsions with a central difference
+            for(s=0; s<NP; s++)
+            {
+                double bx = knotcurves[c].knotcurve[s].bx;
+                double by =  knotcurves[c].knotcurve[s].by;
+                double bz = knotcurves[c].knotcurve[s].bz;
+
+                double dnxds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nx-knotcurves[c].knotcurve[incp(s,-1,NP)].nx)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+                double dnyds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].ny-knotcurves[c].knotcurve[incp(s,-1,NP)].ny)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+                double dnzds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nz-knotcurves[c].knotcurve[incp(s,-1,NP)].nz)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
+
+                double torsion = bx*dnxds+by*dnyds+bz*dnzds;
+                knotcurves[c].knotcurve[s].torsion = torsion ;
+            }
+
+
+            // RIBBON TWIST AND WRITHE
+
+            for(s=0; s<NP; s++)
+            {
+
+                // twist of this segment
+                double ds = knotcurves[c].knotcurve[s].length;
+                double dxds = knotcurves[c].knotcurve[s].tx;
+                double dyds = knotcurves[c].knotcurve[s].ty;
+                double dzds = knotcurves[c].knotcurve[s].tz;
+                double bx = (knotcurves[c].knotcurve[incp(s,1,NP)].ax - knotcurves[c].knotcurve[s].ax)/ds;
+                double by = (knotcurves[c].knotcurve[incp(s,1,NP)].ay - knotcurves[c].knotcurve[s].ay)/ds;
+                double bz = (knotcurves[c].knotcurve[incp(s,1,NP)].az - knotcurves[c].knotcurve[s].az)/ds;
+                knotcurves[c].knotcurve[s].twist = (dxds*(knotcurves[c].knotcurve[s].ay*bz - knotcurves[c].knotcurve[s].az*by) + dyds*(knotcurves[c].knotcurve[s].az*bx - knotcurves[c].knotcurve[s].ax*bz) + dzds*(knotcurves[c].knotcurve[s].ax*by - knotcurves[c].knotcurve[s].ay*bx))/(2*M_PI*sqrt(dxds*dxds + dyds*dyds + dzds*dzds));
+
+                // "writhe" of this segment. writhe is nonlocal, this is the thing in the integrand over s
+                knotcurves[c].knotcurve[s].writhe = 0;
+                for(m=0; m<NP; m++)
+                {
+                    if(s != m)
+                    {
+                        xdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord + knotcurves[c].knotcurve[s].xcoord - knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord);   //interpolate, consistent with fwd diff
+                        ydiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].ycoord + knotcurves[c].knotcurve[s].ycoord - knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord);
+                        zdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].zcoord + knotcurves[c].knotcurve[s].zcoord - knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord);
+                        double dxdm = (knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord)/(ds);
+                        double dydm = (knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord)/(ds);
+                        double dzdm = (knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord)/(ds);
+                        knotcurves[c].knotcurve[s].writhe += ds*(xdiff*(dyds*dzdm - dzds*dydm) + ydiff*(dzds*dxdm - dxds*dzdm) + zdiff*(dxds*dydm - dyds*dxdm))/(4*M_PI*(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff)*sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff));
+                    }
+                }
+
+                //Add on writhe, twist
+                knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
+                knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
+                // while we are computing the global quantites, get the average position too
+                knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+                knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+                knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
+            }
+
+            // construct a tube around the knot, to use as an excluded region if we searching for multiple components.
+            double radius = 3;
+            int numiterations = (int)(radius/griddata.h);
+            for(int s=0; s<NP; s++)
+            {
+                int icentral = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
+                int jcentral = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
+                int kcentral = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
+                // construct a ball of radius "radius" around each point in the knotcurve object. we circumscribe it in a cube which is then looped over
+                for(int i =-numiterations;i<=numiterations;i++)
+                {
+                    for(int j=-numiterations ;j<=numiterations;j++)
+                    {
+                        for(int k =-numiterations;k<=numiterations;k++)
+                        {
+                            int modi = circularmod(i+icentral,Nx);
+                            int modj = circularmod(j+jcentral,Ny);
+                            int modk = circularmod(k+kcentral,Nz);
+                            int n = pt(modi,modj,modk,griddata);
+
+                            double dxsq = (x(i+icentral,griddata)-x(icentral,griddata))*(x(i+icentral,griddata)-x(icentral,griddata));
+                            double dysq = (y(j+jcentral,griddata)-y(jcentral,griddata))*(y(j+jcentral,griddata)-y(jcentral,griddata));
+                            double dzsq = (z(k+kcentral,griddata)-z(kcentral,griddata))*(z(k+kcentral,griddata)-z(kcentral,griddata));
+
+                            double r = sqrt(dxsq + dysq + dzsq);
+
+                            if(r < radius )
+                            {
+                                marked[n]=1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
+            // but for storage and display, we should put it all in the box
+
+            // (1) construct the proper periodic co-ordinates from our ghost grid
+            double xupperlim = x(griddata.Nx -1 ,griddata);
+            double xlowerlim = x(0,griddata);
+            double deltax = griddata.Nx * h;
+            double yupperlim = y(griddata.Ny -1,griddata);
+            double ylowerlim = y(0,griddata);
+            double deltay = griddata.Ny * h;
+            double zupperlim = z(griddata.Nz -1 ,griddata);
+            double zlowermin = z(0,griddata);
+            double deltaz = griddata.Nz * h;
+            for(s=0; s<NP; s++)
+            {
+                knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord;
+                knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord;
+                knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord;
+                if(knotcurves[c].knotcurve[s].xcoord > xupperlim) {
+                    knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax;
+                } ;
+                if(knotcurves[c].knotcurve[s].xcoord < xlowerlim) {
+                    knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
+                };
+                if(knotcurves[c].knotcurve[s].ycoord > yupperlim) {
+                    knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
+                };
+                if(knotcurves[c].knotcurve[s].ycoord < ylowerlim) {
+                    knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
+                };
+                if(knotcurves[c].knotcurve[s].zcoord > zupperlim) {
+                    knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
+                };
+                if(knotcurves[c].knotcurve[s].zcoord < zlowermin)
+                {
+                    knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
+                };
+            }
+
+            // (2) standardise the knot such that the top right corner of the bounding box lies in the "actual" grid. This bounding box point may only lie
+            // off grid in the +ve x y z direction.
+            double xmax=knotcurves[c].knotcurve[0].xcoord;
+            double ymax=knotcurves[c].knotcurve[0].ycoord;
+            double zmax=knotcurves[c].knotcurve[0].zcoord;
+            for(s=0; s<NP; s++)
+            {
+                if(knotcurves[c].knotcurve[s].xcoord>xmax)
+                {
+                    xmax = knotcurves[c].knotcurve[s].xcoord;
+                }
+                if(knotcurves[c].knotcurve[s].ycoord>ymax)
+                {
+                    ymax = knotcurves[c].knotcurve[s].ycoord;
+                }
+                if(knotcurves[c].knotcurve[s].zcoord>zmax)
+                {
+                    zmax = knotcurves[c].knotcurve[s].zcoord;
+                }
+            }
+
+            // get how many lattice shifts are needed
+            int xlatticeshift = (int) (round(xmax/(griddata.Nx *griddata.h)));
+            int ylatticeshift = (int) (round(ymax/(griddata.Ny *griddata.h)));
+            int zlatticeshift = (int) (round(zmax/(griddata.Nz *griddata.h)));
+            // perform the shift
+
+            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+            {
+                knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
+                knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
+                knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
+            }
+            // now we've done these shifts, we'd better move the knotcurve average position too.
+            knotcurves[c].xavgpos = 0;
+            knotcurves[c].yavgpos = 0;
+            knotcurves[c].zavgpos = 0;
+            for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
+            {
+                knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
+                knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
+                knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
+            }
+            c++;
+        }
     }
-    if(ucvmax<0.45) knotexists = false;
+    // the order of the components within the knotcurves vector is not guaranteed to remain fixed from timestep to timestep. thus, componenet 0 at one timtestep could be
+    // components 1 at the next. the code needs a way of tracking which componenet is which.
+    // at the moment, im doing this by fuzzily comparing summary stats on the components - at this point, the length twist and writhe.
+
+    // these variables have the summary stats from the last timestep
+
+    static vector<double> oldwrithe(knotcurves.size());
+    static vector<double> oldtwist(knotcurves.size());
+    static vector<double> oldlength(knotcurves.size());
+    static bool first = true;
+    vector<int> permutation(knotcurves.size());
+
+    if(first)
+    {
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            oldwrithe[i] = knotcurves[i].writhe;
+            oldlength[i] = knotcurves[i].length;
+            oldtwist[i] = knotcurves[i].twist;
+            permutation[i] = i;
+        }
+
+    }
     else
     {
-        knotexists = true;
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            double minscore = 0;
+            for(int j = 0; j<knotcurves.size();j++)
+            {
+                double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]);
+                if(score<minscore) permutation[i] = j; minscore = score;
+            }
+        }
+        // apply the permutation to the list of lengths etc. It is now "correct" in the sense that index [0] really is component 0 etc. these labellings are arbitrarlly set at the simulations start and
+        // must be consistently carried forward
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            oldwrithe[i] = knotcurves[permutation[i]].writhe;
+            oldlength[i] = knotcurves[permutation[i]].length;
+            oldtwist[i] = knotcurves[permutation[i]].twist;
+
+        }
+        // i can't be bothered to do this the smart way.
+        vector<knotcurve> tempknotcurves(knotcurves.size());
+        for(int i = 0; i<knotcurves.size();i++)
+        {
+            tempknotcurves[i]=knotcurves[permutation[i]];
+        }
+        knotcurves=tempknotcurves;
     }
-    if(knotexists)
-    {
-        knotcurves.push_back(knotcurve() );
-        knotcurves[c].knotcurve.push_back(knotpoint());
-        knotcurves[c].knotcurve[0].xcoord=x(imax,griddata);
-        knotcurves[c].knotcurve[0].ycoord=y(jmax,griddata);
-        knotcurves[c].knotcurve[0].zcoord=z(kmax,griddata);
-
-        int idwn,jdwn,kdwn, modidwn, modjdwn, modkdwn,m,iinc,jinc,kinc;
-        double ucvxs, ucvys, ucvzs, graducvx, graducvy, graducvz, prefactor, xd, yd ,zd, fx, fy, fz, xdiff, ydiff, zdiff;
-        int s=1;
-        bool finish=false;
-        // we will discard the first few points from the knot, using this flag
-        bool burnin=true;
-        /*calculate local direction of grad u x grad v (the tangent to the knot curve) at point s-1, then move to point s by moving along tangent + unit confinement force*/
-        while (finish==false)
-        {
-
-            /**Find nearest gridpoint**/
-            idwn = (int) ((knotcurves[c].knotcurve[s-1].xcoord/h) - 0.5 + Nx/2.0);
-            jdwn = (int) ((knotcurves[c].knotcurve[s-1].ycoord/h) - 0.5 + Ny/2.0);
-            kdwn = (int) ((knotcurves[c].knotcurve[s-1].zcoord/h) - 0.5 + Nz/2.0);
-            // idwn etc can be off the actual grid , into "ghost" grids around the real one. this is useful for knotcurve tracing over periodic boundaries
-            // but we also need the corresponding real grid positions!
-            modidwn = circularmod(idwn,Nx);
-            modjdwn = circularmod(jdwn,Ny);
-            modkdwn = circularmod(kdwn,Nz);
-            if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-            if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
-            ucvxs=0;
-            ucvys=0;
-            ucvzs=0;
-            /*curve to gridpoint down distance*/
-            xd = (knotcurves[c].knotcurve[s-1].xcoord - x(idwn,griddata))/h;
-            yd = (knotcurves[c].knotcurve[s-1].ycoord - y(jdwn,griddata))/h;
-            zd = (knotcurves[c].knotcurve[s-1].zcoord - z(kdwn,griddata))/h;
-            for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-            {
-                /* Work out increments*/
-                iinc = m%2;
-                jinc = (m/2)%2;
-                kinc = (m/4)%2;
-                /*Loop over nearest points*/
-                i = gridinc(modidwn, iinc, Nx,0);
-                j = gridinc(modjdwn, jinc, Ny,1);
-                k = gridinc(modkdwn,kinc, Nz,2);
-                prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-                /*interpolate grad u x grad v over nearest points*/
-                ucvxs += prefactor*ucvx[pt(i,j,k,griddata)];
-                ucvys += prefactor*ucvy[pt(i,j,k,griddata)];
-                ucvzs += prefactor*ucvz[pt(i,j,k,griddata)];
-            }
-            double norm = sqrt(ucvxs*ucvxs + ucvys*ucvys + ucvzs*ucvzs);
-            ucvxs = ucvxs/norm; //normalise
-            ucvys = ucvys/norm; //normalise
-            ucvzs = ucvzs/norm; //normalise
-
-            // okay we have our first guess, move forward in this direction
-            double testx = knotcurves[c].knotcurve[s-1].xcoord + 0.5*ucvxs*lambda/(2*M_PI);
-            double testy = knotcurves[c].knotcurve[s-1].ycoord + 0.5*ucvys*lambda/(2*M_PI);
-            double testz = knotcurves[c].knotcurve[s-1].zcoord + 0.5*ucvzs*lambda/(2*M_PI);
-
-            // now get the grad at this point
-            idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
-            jdwn = (int) ((testy/h) - 0.5 + Ny/2.0);
-            kdwn = (int) ((testz/h) - 0.5 + Nz/2.0);
-            modidwn = circularmod(idwn,Nx);
-            modjdwn = circularmod(jdwn,Ny);
-            modkdwn = circularmod(kdwn,Nz);
-            // again, bear in mind these numbers can be into the "ghost" grids
-            if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-            if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
-            graducvx=0;
-            graducvy=0;
-            graducvz=0;
-            /*curve to gridpoint down distance*/
-            xd = (testx - x(idwn,griddata))/h;
-            yd = (testy - y(jdwn,griddata))/h;
-            zd = (testz - z(kdwn,griddata))/h;
-            for(m=0;m<8;m++)  //linear interpolation from 8 nearest neighbours
-            {
-                /* Work out increments*/
-                iinc = m%2;
-                jinc = (m/2)%2;
-                kinc = (m/4)%2;
-                /*Loop over nearest points*/
-                i = gridinc(modidwn, iinc, Nx,0);
-                j = gridinc(modjdwn, jinc, Ny,1);
-                k = gridinc(modkdwn,kinc, Nz,2);
-                prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);
-                /*interpolate gradients of |grad u x grad v|*/
-                graducvx += prefactor*(sqrt(ucvx[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvx[pt(gridinc(i,1,Nx,0),j,k,griddata)] + ucvy[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvy[pt(gridinc(i,1,Nx,0),j,k,griddata)] + ucvz[pt(gridinc(i,1,Nx,0),j,k,griddata)]*ucvz[pt(gridinc(i,1,Nx,0),j,k,griddata)]) - sqrt(ucvx[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvx[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + ucvy[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvy[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + ucvz[pt(gridinc(i,-1,Nx,0),j,k,griddata)]*ucvz[pt(gridinc(i,-1,Nx,0),j,k,griddata)]))/(2*h);
-                graducvy += prefactor*(sqrt(ucvx[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvx[pt(i,gridinc(j,1,Ny,1),k,griddata)] + ucvy[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvy[pt(i,gridinc(j,1,Ny,1),k,griddata)] + ucvz[pt(i,gridinc(j,1,Ny,1),k,griddata)]*ucvz[pt(i,gridinc(j,1,Ny,1),k,griddata)]) - sqrt(ucvx[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvx[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + ucvy[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvy[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + ucvz[pt(i,gridinc(j,-1,Ny,1),k,griddata)]*ucvz[pt(i,gridinc(j,-1,Ny,1),k,griddata)]))/(2*h);
-                graducvz += prefactor*(sqrt(ucvx[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvx[pt(i,j,gridinc(k,1,Nz,2),griddata)] + ucvy[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvy[pt(i,j,gridinc(k,1,Nz,2),griddata)] + ucvz[pt(i,j,gridinc(k,1,Nz,2),griddata)]*ucvz[pt(i,j,gridinc(k,1,Nz,2),griddata)]) - sqrt(ucvx[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvx[pt(i,j,gridinc(k,-1,Nz,2),griddata)] + ucvy[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvy[pt(i,j,gridinc(k,-1,Nz,2),griddata)] + ucvz[pt(i,j,gridinc(k,-1,Nz,2),griddata)]*ucvz[pt(i,j,gridinc(k,-1,Nz,2),griddata)]))/(2*h);
-
-            }
-            knotcurves[c].knotcurve.push_back(knotpoint());
-            // one of the vectors in the plane we wish to perfrom our minimisation in
-            fx = (graducvx - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvxs);
-            fy = (graducvy - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvys);
-            fz = (graducvz - (graducvx*ucvxs + graducvy*ucvys + graducvz*ucvzs)*ucvzs);
-            norm = sqrt(fx*fx + fy*fy + fz*fz);
-            fx = fx/norm;
-            fy = fy/norm;
-            fz = fz/norm;
-
-            // okay we have our direction to perfrom the line minimisation in
-            // the point
-            gsl_vector* v = gsl_vector_alloc (3);
-            gsl_vector_set (v, 0, testx);
-            gsl_vector_set (v, 1, testy);
-            gsl_vector_set (v, 2, testz);
-            // one vector in the plane we with to minimize in
-            gsl_vector* f = gsl_vector_alloc (3);
-            gsl_vector_set (f, 0, fx);
-            gsl_vector_set (f, 1, fy);
-            gsl_vector_set (f, 2, fz);
-            // the ucv vector
-            gsl_vector* ucv = gsl_vector_alloc (3);
-            gsl_vector_set (ucv, 0, ucvxs);
-            gsl_vector_set (ucv, 1, ucvys);
-            gsl_vector_set (ucv, 2, ucvzs);
-            // take a cross product to get the other vector in the plane
-            gsl_vector* b = gsl_vector_alloc (3);
-            cross_product(f,ucv,b);
-            // initial conditions
-            gsl_vector* minimum = gsl_vector_alloc (2);
-            gsl_vector_set (minimum, 0, 0);
-            gsl_vector_set (minimum, 1, 0);
-            struct parameters params; struct parameters* pparams = &params;
-            pparams->ucvmag=&interpolateducvmag;
-            pparams->v = v; pparams->f = f;pparams->b=b;
-            pparams->mygriddata = griddata;
-            // some initial values
-            gsl_multimin_function F;
-            F.n=2;
-            F.f = &my_f;
-            F.params = (void*) pparams;
-            gsl_vector* stepsize = gsl_vector_alloc (2);
-            gsl_vector_set (stepsize, 0, lambda/(8*M_PI));
-            gsl_vector_set (stepsize, 1, lambda/(8*M_PI));
-            gsl_multimin_fminimizer_set (minimizerstate, &F, minimum, stepsize);
-
-            int iter=0;
-            int status =0;
-            double minimizersize=0;
-            do
-            {
-                iter++;
-                status = gsl_multimin_fminimizer_iterate(minimizerstate);
-
-                if (status)
-                {
-                    cout << "error in minimizers, aborting knotfinding";
-                    break;
-                }
-
-                minimizersize = gsl_multimin_fminimizer_size (minimizerstate);
-                status = gsl_multimin_test_size (minimizersize, 1e-2);
-
-            }
-            while (status == GSL_CONTINUE && iter < 500);
-
-
-            if(status==0)
-            {
-                gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
-                gsl_vector_scale(b,gsl_vector_get(minimizerstate->x, 1));
-                gsl_vector_add(f,b);
-                gsl_vector_add(v,f);
-                knotcurves[c].knotcurve[s].xcoord = gsl_vector_get(v, 0);
-                knotcurves[c].knotcurve[s].ycoord= gsl_vector_get(v, 1);
-                knotcurves[c].knotcurve[s].zcoord= gsl_vector_get(v, 2);
-            }
-
-            gsl_vector_free(v);
-            gsl_vector_free(f);
-            gsl_vector_free(b);
-            gsl_vector_free(ucv);
-            gsl_vector_free(stepsize);
-
-            if(status!=0)
-            {
-                return 1;
-            }
-
-            xdiff = knotcurves[c].knotcurve[0].xcoord - knotcurves[c].knotcurve[s].xcoord;     //distance from start/end point
-            ydiff = knotcurves[c].knotcurve[0].ycoord - knotcurves[c].knotcurve[s].ycoord;
-            zdiff = knotcurves[c].knotcurve[0].zcoord - knotcurves[c].knotcurve[s].zcoord;
-            if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <3*h  && s > 10) finish = true;
-            if(s>50000) finish = true;
-
-            // okay, we just added a point in position s in the vector
-            // if we have a few points in the vector, discard the first few and restart the whole thing - burn it in
-            int newstartingposition =5;
-            if(s==newstartingposition && burnin)
-            {
-                knotcurves[c].knotcurve.erase(knotcurves[c].knotcurve.begin(),knotcurves[c].knotcurve.begin()+newstartingposition);
-                s =0;
-                burnin =false;
-            }
-
-            s++;
-        }
-
-        int NP = knotcurves[c].knotcurve.size();  //store number of points in knot curve
-
-
-        /*******Vertex averaging*********/
-
-        double totlength, dl, dx,dy,dz;
-        for(i=0;i<3;i++)   //repeat a couple of times because of end point
-        {
-            totlength=0;
-            for(s=0; s<NP; s++)   //Work out total length of curve
-            {
-                dx = knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[s].xcoord;
-                dy = knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[s].ycoord;
-                dz = knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[s].zcoord;
-                totlength += sqrt(dx*dx + dy*dy + dz*dz);
-            }
-            dl = totlength/NP;
-            for(s=0; s<NP; s++)    //Move points to have spacing dl
-            {
-                dx = knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[s].xcoord;
-                dy = knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[s].ycoord;
-                dz = knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[s].zcoord;
-                double norm = sqrt(dx*dx + dy*dy + dz*dz);
-                knotcurves[c].knotcurve[incp(s,1,NP)].xcoord = knotcurves[c].knotcurve[s].xcoord + dl*dx/norm;
-                knotcurves[c].knotcurve[incp(s,1,NP)].ycoord = knotcurves[c].knotcurve[s].ycoord + dl*dy/norm;
-                knotcurves[c].knotcurve[incp(s,1,NP)].zcoord = knotcurves[c].knotcurve[s].zcoord + dl*dz/norm;
-            }
-        }
-
-        /*************Curve Smoothing*******************/
-        vector<double> coord(NP);
-        gsl_fft_real_wavetable * real;
-        gsl_fft_halfcomplex_wavetable * hc;
-        gsl_fft_real_workspace * work;
-        work = gsl_fft_real_workspace_alloc (NP);
-        real = gsl_fft_real_wavetable_alloc (NP);
-        hc = gsl_fft_halfcomplex_wavetable_alloc (NP);
-        for(j=1; j<4; j++)
-        {
-            switch(j)
-            {
-            case 1 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].xcoord ; break;
-            case 2 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ycoord ; break;
-            case 3 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].zcoord ; break;
-            }
-            double* data = coord.data();
-            // take the fft
-            gsl_fft_real_transform (data, 1, NP, real, work);
-            // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
-            // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
-            // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
-            // plug in above. im doing a rough length calc below, this might be overkill.
-            // at the moment its just a hard filter, we can choose others though.
-            // compute a rough length to set scale
-            double filter;
-            const double cutoff = 2*M_PI*(totlength/(6*lambda));
-            for (i = 0; i < NP; ++i)
-            {
-                filter = 1/sqrt(1+pow((i/cutoff),8));
-                data[i] *= filter;
-            };
-            // transform back
-            gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
-            switch(j)
-            {
-            case 1 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].xcoord = coord[i] ; break;
-            case 2 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ycoord = coord[i] ; break;
-            case 3 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].zcoord = coord[i] ; break;
-            }
-        }
-
-
-
-        /******************Interpolate direction of grad u for twist calc*******/
-        /**Find nearest gridpoint**/
-        double dxu, dyu, dzu, dxup, dyup, dzup;
-        for(s=0; s<NP; s++)
-        {
-            idwn = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
-            jdwn = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
-            kdwn = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
-            modidwn = circularmod(idwn,Nx);
-            modjdwn = circularmod(jdwn,Ny);
-            modkdwn = circularmod(kdwn,Nz);
-            if((BoundaryType==ALLREFLECTING) && (idwn<0 || jdwn<0 || kdwn<0 || idwn > Nx-1 || jdwn > Ny-1 || kdwn > Nz-1)) break;
-            if((BoundaryType==ZPERIODIC) && (idwn<0 || jdwn<0 || idwn > Nx-1 || jdwn > Ny-1 )) break;
-            dxu=0;
-            dyu=0;
-            dzu=0;
-            /*curve to gridpoint down distance*/
-            xd = (knotcurves[c].knotcurve[s].xcoord - x(idwn,griddata))/h;
-            yd = (knotcurves[c].knotcurve[s].ycoord - y(jdwn,griddata))/h;
-            zd = (knotcurves[c].knotcurve[s].zcoord - z(kdwn,griddata))/h;
-            for(m=0;m<8;m++)  //linear interpolation of 8 NNs
-            {
-                /* Work out increments*/
-                iinc = m%2;
-                jinc = (m/2)%2;
-                kinc = (m/4)%2;
-                /*Loop over nearest points*/
-                i = gridinc(modidwn, iinc, Nx,0);
-                j = gridinc(modjdwn, jinc, Ny,1);
-                k = gridinc(modkdwn,kinc, Nz,2);
-                prefactor = (1-iinc + pow(-1,1+iinc)*xd)*(1-jinc + pow(-1,1+jinc)*yd)*(1-kinc + pow(-1,1+kinc)*zd);   //terms of the form (1-xd)(1-yd)zd etc. (interpolation coefficient)
-                /*interpolate grad u over nearest points*/
-                dxu += prefactor*0.5*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] -  u[pt(gridinc(i,-1,Nx,0),j,k,griddata)])/h;  //central diff
-                dyu += prefactor*0.5*(u[pt(i,gridinc(j,1,Ny,1),k,griddata)] -  u[pt(i,gridinc(j,-1,Ny,1),k,griddata)])/h;
-                dzu += prefactor*0.5*(u[pt(i,j,gridinc(k,1,Nz,2),griddata)] -  u[pt(i,j,gridinc(k,-1,Nz,2),griddata)])/h;
-            }
-            //project du onto perp of tangent direction first
-            dx = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,-1,NP)].xcoord);   //central diff as a is defined on the points
-            dy = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,-1,NP)].ycoord);
-            dz = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,-1,NP)].zcoord);
-            dxup = dxu - (dxu*dx + dyu*dy + dzu*dz)*dx/(dx*dx+dy*dy+dz*dz);               //Grad u_j * (delta_ij - t_i t_j)
-            dyup = dyu - (dxu*dx + dyu*dy + dzu*dz)*dy/(dx*dx+dy*dy+dz*dz);
-            dzup = dzu - (dxu*dx + dyu*dy + dzu*dz)*dz/(dx*dx+dy*dy+dz*dz);
-            /*Vector a is the normalised gradient of u, should point in direction of max u perp to t*/
-            double norm = sqrt(dxup*dxup+dyup*dyup+dzup*dzup);
-            knotcurves[c].knotcurve[s].ax = dxup/norm;
-            knotcurves[c].knotcurve[s].ay = dyup/norm;
-            knotcurves[c].knotcurve[s].az = dzup/norm;
-        }
-
-        for(j=1; j<4; j++)
-        {
-            switch(j)
-            {
-            case 1 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ax ; break;
-            case 2 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].ay ; break;
-            case 3 :
-                for(i=0; i<NP; i++) coord[i] =  knotcurves[c].knotcurve[i].az ; break;
-            }
-            double* data = coord.data();
-            // take the fft
-            gsl_fft_real_transform (data, 1, NP, real, work);
-            // 21/11/2016: make our low pass filter. To apply our filter. we should sample frequencies fn = n/Delta N , n = -N/2 ... N/2
-            // this is discretizing the nyquist interval, with extreme frequency ~1/2Delta.
-            // to cut out the frequencies of grid fluctuation size and larger we need a lengthscale Delta to
-            // plug in above. im doing a rough length calc below, this might be overkill.
-            // at the moment its just a hard filter, we can choose others though.
-            // compute a rough length to set scale
-            double filter;
-            const double cutoff = 2*M_PI*(totlength/(1*lambda));
-            for (i = 0; i < NP; ++i)
-            {
-                filter = 1/sqrt(1+pow((i/cutoff),8));
-                data[i] *= filter;
-            };
-            // transform back
-            gsl_fft_halfcomplex_inverse (data, 1, NP, hc, work);
-            switch(j)
-            {
-            case 1 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ax= coord[i] ; break;
-            case 2 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].ay= coord[i] ; break;
-            case 3 :
-                for(i=0; i<NP; i++)  knotcurves[c].knotcurve[i].az = coord[i] ; break;
-            }
-        }
-        gsl_fft_real_wavetable_free (real);
-        gsl_fft_halfcomplex_wavetable_free (hc);
-        gsl_fft_real_workspace_free (work);
-
-
-        // CURVE GEOMETRY - get curvatures, torsions, frennet serret frame
-
-
-        NP = knotcurves[c].knotcurve.size();
-        for(s=0; s<NP; s++)
-        {
-            // forward difference on the tangents
-            double dx = (knotcurves[c].knotcurve[incp(s,1,NP)].xcoord - knotcurves[c].knotcurve[incp(s,0,NP)].xcoord);
-            double dy = (knotcurves[c].knotcurve[incp(s,1,NP)].ycoord - knotcurves[c].knotcurve[incp(s,0,NP)].ycoord);
-            double dz = (knotcurves[c].knotcurve[incp(s,1,NP)].zcoord - knotcurves[c].knotcurve[incp(s,0,NP)].zcoord);
-            double deltas = sqrt(dx*dx+dy*dy+dz*dz);
-            knotcurves[c].knotcurve[s].tx = dx/(deltas);
-            knotcurves[c].knotcurve[s].ty = dy/(deltas);
-            knotcurves[c].knotcurve[s].tz = dz/(deltas);
-            knotcurves[c].knotcurve[s].length = deltas;
-            knotcurves[c].length +=deltas;
-        }
-        for(s=0; s<NP; s++)
-        {
-            // backwards diff for the normals, amounting to a central diff overall
-            double nx = 2.0*(knotcurves[c].knotcurve[s].tx-knotcurves[c].knotcurve[incp(s,-1,NP)].tx)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-            double ny = 2.0*(knotcurves[c].knotcurve[s].ty-knotcurves[c].knotcurve[incp(s,-1,NP)].ty)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-            double nz = 2.0*(knotcurves[c].knotcurve[s].tz-knotcurves[c].knotcurve[incp(s,-1,NP)].tz)/(knotcurves[c].knotcurve[s].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-            double curvature = sqrt(nx*nx+ny*ny+nz*nz);
-            nx /=curvature;
-            ny /=curvature;
-            nz /=curvature;
-            double tx = knotcurves[c].knotcurve[s].tx ;
-            double ty =  knotcurves[c].knotcurve[s].ty ;
-            double tz = knotcurves[c].knotcurve[s].tz ;
-            double bx = ty*nz - tz*ny;
-            double by = tz*nx - tx*nz;
-            double bz = tx*ny - ty*nx;
-            knotcurves[c].knotcurve[s].nx = nx ;
-            knotcurves[c].knotcurve[s].ny = ny ;
-            knotcurves[c].knotcurve[s].nz = nz ;
-            knotcurves[c].knotcurve[s].bx = bx ;
-            knotcurves[c].knotcurve[s].by = by ;
-            knotcurves[c].knotcurve[s].bz = bz ;
-            knotcurves[c].knotcurve[s].curvature = curvature ;
-        }
-        // torsions with a central difference
-        for(s=0; s<NP; s++)
-        {
-            double bx = knotcurves[c].knotcurve[s].bx;
-            double by =  knotcurves[c].knotcurve[s].by;
-            double bz = knotcurves[c].knotcurve[s].bz;
-
-            double dnxds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nx-knotcurves[c].knotcurve[incp(s,-1,NP)].nx)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-            double dnyds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].ny-knotcurves[c].knotcurve[incp(s,-1,NP)].ny)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-            double dnzds = 2.0*(knotcurves[c].knotcurve[incp(s,1,NP)].nz-knotcurves[c].knotcurve[incp(s,-1,NP)].nz)/(knotcurves[c].knotcurve[incp(s,1,NP)].length+knotcurves[c].knotcurve[incp(s,-1,NP)].length);
-
-            double torsion = bx*dnxds+by*dnyds+bz*dnzds;
-            knotcurves[c].knotcurve[s].torsion = torsion ;
-        }
-
-
-        // RIBBON TWIST AND WRITHE
-
-        for(s=0; s<NP; s++)
-        {
-
-            // twist of this segment
-            double ds = knotcurves[c].knotcurve[s].length;
-            double dxds = knotcurves[c].knotcurve[s].tx;
-            double dyds = knotcurves[c].knotcurve[s].ty;
-            double dzds = knotcurves[c].knotcurve[s].tz;
-            double bx = (knotcurves[c].knotcurve[incp(s,1,NP)].ax - knotcurves[c].knotcurve[s].ax)/ds;
-            double by = (knotcurves[c].knotcurve[incp(s,1,NP)].ay - knotcurves[c].knotcurve[s].ay)/ds;
-            double bz = (knotcurves[c].knotcurve[incp(s,1,NP)].az - knotcurves[c].knotcurve[s].az)/ds;
-            knotcurves[c].knotcurve[s].twist = (dxds*(knotcurves[c].knotcurve[s].ay*bz - knotcurves[c].knotcurve[s].az*by) + dyds*(knotcurves[c].knotcurve[s].az*bx - knotcurves[c].knotcurve[s].ax*bz) + dzds*(knotcurves[c].knotcurve[s].ax*by - knotcurves[c].knotcurve[s].ay*bx))/(2*M_PI*sqrt(dxds*dxds + dyds*dyds + dzds*dzds));
-
-            // "writhe" of this segment. writhe is nonlocal, this is the thing in the integrand over s
-            knotcurves[c].knotcurve[s].writhe = 0;
-            for(m=0; m<NP; m++)
-            {
-                if(s != m)
-                {
-                    xdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].xcoord + knotcurves[c].knotcurve[s].xcoord - knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord);   //interpolate, consistent with fwd diff
-                    ydiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].ycoord + knotcurves[c].knotcurve[s].ycoord - knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord);
-                    zdiff = 0.5*(knotcurves[c].knotcurve[incp(s,1,NP)].zcoord + knotcurves[c].knotcurve[s].zcoord - knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord);
-                    double dxdm = (knotcurves[c].knotcurve[incp(m,1,NP)].xcoord - knotcurves[c].knotcurve[m].xcoord)/(ds);
-                    double dydm = (knotcurves[c].knotcurve[incp(m,1,NP)].ycoord - knotcurves[c].knotcurve[m].ycoord)/(ds);
-                    double dzdm = (knotcurves[c].knotcurve[incp(m,1,NP)].zcoord - knotcurves[c].knotcurve[m].zcoord)/(ds);
-                    knotcurves[c].knotcurve[s].writhe += ds*(xdiff*(dyds*dzdm - dzds*dydm) + ydiff*(dzds*dxdm - dxds*dzdm) + zdiff*(dxds*dydm - dyds*dxdm))/(4*M_PI*(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff)*sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff));
-                }
-            }
-
-            //Add on writhe, twist
-            knotcurves[c].writhe += knotcurves[c].knotcurve[s].writhe*ds;
-            knotcurves[c].twist  += knotcurves[c].knotcurve[s].twist*ds;
-            // while we are computing the global quantites, get the average position too
-            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
-            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
-            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
-        }
-
-        // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
-        // but for storage and display, we should put it all in the box
-
-        // (1) construct the proper periodic co-ordinates from our ghost grid
-        double xupperlim = x(griddata.Nx -1 ,griddata);
-        double xlowerlim = x(0,griddata);
-        double deltax = griddata.Nx * h;
-        double yupperlim = y(griddata.Ny -1,griddata);
-        double ylowerlim = y(0,griddata);
-        double deltay = griddata.Ny * h;
-        double zupperlim = z(griddata.Nz -1 ,griddata);
-        double zlowermin = z(0,griddata);
-        double deltaz = griddata.Nz * h;
-        for(s=0; s<NP; s++)
-        {
-            knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord;
-            knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord;
-            knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord;
-            if(knotcurves[c].knotcurve[s].xcoord > xupperlim) {
-                knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord-deltax;
-            } ;
-            if(knotcurves[c].knotcurve[s].xcoord < xlowerlim) {
-                knotcurves[c].knotcurve[s].modxcoord = knotcurves[c].knotcurve[s].xcoord+deltax;
-            };
-            if(knotcurves[c].knotcurve[s].ycoord > yupperlim) {
-                knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord-deltay;
-            };
-            if(knotcurves[c].knotcurve[s].ycoord < ylowerlim) {
-                knotcurves[c].knotcurve[s].modycoord = knotcurves[c].knotcurve[s].ycoord+deltay;
-            };
-            if(knotcurves[c].knotcurve[s].zcoord > zupperlim) {
-                knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord-deltaz;
-            };
-            if(knotcurves[c].knotcurve[s].zcoord < zlowermin)
-            {
-                knotcurves[c].knotcurve[s].modzcoord = knotcurves[c].knotcurve[s].zcoord+deltaz;
-            };
-        }
-
-        // (2) standardise the knot such that the top right corner of the bounding box lies in the "actual" grid. This bounding box point may only lie
-        // off grid in the +ve x y z direction.
-        double xmax=knotcurves[c].knotcurve[0].xcoord;
-        double ymax=knotcurves[c].knotcurve[0].ycoord;
-        double zmax=knotcurves[c].knotcurve[0].zcoord;
-        for(s=0; s<NP; s++)
-        {
-            if(knotcurves[c].knotcurve[s].xcoord>xmax)
-            {
-                xmax = knotcurves[c].knotcurve[s].xcoord;
-            }
-            if(knotcurves[c].knotcurve[s].ycoord>ymax)
-            {
-                ymax = knotcurves[c].knotcurve[s].ycoord;
-            }
-            if(knotcurves[c].knotcurve[s].zcoord>zmax)
-            {
-                zmax = knotcurves[c].knotcurve[s].zcoord;
-            }
-        }
-
-        // get how many lattice shifts are needed
-        int xlatticeshift = (int) (round(xmax/(griddata.Nx *griddata.h)));
-        int ylatticeshift = (int) (round(ymax/(griddata.Ny *griddata.h)));
-        int zlatticeshift = (int) (round(zmax/(griddata.Nz *griddata.h)));
-        // perform the shift
-
-        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-        {
-            knotcurves[c].knotcurve[s].xcoord -= (double)(xlatticeshift) * (griddata.Nx *griddata.h);
-            knotcurves[c].knotcurve[s].ycoord -= (double)(ylatticeshift) * (griddata.Ny *griddata.h);
-            knotcurves[c].knotcurve[s].zcoord -= (double)(zlatticeshift) * (griddata.Nz *griddata.h);
-        }
-        // now we've done these shifts, we'd better move the knotcurve average position too.
-        knotcurves[c].xavgpos = 0;
-        knotcurves[c].yavgpos = 0;
-        knotcurves[c].zavgpos = 0;
-        for(int s=0; s<knotcurves[c].knotcurve.size(); s++)
-        {
-            knotcurves[c].xavgpos += knotcurves[c].knotcurve[s].xcoord/NP;
-            knotcurves[c].yavgpos += knotcurves[c].knotcurve[s].ycoord/NP;
-            knotcurves[c].zavgpos += knotcurves[c].knotcurve[s].zcoord/NP;
-        }
-    }
-
+    first = false;
     return 0;
 }
 
@@ -963,22 +1053,22 @@ void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<do
     {
         switch (l)
         {
-        case 1:
-        {
-            inc=0.5;   //add k1 to uv and add to total k
-        }
-            break;
+            case 1:
+                {
+                    inc=0.5;   //add k1 to uv and add to total k
+                }
+                break;
 
-        case 2:
-        {
-            inc=0.5 ;   //add k1 to uv and add to total k
-        }
-            break;
-        case 3:
-        {
-            inc=1 ;   //add k1 to uv and add to total k
-        }
-            break;
+            case 2:
+                {
+                    inc=0.5 ;   //add k1 to uv and add to total k
+                }
+                break;
+            case 3:
+                {
+                    inc=1 ;   //add k1 to uv and add to total k
+                }
+                break;
         }
 #pragma omp for 
         for(int s=0;s<markedlist.size();s++)
@@ -1078,13 +1168,13 @@ double my_f(const gsl_vector* minimum, void* params)
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product)
 {
     double p1 = gsl_vector_get(u, 1)*gsl_vector_get(v, 2)
-                    - gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
+        - gsl_vector_get(u, 2)*gsl_vector_get(v, 1);
 
     double p2 = gsl_vector_get(u, 2)*gsl_vector_get(v, 0)
-                    - gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
+        - gsl_vector_get(u, 0)*gsl_vector_get(v, 2);
 
     double p3 = gsl_vector_get(u, 0)*gsl_vector_get(v, 1)
-                    - gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
+        - gsl_vector_get(u, 1)*gsl_vector_get(v, 0);
 
     gsl_vector_set(product, 0, p1);
     gsl_vector_set(product, 1, p2);
@@ -1197,9 +1287,9 @@ void ConstructTube(vector<double> &ucvmag ,vector<int>& marked,vector<int>& mark
     double h = griddata.h;
     for(int s=0; s<NP; s++)
     {
-       int icentral = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
-       int jcentral = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
-       int kcentral = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
+        int icentral = (int) ((knotcurves[c].knotcurve[s].xcoord/h) - 0.5 + Nx/2.0);
+        int jcentral = (int) ((knotcurves[c].knotcurve[s].ycoord/h) - 0.5 + Ny/2.0);
+        int kcentral = (int) ((knotcurves[c].knotcurve[s].zcoord/h) - 0.5 + Nz/2.0);
         // construct a ball of radius "radius" around each point in the knotcurve object. we circumscribe it in a cube which is then looped over
         for(int i =-numiterations;i<=numiterations;i++)
         {
