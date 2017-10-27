@@ -186,7 +186,7 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
 #if PRESERVE_RATIOS
     double minscale=1000000000;
     int imin=3;
-    for(i = 0;i<3;i++)   //find minimum scale factor
+    for(int i = 0;i<3;i++)   //find minimum scale factor
     {
         if(scale[i] < minscale && nonzeroheight[i])
         {
@@ -196,7 +196,7 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
     }
     if(imin < 3)      //scale x,y, and z directions by same scale factor
     {
-        for(i = 0;i<3;i++) scale[i] = scale[imin];
+        for(int i = 0;i<3;i++) scale[i] = scale[imin];
     }
 #endif
 }
