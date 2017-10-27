@@ -36,7 +36,7 @@ void ComputeWrithe(struct Link& Curve);
 /***********************Functions for outputting the solid angle*************************/
 
 double SolidAngleCalc(const Link& Curve, const viewpoint& View);
-void phi_calc_curve(vector<double> phi, const struct Link& Curve, const Griddata &griddata);
+void phi_calc_curve(vector<double> &phi, const struct Link& Curve, const Griddata &griddata);
 double init_from_surface_file(std::vector<triangle>& knotsurface);
 
 #endif //SOLID_ANGLECALCULATION_H
