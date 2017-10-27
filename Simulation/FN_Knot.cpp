@@ -127,7 +127,7 @@ int main (void)
             {
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
-                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
+                if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
@@ -888,6 +888,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     static vector<double> oldwrithe(knotcurves.size());
     static vector<double> oldtwist(knotcurves.size());
     static vector<double> oldlength(knotcurves.size());
+    static vector<double> oldxavgpos(knotcurves.size());
+    static vector<double> oldyavgpos(knotcurves.size());
+    static vector<double> oldzavgpos(knotcurves.size());
     static bool first = true;
     vector<int> permutation(knotcurves.size());
 
@@ -898,6 +901,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             oldwrithe[i] = knotcurves[i].writhe;
             oldlength[i] = knotcurves[i].length;
             oldtwist[i] = knotcurves[i].twist;
+            oldxavgpos[i] = knotcurves[i].xavgpos;
+            oldyavgpos[i] = knotcurves[i].yavgpos;
+            oldzavgpos[i] = knotcurves[i].zavgpos;
             permutation[i] = i;
         }
 
@@ -910,6 +916,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             for(int j = 0; j<knotcurves.size();j++)
             {
                 double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]);
+                score += ((knotcurves[j].xavgpos - oldxavgpos[i])/oldxavgpos[i])*((knotcurves[j].xavgpos - oldxavgpos[i])/oldxavgpos[i]);
+                score += ((knotcurves[j].yavgpos - oldyavgpos[i])/oldyavgpos[i])*((knotcurves[j].yavgpos - oldyavgpos[i])/oldyavgpos[i]);
+                score += ((knotcurves[j].zavgpos - oldzavgpos[i])/oldzavgpos[i])*((knotcurves[j].zavgpos - oldzavgpos[i])/oldzavgpos[i]);
                 if(score<minscore) permutation[i] = j; minscore = score;
             }
         }
@@ -920,6 +929,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             oldwrithe[i] = knotcurves[permutation[i]].writhe;
             oldlength[i] = knotcurves[permutation[i]].length;
             oldtwist[i] = knotcurves[permutation[i]].twist;
+            oldxavgpos[i] = knotcurves[permutation[i]].xavgpos;
+            oldyavgpos[i] = knotcurves[permutation[i]].yavgpos;
+            oldzavgpos[i] = knotcurves[permutation[i]].zavgpos;
 
         }
         // i can't be bothered to do this the smart way.
@@ -930,6 +942,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
         }
         knotcurves=tempknotcurves;
     }
+    cout << permutation[0] << permutation[1] << endl;
     first = false;
 }
 
