@@ -1,8 +1,0 @@
-#!/bin/bash
-#for filename in uv_plot[^\_]*.vtk
-for filename in uv_plot{9009..9014}.vtk
-do
-    ./a.out $filename
-done
-
-
