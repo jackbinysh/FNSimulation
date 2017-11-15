@@ -63,6 +63,10 @@ const bool BoxResizeFlag = 0;
 const double BoxResizeTime = 1000;
 
 
+// OPTION - how big should the knot be in the box, do you want it tilted or displaced?
+const double sensorxcoord = 0;
+const double sensorycoord = 0;
+const double sensorzcoord = 0;
 
 // OPTION - how big should the knot be in the box, do you want it tilted or displaced?
 //Size boundaries of knot (now autoscaled)

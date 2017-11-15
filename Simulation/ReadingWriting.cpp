@@ -256,6 +256,18 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
     return 0;
 }
 
+void print_sensor_point(double CurrentTime, viewpoint sensorpoint, vector<double>&u,Griddata griddata)
+{
+        // grab the indices corresponding to the point
+        int n = coordstopt(sensorpoint.xcoord,sensorpoint.ycoord,sensorpoint.zcoord,griddata);
+        /***Write values to file*******/
+        stringstream ss;
+        ss << "sensorpoint" << "_" << sensorpoint.xcoord << "_" << sensorpoint.ycoord << "_" << sensorpoint.zcoord <<  ".txt";
+        ofstream wrout (ss.str().c_str(), std::ofstream::app);
+        wrout << CurrentTime << '\t' << u[n] << '\n';
+        wrout.close();
+}
+
 void print_knot( double t, vector<knotcurve>& knotcurves,const Griddata& griddata)
 {
     for( int c=0; c < (knotcurves.size()) ; c++)

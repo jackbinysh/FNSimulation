@@ -56,6 +56,8 @@ int main (void)
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<triangle> knotsurface;    //structure for storing knot surface coordinates
+    // sensor points we output u values at
+    viewpoint sensorpoint;
     // GSL initialization
     const gsl_multimin_fminimizer_type *Type;
     gsl_multimin_fminimizer *minimizerstate;
@@ -68,6 +70,9 @@ int main (void)
     int VelocityKnotplotPrintIteration = (int)(VelocityKnotplotPrintTime/dtime);
     int InitialSkipIteration = (int)(InitialSkipTime/dtime);
     int UVPrintIteration = (int)(UVPrintTime/dtime);
+    sensorpoint.xcoord = sensorxcoord ;
+    sensorpoint.ycoord = sensorycoord ;
+    sensorpoint.zcoord = sensorzcoord ;
     // initialising timers
     time_t rawtime;
     time (&rawtime);
@@ -119,7 +124,7 @@ int main (void)
 
     double CurrentTime = starttime;
     int CurrentIteration = (int)(CurrentTime/dtime);
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata)
+#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
     {
         while(CurrentTime <= TTime)
         {
@@ -130,8 +135,11 @@ int main (void)
                 if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     print_knot(CurrentTime, knotcurves, griddata);
+
+                    print_sensor_point(CurrentTime,sensorpoint,u,griddata);
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
@@ -1242,6 +1250,26 @@ int pt( int i,  int j,  int k,const Griddata& griddata)       //convert i,j,k to
 {
     return (i*griddata.Ny*griddata.Nz+j*griddata.Nz+k);
 }
+
+int coordstopt(double x, double y, double z, Griddata&griddata)
+{
+    double h = griddata.h;
+
+    double doublei = (x/h) + (griddata.Nx/2.0)-0.5;
+    // now, C++ truncates towards 0. We have a positive number here, which we want to round to the nearest integer. We do this by adding 0.5 and casting
+    int i = (int)(doublei + 0.5);
+
+    double doublej = (y/h) + (griddata.Ny/2.0)-0.5;
+    int j = (int)(doublej + 0.5);
+
+    double doublek = (z/h) + (griddata.Nz/2.0)-0.5;
+    int k = (int)(doublek + 0.5);
+
+    int n = pt(i,j,k,griddata);
+    return n;
+
+}
+
 int sign(int i)
 {
     if(i==0) return 0;

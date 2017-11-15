@@ -28,6 +28,13 @@ struct parameters
     Griddata mygriddata;
 };
 
+struct viewpoint
+{
+    double xcoord;
+    double ycoord;
+    double zcoord;
+};
+
 struct triangle
 {
     double xvertex[3];   //x components of vertices
@@ -107,6 +114,7 @@ double y(int i, const Griddata &griddata);
 double z(int i, const Griddata &griddata);
 int sign(int i);
 int pt(int i,  int j,  int k, const Griddata &griddata);       //convert i,j,k to single index
+int coordstopt(double x, double y, double z, Griddata&griddata);
 int circularmod(int i, int N);    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 int incp(int i, int p, int N);    //increment i with p for periodic boundary
 int incw(int i, int p, int N);    //increment with reflecting boundary between -1 and 0 and N-1 and N
