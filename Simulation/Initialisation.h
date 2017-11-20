@@ -14,12 +14,6 @@ using namespace std;
 #ifndef SOLIDANGLECALCULATION_H
 #define SOLIDANGLECALCULATION_H
 
-struct viewpoint
-{
-    double xcoord;
-    double ycoord;
-    double zcoord;
-};
 
 /*************************Functions for knot initialisation*****************************/
 
