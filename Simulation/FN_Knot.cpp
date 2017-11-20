@@ -218,8 +218,10 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const
 
     for(n=0; n<Nx*Ny*Nz; n++)
     {
-        u[n] = (2*cos(phi[n]) - 0.4);
-        v[n] = (sin(phi[n]) - 0.4);
+        // turns out we want -solidangle in order that the initialisation has the same sense - "clockwise vortex rotation in time" as our initialisation curve.
+        double minusphi = -phi[n];
+        u[n] = (2*cos(minusphi) - 0.4);
+        v[n] = (sin(minusphi) - 0.4);
     }
 }
 
@@ -361,9 +363,11 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 ucvzs = ucvzs/norm; //normalise
 
                 // okay we have our first guess, move forward in this direction
-                double testx = knotcurves[c].knotcurve[s-1].xcoord + 0.5*ucvxs*lambda/(2*M_PI);
-                double testy = knotcurves[c].knotcurve[s-1].ycoord + 0.5*ucvys*lambda/(2*M_PI);
-                double testz = knotcurves[c].knotcurve[s-1].zcoord + 0.5*ucvzs*lambda/(2*M_PI);
+                // we actually want to walk in the direction gradv cross gradu - that should be our +ve tangent,
+                // so that the rotation sense of the curve is positive. Get this we - signs below.
+                double testx = knotcurves[c].knotcurve[s-1].xcoord - 0.5*ucvxs*lambda/(2*M_PI);
+                double testy = knotcurves[c].knotcurve[s-1].ycoord - 0.5*ucvys*lambda/(2*M_PI);
+                double testz = knotcurves[c].knotcurve[s-1].zcoord - 0.5*ucvzs*lambda/(2*M_PI);
 
                 // now get the grad at this point
                 idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
