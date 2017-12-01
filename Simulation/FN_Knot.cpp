@@ -130,6 +130,11 @@ int main (void)
         {
 #pragma omp single
             {
+                cout << "T = " << CurrentTime << endl;
+                time (&rawtime);
+                timeinfo = localtime (&rawtime);
+                cout << "current time \t" << asctime(timeinfo) << "\n";
+
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
                 if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
@@ -155,11 +160,6 @@ int main (void)
                     }
                     knotcurvesold = knotcurves;
 
-                    // at this point, let people know how things are going
-                    cout << "T = " << CurrentTime << endl;
-                    time (&rawtime);
-                    timeinfo = localtime (&rawtime);
-                    cout << "current time \t" << asctime(timeinfo) << "\n";
                 }
 
                 // print the UV, and ucrossv data
@@ -365,9 +365,9 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 // okay we have our first guess, move forward in this direction
                 // we actually want to walk in the direction gradv cross gradu - that should be our +ve tangent,
                 // so that the rotation sense of the curve is positive. Get this we - signs below.
-                double testx = knotcurves[c].knotcurve[s-1].xcoord - 0.5*ucvxs*lambda/(2*M_PI);
-                double testy = knotcurves[c].knotcurve[s-1].ycoord - 0.5*ucvys*lambda/(2*M_PI);
-                double testz = knotcurves[c].knotcurve[s-1].zcoord - 0.5*ucvzs*lambda/(2*M_PI);
+                double testx = knotcurves[c].knotcurve[s-1].xcoord - h*ucvxs;
+                double testy = knotcurves[c].knotcurve[s-1].ycoord - h*ucvys;
+                double testz = knotcurves[c].knotcurve[s-1].zcoord - h*ucvzs;
 
                 // now get the grad at this point
                 idwn = (int) ((testx/h) - 0.5 + Nx/2.0);
@@ -465,7 +465,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                     status = gsl_multimin_test_size (minimizersize, 1e-2);
 
                 }
-                while (status == GSL_CONTINUE && iter < 500);
+                while (status == GSL_CONTINUE && iter < 5000);
 
 
                 gsl_vector_scale(f,gsl_vector_get(minimizerstate->x, 0));
@@ -485,12 +485,12 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 xdiff = knotcurves[c].knotcurve[0].xcoord - knotcurves[c].knotcurve[s].xcoord;     //distance from start/end point
                 ydiff = knotcurves[c].knotcurve[0].ycoord - knotcurves[c].knotcurve[s].ycoord;
                 zdiff = knotcurves[c].knotcurve[0].zcoord - knotcurves[c].knotcurve[s].zcoord;
-                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <3*h  && s > 10) finish = true;
+                if(sqrt(xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) <h  && s > 10) finish = true;
                 if(s>50000) finish = true;
 
                 // okay, we just added a point in position s in the vector
                 // if we have a few points in the vector, discard the first few and restart the whole thing - burn it in
-                int newstartingposition =5;
+                int newstartingposition =20;
                 if(s==newstartingposition && burnin)
                 {
                     knotcurves[c].knotcurve.erase(knotcurves[c].knotcurve.begin(),knotcurves[c].knotcurve.begin()+newstartingposition);
@@ -559,10 +559,10 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(6*lambda));
+                const double cutoff = 2*M_PI*(totlength/(3*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/sqrt(1+pow((i/cutoff),8));
+                    filter = 1/sqrt(1+pow((i/cutoff),4));
                     data[i] *= filter;
                 };
                 // transform back
@@ -904,7 +904,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     static vector<double> oldyavgpos(knotcurves.size());
     static vector<double> oldzavgpos(knotcurves.size());
     static bool first = true;
-    vector<int> permutation(knotcurves.size());
+    static vector<int> permutation(knotcurves.size());
 
     if(first)
     {
@@ -924,14 +924,14 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
     {
         for(int i = 0; i<knotcurves.size();i++)
         {
-            double minscore = 0;
+            double minscore = INFINITY;
             for(int j = 0; j<knotcurves.size();j++)
             {
                 double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]);
-                score += ((knotcurves[j].xavgpos - oldxavgpos[i])/oldxavgpos[i])*((knotcurves[j].xavgpos - oldxavgpos[i])/oldxavgpos[i]);
-                score += ((knotcurves[j].yavgpos - oldyavgpos[i])/oldyavgpos[i])*((knotcurves[j].yavgpos - oldyavgpos[i])/oldyavgpos[i]);
-                score += ((knotcurves[j].zavgpos - oldzavgpos[i])/oldzavgpos[i])*((knotcurves[j].zavgpos - oldzavgpos[i])/oldzavgpos[i]);
-                if(score<minscore) permutation[i] = j; minscore = score;
+                score += pow( (knotcurves[j].xavgpos - oldxavgpos[i])/(knotcurves[j].xavgpos + oldxavgpos[i]),2 );
+                score += pow( (knotcurves[j].yavgpos - oldyavgpos[i])/(knotcurves[j].yavgpos + oldyavgpos[i]),2 );
+                score += pow( (knotcurves[j].zavgpos - oldzavgpos[i])/(knotcurves[j].zavgpos + oldzavgpos[i]),2 );
+                if(score<minscore) {permutation[i] = j; minscore = score;}
             }
         }
         // apply the permutation to the list of lengths etc. It is now "correct" in the sense that index [0] really is component 0 etc. these labellings are arbitrarlly set at the simulations start and
@@ -954,7 +954,6 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
         }
         knotcurves=tempknotcurves;
     }
-    cout << permutation[0] << permutation[1] << endl;
     first = false;
 }
 
