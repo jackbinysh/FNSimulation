@@ -24,13 +24,13 @@ FROM_FUNCTION: Initialise from some function which can be implemented by the use
 const int option = INSERT_INITIALISATION_TYPE;         //unknot default option
 const std::string knot_filename = "INSERT_SURFACE_FILENAME";      //if FROM_SURFACE_FILE assumed input filename format of "XXXXX.stl"
 const std::string B_filename = "INSERT_UV_FILENAME";    //filename for phi field or uv field
-const int NumComponents = 1;   //No. points in x,y and z
+const int NumComponents = INSERT_NUM_COMPONENTS;   //No. points in x,y and z
 
 // OPTION - what kind of boundary condition
-const BoundaryType BoundaryType=ALLPERIODIC;
+const BoundaryType BoundaryType=INSERT_BOUNDARY_TYPE;
 
 //OPTION - do you want the geometry of the input file to be exactly preserved, or can it be scaled to fit the box better
-#define PRESERVE_RATIOS 0  //1 to scale input file preserving the aspect ratio
+#define PRESERVE_RATIOS INSERT_PRESERVE_RATIOS  //1 to scale input file preserving the aspect ratio
 
 // OPTION - how long should it run, when do you want data printed, what time value should it start at
 const double TTime = INSERT_RUNTIME;       //total time of simulation (simulation units)
@@ -49,7 +49,7 @@ const int initialNz = INSERT_NZ;
 // OPTION - do you want to read in a coarse uv file , and interpolate onto a finer grid? If so,
 // first, set the flag to 1 if you want, 0 if you dont.
 // give the # points in each dimension, which should be > initialNx - the spacing will be set by (initialNx-1)*h/(interpolatedNx-1)
-const int interpolationflag = 0 ;
+const int interpolationflag = INSERT_INTERPOLATION_FLAG ;
 const int interpolatedNx = INSERT_INTERPOLATED_NX;   //No. points in x,y and z
 const int interpolatedNy = INSERT_INTERPOLATED_NY;
 const int interpolatedNz = INSERT_INTERPOLATED_NZ;
