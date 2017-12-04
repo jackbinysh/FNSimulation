@@ -1,20 +1,19 @@
 CXX=icpc
-CXXFLAGS=-O3 
-LDLIBS= -lgsl -lgslcblas -lm -qopenmp 
-LDFLAGS = -O3
-OBJS= TriCubicInterpolator.o FN_Knot.o
-DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h
+CXXFLAGS=-O3 -qopenmp 
+LDLIBS= -lgsl -lgslcblas 
+LDFLAGS = -O3 -qopenmp
+OBJS= TriCubicInterpolator.o FN_Knot.o ReadingWriting.o Initialisation.o
+DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h ReadingWriting.h Initialisation.h
+SHELL:=/bin/bash
 
 %.o: %.c $(DEPS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
-all: LoadModules FNCode clean
-
-LoadModules:
-	module load intel impi GSL
+all: FNCode clean
 
 FNCode:$(OBJS)
-	$(CXX) $(OBJS) $(LDLIBS) $(LDFLAGS)
+	module load intel impi GSL;/
+	$(CXX) $(OBJS) $(LDLIBS) $(LDFLAGS);/
 
 .PHONY: clean
 
