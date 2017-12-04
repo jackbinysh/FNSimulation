@@ -130,15 +130,15 @@ int main (void)
         {
 #pragma omp single
             {
-                cout << "T = " << CurrentTime << endl;
-                time (&rawtime);
-                timeinfo = localtime (&rawtime);
-                cout << "current time \t" << asctime(timeinfo) << "\n";
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
                 // than a cycle
                 if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
                 {
+                    cout << "T = " << CurrentTime << endl;
+                    time (&rawtime);
+                    timeinfo = localtime (&rawtime);
+                    cout << "current time \t" << asctime(timeinfo) << "\n";
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
                     find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
@@ -927,10 +927,10 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             double minscore = INFINITY;
             for(int j = 0; j<knotcurves.size();j++)
             {
-                double score = ((knotcurves[j].length - oldlength[i])/oldlength[i])*((knotcurves[j].length - oldlength[i])/oldlength[i]) +((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i])*((knotcurves[j].writhe - oldwrithe[i])/oldwrithe[i]) +((knotcurves[j].twist - oldtwist[i])/oldtwist[i])*((knotcurves[j].twist - oldtwist[i])/oldtwist[i]);
-                score += pow( (knotcurves[j].xavgpos - oldxavgpos[i])/(knotcurves[j].xavgpos + oldxavgpos[i]),2 );
-                score += pow( (knotcurves[j].yavgpos - oldyavgpos[i])/(knotcurves[j].yavgpos + oldyavgpos[i]),2 );
-                score += pow( (knotcurves[j].zavgpos - oldzavgpos[i])/(knotcurves[j].zavgpos + oldzavgpos[i]),2 );
+                double score = pow((knotcurves[j].length - oldlength[i])/(Nx*h),2) +pow((knotcurves[j].writhe - oldwrithe[i]),2);
+                score += pow( (knotcurves[j].xavgpos - oldxavgpos[i])/(Nx*h),2 );
+                score += pow( (knotcurves[j].yavgpos - oldyavgpos[i])/(Nx*h),2 );
+                score += pow( (knotcurves[j].zavgpos - oldzavgpos[i])/(Nx*h),2 );
                 if(score<minscore) {permutation[i] = j; minscore = score;}
             }
         }
