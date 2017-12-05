@@ -19,6 +19,7 @@ using namespace std;
 
 void InitialiseFromFile(struct Link& Curve);
 void RefineCurve(struct Link& Curve);
+void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
 
 /**********************Functions for curve geometry************************/
 

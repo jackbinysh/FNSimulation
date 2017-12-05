@@ -521,3 +521,39 @@ double init_from_surface_file(vector<triangle>& knotsurface)
 
     return A;
 }
+
+void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
+{
+    bool nonzeroheight[3];  //marker: true if this dimension has non zero height in stl file
+    if(maxxin-minxin>0) { scale[0] = xmax/(maxxin-minxin); nonzeroheight[0] = true; }
+    else { scale[0] = 1;  nonzeroheight[0] = false; }
+    if(maxyin-minyin>0) { scale[1] = ymax/(maxyin-minyin); nonzeroheight[1] = true; }
+    else { scale[1] = 1;  nonzeroheight[1] = false; }
+    if(maxzin-minzin>0) { scale[2] = zmax/(maxzin-minzin); nonzeroheight[2] = true; }
+    else { scale[2] = 1;  nonzeroheight[2] = false; }
+    //double p1x,p1y,p1z,p2x,p2y,p2z,nx,ny,nz;
+    midpoint[0] = 0.5*(maxxin+minxin);
+    midpoint[1] = 0.5*(maxyin+minyin);
+    midpoint[2] = 0.5*(maxzin+minzin);
+#if PRESERVE_RATIOS
+    double minscale=1000000000;
+    int imin=3;
+    for(int i = 0;i<3;i++)   //find minimum scale factor
+    {
+        if(scale[i] < minscale && nonzeroheight[i])
+        {
+            imin = i;
+            minscale = scale[i];
+        }
+    }
+    if(imin < 3)      //scale x,y, and z directions by same scale factor
+    {
+        for(int i = 0;i<3;i++) scale[i] = scale[imin];
+    }
+#endif
+
+    // apply manual scale factor tweaks
+    scale[0] *= xscalefactortweak;
+    scale[1] *= yscalefactortweak;
+    scale[2] *= zscalefactortweak;
+}

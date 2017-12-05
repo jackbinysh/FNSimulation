@@ -123,10 +123,7 @@ int gridinc(int i, int p, int N, int direction );    //increment with reflecting
 void cross_product(const gsl_vector *u, const gsl_vector *v, gsl_vector *product);
 double my_f(const gsl_vector* minimum, void* params);
 void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double theta, const double dispx,const double dispy,const double dispz);
-/*************************Functions for knot initialisation*****************************/
 
-
-void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin);
 
 /*************************Functions for B and Phi calcs*****************************/
 
