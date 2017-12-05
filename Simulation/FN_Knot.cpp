@@ -26,6 +26,7 @@
 #include <omp.h>
 #include <math.h>
 #include <string.h>
+#include <algorithm>
 //includes for the signal processing
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
@@ -178,36 +179,6 @@ int main (void)
     return 0;
 }
 
-void scalefunction(double *scale, double *midpoint, double maxxin, double minxin, double maxyin, double minyin, double maxzin, double minzin)
-{
-    bool nonzeroheight[3];  //marker: true if this dimension has non zero height in stl file
-    if(maxxin-minxin>0) { scale[0] = xmax/(maxxin-minxin); nonzeroheight[0] = true; }
-    else { scale[0] = 1;  nonzeroheight[0] = false; }
-    if(maxyin-minyin>0) { scale[1] = ymax/(maxyin-minyin); nonzeroheight[1] = true; }
-    else { scale[1] = 1;  nonzeroheight[1] = false; }
-    if(maxzin-minzin>0) { scale[2] = zmax/(maxzin-minzin); nonzeroheight[2] = true; }
-    else { scale[2] = 1;  nonzeroheight[2] = false; }
-    //double p1x,p1y,p1z,p2x,p2y,p2z,nx,ny,nz;
-    midpoint[0] = 0.5*(maxxin+minxin);
-    midpoint[1] = 0.5*(maxyin+minyin);
-    midpoint[2] = 0.5*(maxzin+minzin);
-#if PRESERVE_RATIOS
-    double minscale=1000000000;
-    int imin=3;
-    for(int i = 0;i<3;i++)   //find minimum scale factor
-    {
-        if(scale[i] < minscale && nonzeroheight[i])
-        {
-            imin = i;
-            minscale = scale[i];
-        }
-    }
-    if(imin < 3)      //scale x,y, and z directions by same scale factor
-    {
-        for(int i = 0;i<3;i++) scale[i] = scale[imin];
-    }
-#endif
-}
 
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Griddata& griddata)
 {
@@ -927,13 +898,34 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             double minscore = INFINITY;
             for(int j = 0; j<knotcurves.size();j++)
             {
-                double score = pow((knotcurves[j].length - oldlength[i])/(Nx*h),2) +pow((knotcurves[j].writhe - oldwrithe[i]),2);
-                score += pow( (knotcurves[j].xavgpos - oldxavgpos[i])/(Nx*h),2 );
-                score += pow( (knotcurves[j].yavgpos - oldyavgpos[i])/(Nx*h),2 );
-                score += pow( (knotcurves[j].zavgpos - oldzavgpos[i])/(Nx*h),2 );
+                double score = fabs((knotcurves[j].length - oldlength[i])/(Nx*h))+fabs(knotcurves[j].writhe - oldwrithe[i]);
+                score += fmod(fabs((knotcurves[j].xavgpos - oldxavgpos[i])),Nx*h)/(Nx*h);
+                score += fmod(fabs((knotcurves[j].yavgpos - oldyavgpos[i])),Ny*h)/(Ny*h);
+                score += fmod(fabs((knotcurves[j].zavgpos - oldzavgpos[i])),Nz*h)/(Nz*h);
                 if(score<minscore) {permutation[i] = j; minscore = score;}
+
             }
         }
+
+        // if the permutation isn't valid, print a warning and reset it - it's better to have the curves swap then have them incorrectly both mapped to the same curve.
+        bool isvalidperm = true;
+        for(int i=0;i<knotcurves.size();i++)
+        {
+            std::vector<int>::iterator it = std::find(permutation.begin(),permutation.end(),i);
+            if(it == permutation.end()){isvalidperm=false;}
+        }
+
+        if(!isvalidperm)
+        {
+            cout << "the permutation was not valid. resetting! \n";
+            for(int i = 0; i<knotcurves.size();i++)
+            {
+                permutation[i] = i;
+            }
+
+        }
+
+
         // apply the permutation to the list of lengths etc. It is now "correct" in the sense that index [0] really is component 0 etc. these labellings are arbitrarlly set at the simulations start and
         // must be consistently carried forward
         for(int i = 0; i<knotcurves.size();i++)
