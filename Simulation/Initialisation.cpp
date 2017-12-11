@@ -557,3 +557,24 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
     scale[1] *= yscalefactortweak;
     scale[2] *= zscalefactortweak;
 }
+
+void uhatvhat_initialise(const Plans &plans, const Griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    const double h = griddata.h;
+    // now compute the FT's
+    fftw_execute(plans.uext_to_uhat);
+    fftw_execute(plans.vext_to_vhat);
+    fftw_complex* uhat = plans.uhat;
+    fftw_complex* vhat = plans.vhat;
+    int NComplex = Nx*Ny*(Nz/2 +1);
+    double hcubed = h*h*h;
+    for(int n=0;n<NComplex;n++)
+    {
+        uhat[n] = hcubed*uhat[n];
+        vhat[n] = hcubed*vhat[n];
+    }
+}
+

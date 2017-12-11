@@ -178,7 +178,7 @@ int uvfile_read_ASCII(vector<double>&u, vector<double>&v,const Griddata& griddat
     return 0;
 }
 
-int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<double>& kv, vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz, vector<double>& ucvmag,Griddata& griddata)
+int uvfile_read(vector<double>&u, vector<double>&v,  vector<double>& ucvx, vector<double>& ucvy,vector<double>& ucvz, vector<double>& ucvmag,Griddata& griddata)
 {
     string buff,datatype,dimensions,xdim,ydim,zdim;
     ifstream fin (B_filename.c_str());
@@ -244,8 +244,6 @@ int uvfile_read(vector<double>&u, vector<double>&v, vector<double>& ku, vector<d
         ucvy.resize(interpolatedNx*interpolatedNy*interpolatedNz);
         ucvz.resize(interpolatedNx*interpolatedNy*interpolatedNz);
         ucvmag.resize(interpolatedNx*interpolatedNy*interpolatedNz);
-        ku.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
-        kv.resize(4*interpolatedNx*interpolatedNy*interpolatedNz);
 
         u = interpolatedugrid;
         v = interpolatedvgrid;

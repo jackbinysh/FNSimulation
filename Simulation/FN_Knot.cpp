@@ -51,8 +51,6 @@ int main (void)
     vector<double>ucvy(Nx*Ny*Nz);
     vector<double>ucvz(Nx*Ny*Nz);
     vector<double>ucvmag(Nx*Ny*Nz);// mod(grad u cross grad v)
-    vector<double>ku(4*Nx*Ny*Nz);
-    vector<double>kv(4*Nx*Ny*Nz);
     // objects to hold information about the knotcurve we find, andthe surface we read in
     vector<knotcurve > knotcurves; // a structure containing some number of knot curves, each curve a list of knotpoints
     vector<knotcurve > knotcurvesold; // a structure containing some number of knot curves, each curve a list of knotpoints
@@ -64,6 +62,10 @@ int main (void)
     gsl_multimin_fminimizer *minimizerstate;
     Type = gsl_multimin_fminimizer_nmsimplex2;
     minimizerstate = gsl_multimin_fminimizer_alloc (Type,2);
+
+    // Initialise the FFTs, and RK4 arrays
+    Plans plans;
+    Initialise(u, v, plans,griddata);
 
     // setting things from globals
     int starttime = 0;
@@ -86,7 +88,7 @@ int main (void)
     case FROM_UV_FILE:
     {
         cout << "Reading input file...\n";
-        if(uvfile_read(u,v,ku,kv, ucvx,ucvy,ucvz,ucvmag,griddata)){return 1;}
+        if(uvfile_read(u,v, ucvx,ucvy,ucvz,ucvmag,griddata)){return 1;}
         // get the start time -  we hack this together as so:
         // the filename looks like uv_plotxxx.vtk, we want the xxx. so we find the t, find the ., and grab everyting between
         string number = B_filename.substr(B_filename.find('t')+1,B_filename.find('.')-B_filename.find('t')-1);
@@ -120,16 +122,18 @@ int main (void)
 
     }
 
+    uhatvhat_initialise(plans, griddata);
+
     // UPDATE
     cout << "Updating u and v...\n";
 
     double CurrentTime = starttime;
     int CurrentIteration = (int)(CurrentTime/dtime);
-#pragma omp parallel default(none) shared (u,v,ku,kv,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
+//#pragma omp parallel default(none) shared (u,v,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
     {
         while(CurrentTime <= TTime)
         {
-#pragma omp single
+//#pragma omp single
             {
 
                 // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
@@ -142,8 +146,8 @@ int main (void)
                     cout << "current time \t" << asctime(timeinfo) << "\n";
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    print_knot(CurrentTime, knotcurves, griddata);
+                    //find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                    //print_knot(CurrentTime, knotcurves, griddata);
 
                     print_sensor_point(CurrentTime,sensorpoint,u,griddata);
                 }
@@ -166,6 +170,7 @@ int main (void)
                 // print the UV, and ucrossv data
                 if(CurrentIteration%UVPrintIteration==0)
                 {
+                    uv_update_external(u,v,plans,griddata);
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
                 }
@@ -173,11 +178,243 @@ int main (void)
                 CurrentIteration++;
                 CurrentTime  = ((double)(CurrentIteration) * dtime);
             }
-            uv_update(u,v,ku,kv,griddata);
+            uv_update(plans,griddata);
         }
     }
     return 0;
 }
+void uv_update_external(vector<double>&u, vector<double>&v,const Plans &plans,const Griddata& griddata)
+{
+
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    const double h = griddata.h;
+    int NComplex = Nx*Ny*(Nz/2 +1);
+    int Nreal = Nx*Ny*Nz;
+    double oneoverNrealhcubed = (1/((double)(Nreal)))*(1/(h*h*h));
+
+    // copy uhat into the buffer
+    for(int n=0;n<NComplex;n++)
+    {
+    plans.uhattemp[n] = plans.uhat[n];
+    }
+
+    fftw_execute(plans.uhattemp_to_uext);
+
+
+    // copy vhat into the buffer
+    for(int n=0;n<NComplex;n++)
+    {
+    plans.uhattemp[n] = plans.vhat[n];
+    }
+    fftw_execute(plans.uhattemp_to_vext);
+
+    for(int n=0;n<u.size();n++)
+    {
+    // scale the transform
+    u[n] = oneoverNrealhcubed*u[n];
+    v[n] = oneoverNrealhcubed*v[n];
+    }
+}
+
+void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata& griddata)
+{
+
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    const double h = griddata.h;
+    int Ncomplex = Nx*Ny*(Nz/2 +1);
+    int Nreal = Nx*Ny*Nz;
+
+    // the matrices L and Lhalf
+    double complex *L = new double complex[Ncomplex*4];
+    double complex *Lhalf = new double complex[Ncomplex*4];
+    for(int n=0;n<Ncomplex*4;n++)
+    {
+        L[n]=Lhalf[n]=0;
+    }
+
+    // the FT's of u and v
+    fftw_complex* uhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    fftw_complex* vhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    fftw_complex* uhatnext = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    fftw_complex* vhatnext = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    // the intermediate "RK4" arrays
+    fftw_complex* uhattemp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    double* utemp = (double*) fftw_malloc(sizeof(double) * Nreal);
+    // the temp buffer in real space and FT space
+    fftw_plan utemp_to_uhattemp= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, utemp, uhattemp, FFTW_ESTIMATE);
+    fftw_plan uhattemp_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, utemp, FFTW_ESTIMATE);
+    // these  are used for the std::vectors the rest of the codebase is written in
+    fftw_plan uhattemp_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(u[0])) , FFTW_ESTIMATE);
+    // YES THE NAMING HERE IS DELIBERATE- just use uhattemp as a buffer
+    fftw_plan uhattemp_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(v[0])) , FFTW_ESTIMATE);
+    fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(u[0])), uhat , FFTW_ESTIMATE);
+    fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(v[0])), vhat , FFTW_ESTIMATE);
+
+    // Now, the L matrices required for the RK4 update are time independent - we can precompute the exponentials - there are two matrices, L and Lhalf for each k:
+
+    for(int nx=0;nx<Nx;nx++)
+    {
+        for(int ny=0;ny<Nx;ny++)
+        {
+            for(int nz=0;nz<(Nz/2)+1;nz++)
+            {
+                int n = Ny*((Nz/2)+1)*nx +((Nz/2)+1)*ny + nz;
+                // lets just do this the ugly way - correct for the fact that the frequenices are ordered differnetly in the matrices
+                double fx,fy,fz;
+                if(nx<=Nx/2){fx=nx/(h*Nx);};
+                if(nx>Nx/2){fx=(nx-Nx)/(h*Nx);};
+                if(ny<=Ny/2){fy=ny/(h*Ny);};
+                if(ny>Ny/2){fy=(ny-Ny)/(h*Ny);};
+                fz=nz/(h*Nz);
+
+                double kx = 2*M_PI*fx;
+                double ky = 2*M_PI*fy;
+                double kz = 2*M_PI*fz;
+
+                double ksq = kx*kx+ky*ky+kz*kz;
+                double kfour = ksq*ksq;
+
+                double epsilonsq = epsilon*epsilon;
+                double epsiloncub = epsilon*epsilon*epsilon;
+                double epsilonfour = epsilon*epsilon*epsilon*epsilon;
+
+                // the eigenvalues of the system
+                double complex root = csqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
+                double complex omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
+                double complex omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
+
+                // the matrices of eigenvectors, T and T-1.
+                double complex V[2][2];
+                double complex T[2][2];
+                double complex Tinv[2][2];
+                double complex eDdt[2][2];
+                double complex eDdthalf[2][2];
+                // the eigenvectors, unnormalised
+                V[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
+                V[1][0] = 1;
+                V[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
+                V[1][1] = 1;
+
+                double complex norm1 = csqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
+                double complex norm2 = csqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
+                // now normalised
+                T[0][0] = V[0][0]/norm1;
+                T[1][0] = V[1][0]/norm1;
+
+                T[0][1] = V[0][1]/norm2;
+                T[1][1] = V[1][1]/norm2;
+
+                // now the inverse
+                complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
+                Tinv[0][0] = T[1][1]/detT;
+                Tinv[1][0] = -T[1][0]/detT;
+                Tinv[0][1] = -T[0][1]/detT;
+                Tinv[1][1] = T[0][0]/detT;
+
+                // their exponentiations
+                complex double ans = cexp(omega1*dtime);
+                eDdt[0][0] = cexp(omega1*dtime);
+                eDdt[1][0] = 0;
+                eDdt[0][1] = 0;
+                eDdt[1][1] = cexp(omega2*dtime);
+
+                eDdthalf[0][0] = cexp(omega1*0.5*dtime);
+                eDdthalf[1][0] = 0;
+                eDdthalf[0][1] = 0;
+                eDdthalf[1][1] = cexp(omega2*0.5*dtime);
+
+                double complex temp[2][2];
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        temp[i][j]=0;
+                    }
+                }
+                // okay, now do the mulitplications:
+                // Do L
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        for(int q=0;q<2;q++)
+                        {
+                            temp[i][j]+=eDdt[i][q]*Tinv[q][j];
+                        }
+                    }
+                }
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        for(int q=0;q<2;q++)
+                        {
+                            L[4*n+2*i+j]+=T[i][q]*temp[q][j];
+                        }
+                    }
+                }
+                double complex L00 = L[4*n+0+0];
+                double complex L01 = L[4*n+0+1];
+                double complex L10 = L[4*n+2*1+0];
+                double complex L11 = L[4*n+2*1+1];
+                // Do L1/2
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        temp[i][j]=0;
+                    }
+                }
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        for(int q=0;q<2;q++)
+                        {
+                            temp[i][j]+=eDdthalf[i][q]*Tinv[q][j];
+                        }
+                    }
+                }
+                for(int i=0;i<2;i++)
+                {
+                    for(int j=0;j<2;j++)
+                    {
+                        for(int q=0;q<2;q++)
+                        {
+                            Lhalf[4*n+2*i+j]+=T[i][q]*temp[q][j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // great okay, now just set up the plans struct for us to pass around
+
+    // data
+    plans.uhat=uhat;
+    plans.vhat=vhat;
+    plans.uhatnext=uhatnext;
+    plans.vhatnext=vhatnext;
+    plans.uhattemp=uhattemp;
+    plans.utemp=utemp;
+    plans.L=L;
+    plans.Lhalf=Lhalf;
+
+    // plans
+    plans.utemp_to_uhattemp = utemp_to_uhattemp;
+    plans.uhattemp_to_utemp = uhattemp_to_utemp;
+    plans.uhattemp_to_uext = uhattemp_to_uext;
+    plans.uext_to_uhat = uext_to_uhat;
+    plans.uhattemp_to_vext = uhattemp_to_vext;
+    plans.vext_to_vhat = vext_to_vhat;
+
+}
+
 
 
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Griddata& griddata)
@@ -997,98 +1234,263 @@ void find_knot_velocity(const vector<knotcurve>& knotcurves,vector<knotcurve>& k
         }
     }
 }
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv,const Griddata& griddata)
+
+void uv_update(const Plans &plans,const Griddata& griddata)
 {
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
+    const int Nx = griddata.Nx;
+    const int Ny = griddata.Ny;
+    const int Nz = griddata.Nz;
     const double h = griddata.h;
-    int i,j,k,l,n,kup,kdown,iup,idown,jup,jdown;
-    double D2u;
-    const int arraysize = Nx*Ny*Nz;
+    // data
+    fftw_complex* uhat = plans.uhat;
+    fftw_complex* vhat = plans.vhat;
+    fftw_complex* uhatnext = plans.uhatnext;
+    fftw_complex* vhatnext = plans.vhatnext;
+    fftw_complex* uhattemp =  plans.uhattemp;
+    double * utemp = plans.utemp;
+    double complex* L = plans.L;
+    double complex* Lhalf = plans.Lhalf;
+    // plans
+    fftw_plan utemp_to_uhattemp = plans.utemp_to_uhattemp;
+    fftw_plan uhattemp_to_utemp = plans.uhattemp_to_utemp;
 
 
-    // some constants we will use over and over below:
-    const double sixth = 1.0/6.0;
-    const double ONETHIRD = 1.0/3.0;
+    // some constants we will use:
+    const int NComplex = Nx*Ny*(Nz/2 +1);
+    const int Nreal = Nx*Ny*Nz;
+    const double hcubed = h*h*h;
+    const double Nrealhcubed = Nreal*h*h*h;
+    const double oneoverNrealhcubed = (1/((double)(Nreal)))*(1/(h*h*h));
+    const double onesixth = 1.0/6.0;
+    const double onethird = 1.0/3.0;
     const double oneoverepsilon = 1.0/epsilon;
     const double oneoverhsq = 1.0/(h*h);
-    // first loop. get k1, store (in testun] and testv[n], the value u[n]+h/2k1)
-#pragma omp for 
-    for(i=0;i<Nx;i++)
+
+    // copy uhat into the temp buffer - FFTW overwrities this buffer when it does the transform
+    for(int n=0;n<NComplex;n++)
     {
-        for(j=0; j<Ny; j++)
+        uhattemp[n] = uhat[n];
+    }
+
+    //STEP 0
+    for(int n=0;n<NComplex;n++)
+    {
+        double complex L00 = L[4*n+0+0];
+        double complex L01 = L[4*n+0+1];
+        double complex L10 = L[4*n+2*1+0];
+        double complex L11 = L[4*n+2*1+1];
+        uhatnext[n] = L00*uhat[n] + L01*vhat[n];
+        vhatnext[n] = L10*uhat[n] + L11*vhat[n];
+    }
+
+    // STEP 1
+
+    // Compute N(uhat)
+
+    fftw_execute(uhattemp_to_utemp);
+
+    for(int n=0;n<Nreal;n++)
+    {
+        // scale the transform
+        utemp[n] = oneoverNrealhcubed*utemp[n];
+        // compute the nonlinearity in real space
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
+    }
+
+    fftw_execute(utemp_to_uhattemp);
+
+    // uhat temp contains -1/3epsilson ucubedhat now
+
+    // add to unext
+    for(int n=0;n<NComplex;n++)
+    {
+        // scale the transform
+        uhattemp[n] = hcubed*uhattemp[n];
+
+        double complex L00 = L[4*n+0+0];
+        double complex L01 = L[4*n+0+1];
+        double complex L10 = L[4*n+2*1+0];
+        double complex L11 = L[4*n+2*1+1];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+
+        uhatnext[n] += onesixth*dtime*(L00*Nu + L01*Nv);
+        vhatnext[n] += onesixth*dtime*(L10*Nu + L11*Nv);
+
+    }
+
+    // now compute u1hat
+    for(int n=0;n<NComplex;n++)
+    {
+        double complex L00 = Lhalf[4*n+0+0];
+        double complex L01 = Lhalf[4*n+0+1];
+        double complex L10 = Lhalf[4*n+2*1+0];
+        double complex L11 = Lhalf[4*n+2*1+1];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+
+        uhattemp[n] = L00*(uhat[n] + 0.5*dtime*Nu)+L01*(vhat[n] + 0.5*dtime*Nv);
+    }
+
+    // STEP 2
+
+    // Compute N(uhat1)
+
+    fftw_execute(uhattemp_to_utemp);
+
+    for(int n=0;n<Nreal;n++)
+    {
+        // scale the transform
+        utemp[n] = oneoverNrealhcubed*utemp[n];
+        // compute the nonlinearity in real space
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
+    }
+
+    fftw_execute(utemp_to_uhattemp);
+
+    // uhat temp contains -1/3epsilson ucubedhat1 now
+
+    // add to unext
+    for(int n=0;n<NComplex;n++)
+    {
+        // scale the transform
+        uhattemp[n] = hcubed*uhattemp[n];
+
+        double complex L00 = Lhalf[4*n+0+0];
+        double complex L01 = Lhalf[4*n+0+1];
+        double complex L10 = Lhalf[4*n+2*1+0];
+        double complex L11 = Lhalf[4*n+2*1+1];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0?epsilon*beta*Nrealhcubed:0;
+
+        uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
+        vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
+
+    }
+
+    // now compute u2hat
+    for(int n=0;n<NComplex;n++)
+    {
+        double complex L00 = Lhalf[4*n+0+0];
+        double complex L01 = Lhalf[4*n+0+1];
+        double complex L10 = Lhalf[4*n+2*1+0];
+        double complex L11 = Lhalf[4*n+2*1+1];
+
+        double complex Nu = uhattemp[n];
+
+        uhattemp[n] = L00*uhat[n] +L01*vhat[n] + 0.5*dtime*Nu;
+    }
+
+    // STEP 3
+
+    // Compute N(uhat2)
+
+    fftw_execute(uhattemp_to_utemp);
+
+    for(int n=0;n<Nreal;n++)
+    {
+        // scale the transform
+        utemp[n] = oneoverNrealhcubed*utemp[n];
+        // compute the nonlinearity in real space
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
+    }
+
+    fftw_execute(utemp_to_uhattemp);
+
+    // uhat temp contains -1/3epsilson ucubedhat2 now
+
+    // add to unext
+    for(int n=0;n<NComplex;n++)
+    {
+        // scale the transform
+        uhattemp[n] = hcubed*uhattemp[n];
+
+        double complex L00 = Lhalf[4*n+0+0];
+        double complex L01 = Lhalf[4*n+0+1];
+        double complex L10 = Lhalf[4*n+2*1+0];
+        double complex L11 = Lhalf[4*n+2*1+1];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+
+        uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
+        vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
+
+    }
+
+    // now compute u3hat
+    for(int n=0;n<NComplex;n++)
+    {
+        double complex L00 = L[4*n+0+0];
+        double complex L01 = L[4*n+0+1];
+        double complex Lhalf00 = Lhalf[4*n+0+0];
+        double complex Lhalf01 = Lhalf[4*n+0+1];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+
+        uhattemp[n] = L00*uhat[n] +L01*vhat[n] + dtime*(Lhalf00*Nu+ Lhalf01*Nv);
+    }
+
+    // STEP 4
+
+    // Compute N(uhat3)
+
+    fftw_execute(uhattemp_to_utemp);
+
+    for(int n=0;n<Nreal;n++)
+    {
+        // scale the transform
+        utemp[n] = oneoverNrealhcubed*utemp[n];
+        // compute the nonlinearity in real space
+        utemp[n] = -onethird*oneoverepsilon*utemp[n]*utemp[n]*utemp[n];
+    }
+
+    fftw_execute(utemp_to_uhattemp);
+
+    // uhat temp contains -1/3epsilson ucubedhat3 now
+
+    // add to unext
+    for(int n=0;n<NComplex;n++)
+    {
+        // scale the transform
+        uhattemp[n] = hcubed*uhattemp[n];
+
+        double complex Nu = uhattemp[n];
+        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+
+        uhatnext[n] += onesixth*dtime*Nu;
+        vhatnext[n] += onesixth*dtime*Nv;
+
+    }
+
+    for(int n=0;n<NComplex;n++)
+    {
+        uhat[n] = uhatnext[n];
+        vhat[n] = vhatnext[n];
+    }
+
+    // symettrize
+        for(int nx=0; nx<Nx; nx++)
         {
-            for(k=0; k<Nz; k++)   //Central difference
+            for(int ny=0; ny<Ny; ny++)
             {
-                n = pt(i,j,k,griddata);
-                kup = gridinc(k,1,Nz,2);
-                kdown = gridinc(k,-1,Nz,2);
-                D2u = oneoverhsq*(u[pt(gridinc(i,1,Nx,0),j,k,griddata)] + u[pt(gridinc(i,-1,Nx,0),j,k,griddata)] + u[pt(i,gridinc(j,1,Ny,1),k,griddata)] + u[pt(i,gridinc(j,-1,Ny,1),k,griddata)] + u[pt(i,j,kup,griddata)] + u[pt(i,j,kdown,griddata)] - 6.0*u[n]);
-                ku[n] = oneoverepsilon*(u[n] - (ONETHIRD*u[n])*(u[n]*u[n]) - v[n]) + D2u;
-                kv[n] = epsilon*(u[n] + beta - gam*v[n]);
+                int n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + 0;
+                int conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + 0;
+                uhat[conjn] = conj(uhat[n]);
+                vhat[conjn] = conj(vhat[n]);
+                n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + Nz/2;
+                conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + Nz/2;
+                uhat[conjn] = conj(uhat[n]);
+                vhat[conjn] = conj(vhat[n]);
             }
         }
-    }
-    // 2nd and 3rd loops
-    double inc ;
-    for(l=1;l<=3;l++)  //u and v update for each fractional time step
-    {
-        switch (l)
-        {
-        case 1:
-        {
-            inc=0.5;   //add k1 to uv and add to total k
-        }
-            break;
-
-        case 2:
-        {
-            inc=0.5 ;   //add k1 to uv and add to total k
-        }
-            break;
-        case 3:
-        {
-            inc=1 ;   //add k1 to uv and add to total k
-        }
-            break;
-        }
-#pragma omp for 
-        for(i=0;i<Nx;i++)
-        {
-            for(j=0; j<Ny; j++)
-            {
-                for(k=0; k<Nz; k++)   //Central difference
-                {
-                    n = pt(i,j,k,griddata);
-
-                    iup = pt(gridinc(i,1,Nx,0),j,k,griddata);
-                    idown =pt(gridinc(i,-1,Nx,0),j,k,griddata);
-                    jup = pt(i,gridinc(j,1,Ny,1),k,griddata);
-                    jdown =pt(i,gridinc(j,-1,Ny,1),k,griddata);
-                    kup = pt(i,j,gridinc(k,1,Nz,2),griddata);
-                    kdown = pt(i,j,gridinc(k,-1,Nz,2),griddata);
-                    double currentu = u[n] + dtime*inc*ku[(l-1)*arraysize+n];
-                    double currentv = v[n] + dtime*inc*kv[(l-1)*arraysize+n];
-
-                    D2u = oneoverhsq*((u[iup]+dtime*inc*ku[(l-1)*arraysize+iup]) + (u[idown]+dtime*inc*ku[(l-1)*arraysize+idown]) +(u[jup]+dtime*inc*ku[(l-1)*arraysize+jup]) +(u[jdown]+dtime*inc*ku[(l-1)*arraysize+jdown]) + (u[kup]+dtime*inc*ku[(l-1)*arraysize+kup]) + (u[kdown]+dtime*inc*ku[(l-1)*arraysize+kdown])- 6.0*(currentu));
-
-
-                    ku[arraysize*l+n] = oneoverepsilon*(currentu - (ONETHIRD*currentu)*(currentu*currentu) - currentv) + D2u;
-                    kv[arraysize*l+n] = epsilon*(currentu + beta - gam*currentv);
-                }
-            }
-        }
-    }
-#pragma omp for 
-    for(n=0;n<Nx*Ny*Nz;n++)
-    {
-
-        u[n] = u[n] + dtime*sixth*(ku[n]+2*ku[arraysize+n]+2*ku[2*arraysize+n]+ku[3*arraysize+n]);
-        v[n] = v[n] + dtime*sixth*(kv[n]+2*kv[arraysize+n]+2*kv[2*arraysize+n]+kv[3*arraysize+n]);
-    }
 
 }
+
 
 /*************************File reading and writing*****************************/
 
@@ -1269,4 +1671,27 @@ int sign(int i)
 {
     if(i==0) return 0;
     else return i/abs(i);
+}
+
+void phi_calc_manual(vector<double>&phi,const Griddata& griddata)
+{
+    int Nx = griddata.Nx;
+    int Ny = griddata.Ny;
+    int Nz = griddata.Nz;
+    int i,j,k,n;
+    for(i=0;i<Nx;i++)
+    {
+        for(j=0; j<Ny; j++)
+        {
+            for(k=0; k<Nz; k++)
+            {
+                n = pt(i,j,k,griddata);
+                phi[n] = atan2(y(j,griddata),x(i,griddata));
+                while(phi[n]>M_PI) phi[n] -= 2*M_PI;
+                while(phi[n]<-M_PI) phi[n] += 2*M_PI;
+            }
+        }
+    }
+    cout << "Printing B and phi...\n";
+    print_B_phi(phi,griddata);
 }

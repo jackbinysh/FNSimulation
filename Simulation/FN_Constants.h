@@ -64,8 +64,8 @@ const double BoxResizeTime = 1000;
 
 
 // OPTION - how big should the knot be in the box, do you want it tilted or displaced?
-const double sensorxcoord = 35;
-const double sensorycoord = 0;
+const double sensorxcoord = 0;
+const double sensorycoord = 15;
 const double sensorzcoord = 0;
 
 // OPTION - how big should the knot be in the box, do you want it tilted or displaced?
@@ -78,6 +78,9 @@ const double initialthetarotation = 0;
 const double initialxdisplacement = 0;
 const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
+const double xscalefactortweak = 0;
+const double yscalefactortweak = 0;
+const double zscalefactortweak = 0;
 
 // OPTION - what system params do you want . Don't touch these usually
 //System size parameters

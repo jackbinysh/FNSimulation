@@ -1,7 +1,7 @@
 CXX=g++
-CXXFLAGS=-O3 -fopenmp  
-LDLIBS=  -lgsl -lgslcblas  
-LDFLAGS = -O3 -fopenmp 
+CXXFLAGS=-O3 -fopenmp   
+LDLIBS=  -lgsl -lgslcblas -lfftw3 -lm  
+LDFLAGS = -O3 -fopenmp
 OBJS= TriCubicInterpolator.o FN_Knot.o ReadingWriting.o Initialisation.o
 DEPS=FN_Knot.h FN_Constants.h ReadingWriting.h Initialisation.h TriCubicInterpolator.h
 

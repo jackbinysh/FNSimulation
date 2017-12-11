@@ -11,10 +11,34 @@
 #include <time.h>
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
+#include <complex.h>
+#include <fftw3.h>
 using namespace std;
 
 #ifndef FNKNOT_H
 #define FNKNOT_H
+struct Plans
+{
+
+    // the data
+    fftw_complex* uhat;
+    fftw_complex* vhat;
+    fftw_complex* uhatnext;
+    fftw_complex* vhatnext;
+    fftw_complex* uhattemp;
+    double* utemp;
+
+    double complex * L;
+    double complex * Lhalf;
+
+    // the plans
+    fftw_plan utemp_to_uhattemp;
+    fftw_plan uhattemp_to_utemp;
+    fftw_plan uext_to_uhat;
+    fftw_plan vext_to_vhat;
+    fftw_plan uhattemp_to_uext;
+    fftw_plan uhattemp_to_vext;
+};
 
 struct Griddata
 {
@@ -136,7 +160,10 @@ void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const 
 void crossgrad_calc(vector<double>&u, vector<double>&v, vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>&ucvmag, const Griddata &griddata);
 void find_knot_properties(vector<double>&ucvx, vector<double>&ucvy, vector<double>&ucvz, vector<double>& ucvmag, vector<double>&u, vector<knotcurve>& knotcurves, double t, gsl_multimin_fminimizer* minimizerstate, const Griddata &griddata);
 void find_knot_velocity(const vector<knotcurve>& knotcurves, vector<knotcurve>& knotcurvesold, const Griddata &griddata, const double deltatime);
-void uv_update(vector<double>&u, vector<double>&v,  vector<double>&ku, vector<double>&kv, const Griddata &griddata);
+void uhatvhat_initialise(const Plans& plans, const Griddata& Griddata);
+void uv_update(const Plans &plans, const Griddata& Griddata);
+void uv_update_external(vector<double>&u, vector<double>&v, const Plans &plans, const Griddata& Griddata);
+void Initialise(vector<double>&u, vector<double>&v,Plans &plans, const Griddata& Griddata);
 // 3d geometry functions
 int intersect3D_SegmentPlane( knotpoint SegmentStart, knotpoint SegmentEnd, knotpoint PlaneSegmentStart, knotpoint PlaneSegmentEnd, double& IntersectionFraction, std::vector<double>& IntersectionPoint );
 
