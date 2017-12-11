@@ -374,7 +374,7 @@ void phi_calc_surface(vector<double>&phi,vector<triangle>& knotsurface, const Gr
     print_B_phi(phi,griddata);
 
 }
-void phi_calc_manual(vector<double>&phi, Griddata& griddata)
+void phi_calc_manual(vector<double>&phi,const Griddata& griddata)
 {
     int Nx = griddata.Nx;
     int Ny = griddata.Ny;
@@ -388,8 +388,7 @@ void phi_calc_manual(vector<double>&phi, Griddata& griddata)
             {
                 n = pt(i,j,k,griddata);
                 phi[n] = 0;
-                double theta = 0.5;
-                phi[n] = atan2(y(j,griddata)-lambda,x(i,griddata)-lambda)- atan2(y(j,griddata),-sin(theta)*z(k,griddata) +cos(theta)*x(i,griddata));
+                phi[n] = atan2(y(j,griddata),x(i,griddata)); 
                 while(phi[n]>M_PI) phi[n] -= 2*M_PI;
                 while(phi[n]<-M_PI) phi[n] += 2*M_PI;
             }
