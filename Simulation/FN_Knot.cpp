@@ -149,7 +149,6 @@ int main (void)
                     //find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     //print_knot(CurrentTime, knotcurves, griddata);
 
-                    print_sensor_point(CurrentTime,sensorpoint,u,griddata);
                 }
 
                 // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
@@ -173,6 +172,7 @@ int main (void)
                     uv_update_external(u,v,plans,griddata);
                     crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
                     print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
+                    print_sensor_point(CurrentTime,sensorpoint,u,griddata);
                 }
                 //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
                 CurrentIteration++;
@@ -1472,6 +1472,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         uhat[n] = uhatnext[n];
         vhat[n] = vhatnext[n];
     }
+
 
     // symettrize
         for(int nx=0; nx<Nx; nx++)
