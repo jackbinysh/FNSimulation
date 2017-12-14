@@ -1,5 +1,4 @@
-/* Fitzhugh-Nagumo reaction diffusion simulation with arbitrary vortex lines
-   OPENMP VERSION
+/* Fitzhugh-Nagumo reaction diffusion simulation with arbitrary vortex lines OPENMP VERSION
    Created by Carl Whitfield
    Last modified 03/01/17
 
@@ -129,7 +128,7 @@ int main (void)
 
     double CurrentTime = starttime;
     int CurrentIteration = (int)(CurrentTime/dtime);
-//#pragma omp parallel default(none) shared (u,v,ucvx, CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
+//#pragma omp parallel default(none) shared (u,v,ucvx, plans,CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
     {
         while(CurrentTime <= TTime)
         {
@@ -144,7 +143,7 @@ int main (void)
                     time (&rawtime);
                     timeinfo = localtime (&rawtime);
                     cout << "current time \t" << asctime(timeinfo) << "\n";
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                   // crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
 
                     //find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
                     //print_knot(CurrentTime, knotcurves, griddata);
@@ -236,6 +235,9 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
         L[n]=Lhalf[n]=0;
     }
 
+    // for the multithreading, initialise fftw
+    fftw_init_threads();
+    fftw_plan_with_nthreads(omp_get_max_threads());
     // the FT's of u and v
     fftw_complex* uhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
     fftw_complex* vhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
@@ -1349,7 +1351,6 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     fftw_execute(utemp_to_uhattemp);
-
     // uhat temp contains -1/3epsilson ucubedhat1 now
 
     // add to unext
@@ -1389,7 +1390,6 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // Compute N(uhat2)
 
     fftw_execute(uhattemp_to_utemp);
-
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1399,7 +1399,6 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     fftw_execute(utemp_to_uhattemp);
-
     // uhat temp contains -1/3epsilson ucubedhat2 now
 
     // add to unext
@@ -1440,7 +1439,6 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // Compute N(uhat3)
 
     fftw_execute(uhattemp_to_utemp);
-
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1450,7 +1448,6 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     fftw_execute(utemp_to_uhattemp);
-
     // uhat temp contains -1/3epsilson ucubedhat3 now
 
     // add to unext
