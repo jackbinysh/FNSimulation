@@ -1269,12 +1269,14 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     const double oneoverhsq = 1.0/(h*h);
 
     // copy uhat into the temp buffer - FFTW overwrities this buffer when it does the transform
+#pragma omp parallel for default(none) shared (uhattemp,uhat)
     for(int n=0;n<NComplex;n++)
     {
         uhattemp[n] = uhat[n];
     }
 
     //STEP 0
+#pragma omp parallel for default(none) shared (L,uhatnext,vhatnext,uhat,vhat)
     for(int n=0;n<NComplex;n++)
     {
         double complex L00 = L[4*n+0+0];
@@ -1291,6 +1293,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 
     fftw_execute(uhattemp_to_utemp);
 
+#pragma omp parallel for default(none) shared (utemp)
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1304,6 +1307,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat now
 
     // add to unext
+#pragma omp parallel for default(none) shared (utemp,uhattemp,L,uhatnext,vhatnext)
     for(int n=0;n<NComplex;n++)
     {
         // scale the transform
@@ -1323,6 +1327,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     // now compute u1hat
+#pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
         double complex L00 = Lhalf[4*n+0+0];
@@ -1342,6 +1347,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 
     fftw_execute(uhattemp_to_utemp);
 
+#pragma omp parallel for default(none) shared (utemp)
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1354,6 +1360,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat1 now
 
     // add to unext
+#pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,uhatnext,vhatnext)
     for(int n=0;n<NComplex;n++)
     {
         // scale the transform
@@ -1373,6 +1380,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     // now compute u2hat
+#pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
         double complex L00 = Lhalf[4*n+0+0];
@@ -1390,6 +1398,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // Compute N(uhat2)
 
     fftw_execute(uhattemp_to_utemp);
+#pragma omp parallel for default(none) shared (utemp)
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1402,6 +1411,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat2 now
 
     // add to unext
+#pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,uhatnext,vhatnext)
     for(int n=0;n<NComplex;n++)
     {
         // scale the transform
@@ -1421,6 +1431,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     }
 
     // now compute u3hat
+#pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,L,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
         double complex L00 = L[4*n+0+0];
@@ -1439,6 +1450,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // Compute N(uhat3)
 
     fftw_execute(uhattemp_to_utemp);
+#pragma omp parallel for default(none) shared (utemp)
     for(int n=0;n<Nreal;n++)
     {
         // scale the transform
@@ -1451,6 +1463,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     // uhat temp contains -1/3epsilson ucubedhat3 now
 
     // add to unext
+#pragma omp parallel for default(none) shared (utemp,uhattemp,L,uhatnext,vhatnext)
     for(int n=0;n<NComplex;n++)
     {
         // scale the transform
@@ -1464,6 +1477,7 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 
     }
 
+#pragma omp parallel for default(none) shared (uhat,vhat,uhatnext,vhatnext)
     for(int n=0;n<NComplex;n++)
     {
         uhat[n] = uhatnext[n];
