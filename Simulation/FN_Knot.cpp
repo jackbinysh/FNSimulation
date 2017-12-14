@@ -128,55 +128,51 @@ int main (void)
 
     double CurrentTime = starttime;
     int CurrentIteration = (int)(CurrentTime/dtime);
-//#pragma omp parallel default(none) shared (u,v,ucvx, plans,CurrentIteration,InitialSkipIteration,FrequentKnotplotPrintIteration,UVPrintIteration,VelocityKnotplotPrintIteration,ucvy, ucvz,ucvmag,cout, rawtime, starttime, timeinfo,CurrentTime, knotcurves,knotcurvesold,minimizerstate,griddata,sensorpoint)
     {
         while(CurrentTime <= TTime)
         {
-//#pragma omp single
+
+            // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
+            // than a cycle
+            if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
             {
+                cout << "T = " << CurrentTime << endl;
+                time (&rawtime);
+                timeinfo = localtime (&rawtime);
+                cout << "current time \t" << asctime(timeinfo) << "\n";
+                uv_update_external(u,v,plans,griddata);
+                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                print_knot(CurrentTime, knotcurves, griddata);
 
-                // its useful to have an oppurtunity to print the knotcurve, without doing the velocity tracking, whihc doesnt work too well if we go more frequenclty
-                // than a cycle
-                if( ( CurrentIteration >= InitialSkipIteration ) && ( CurrentIteration%FrequentKnotplotPrintIteration==0) )
-                {
-                    cout << "T = " << CurrentTime << endl;
-                    time (&rawtime);
-                    timeinfo = localtime (&rawtime);
-                    cout << "current time \t" << asctime(timeinfo) << "\n";
-                   // crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-
-                    //find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    //print_knot(CurrentTime, knotcurves, griddata);
-
-                }
-
-                // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
-                if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
-                {
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-
-                    find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                    if(!knotcurvesold.empty())
-                    {
-                        find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
-                        print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
-                    }
-                    knotcurvesold = knotcurves;
-
-                }
-
-                // print the UV, and ucrossv data
-                if(CurrentIteration%UVPrintIteration==0)
-                {
-                    uv_update_external(u,v,plans,griddata);
-                    crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                    print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
-                    print_sensor_point(CurrentTime,sensorpoint,u,griddata);
-                }
-                //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
-                CurrentIteration++;
-                CurrentTime  = ((double)(CurrentIteration) * dtime);
             }
+
+            // run the curve tracing, and find the velocity of the one we previously stored, then print that previous one
+            if( ( CurrentIteration > InitialSkipIteration ) && ( CurrentIteration%VelocityKnotplotPrintIteration==0) )
+            {
+                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+
+                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                if(!knotcurvesold.empty())
+                {
+                    find_knot_velocity(knotcurves,knotcurvesold,griddata,VelocityKnotplotPrintTime);
+                    print_knot(CurrentTime - VelocityKnotplotPrintTime , knotcurvesold, griddata);
+                }
+                knotcurvesold = knotcurves;
+
+            }
+
+            // print the UV, and ucrossv data
+            if(CurrentIteration%UVPrintIteration==0)
+            {
+                uv_update_external(u,v,plans,griddata);
+                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                print_uv(u,v,ucvx,ucvy,ucvz,ucvmag,CurrentTime,griddata);
+                print_sensor_point(CurrentTime,sensorpoint,u,griddata);
+            }
+            //though its useful to have a double time, we want to be careful to avoid double round off accumulation in the timer
+            CurrentIteration++;
+            CurrentTime  = ((double)(CurrentIteration) * dtime);
             uv_update(plans,griddata);
         }
     }
@@ -196,7 +192,7 @@ void uv_update_external(vector<double>&u, vector<double>&v,const Plans &plans,co
     // copy uhat into the buffer
     for(int n=0;n<NComplex;n++)
     {
-    plans.uhattemp[n] = plans.uhat[n];
+        plans.uhattemp[n] = plans.uhat[n];
     }
 
     fftw_execute(plans.uhattemp_to_uext);
@@ -205,15 +201,15 @@ void uv_update_external(vector<double>&u, vector<double>&v,const Plans &plans,co
     // copy vhat into the buffer
     for(int n=0;n<NComplex;n++)
     {
-    plans.uhattemp[n] = plans.vhat[n];
+        plans.uhattemp[n] = plans.vhat[n];
     }
     fftw_execute(plans.uhattemp_to_vext);
 
     for(int n=0;n<u.size();n++)
     {
-    // scale the transform
-    u[n] = oneoverNrealhcubed*u[n];
-    v[n] = oneoverNrealhcubed*v[n];
+        // scale the transform
+        u[n] = oneoverNrealhcubed*u[n];
+        v[n] = oneoverNrealhcubed*v[n];
     }
 }
 
@@ -1486,20 +1482,21 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 
 
     // symettrize
-        for(int nx=0; nx<Nx; nx++)
+#pragma omp parallel for default(none) shared (vhat,uhat)
+    for(int nx=0; nx<Nx; nx++)
+    {
+        for(int ny=0; ny<Ny; ny++)
         {
-            for(int ny=0; ny<Ny; ny++)
-            {
-                int n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + 0;
-                int conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + 0;
-                uhat[conjn] = conj(uhat[n]);
-                vhat[conjn] = conj(vhat[n]);
-                n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + Nz/2;
-                conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + Nz/2;
-                uhat[conjn] = conj(uhat[n]);
-                vhat[conjn] = conj(vhat[n]);
-            }
+            int n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + 0;
+            int conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + 0;
+            uhat[conjn] = conj(uhat[n]);
+            vhat[conjn] = conj(vhat[n]);
+            n = Ny*(Nz/2 +1)*(nx%Nx) +(Nz/2 +1)*(ny%Ny) + Nz/2;
+            conjn = Ny*(Nz/2 +1)*((Nx-nx)%Nx) +(Nz/2 +1)*((Ny-ny)%Ny) + Nz/2;
+            uhat[conjn] = conj(uhat[n]);
+            vhat[conjn] = conj(vhat[n]);
         }
+    }
 
 }
 
