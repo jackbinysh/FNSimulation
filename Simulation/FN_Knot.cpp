@@ -256,7 +256,7 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
 
     for(int nx=0;nx<Nx;nx++)
     {
-        for(int ny=0;ny<Nx;ny++)
+        for(int ny=0;ny<Ny;ny++)
         {
             for(int nz=0;nz<(Nz/2)+1;nz++)
             {
