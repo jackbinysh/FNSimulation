@@ -1681,26 +1681,3 @@ int sign(int i)
     if(i==0) return 0;
     else return i/abs(i);
 }
-
-void phi_calc_manual(vector<double>&phi,const Griddata& griddata)
-{
-    int Nx = griddata.Nx;
-    int Ny = griddata.Ny;
-    int Nz = griddata.Nz;
-    int i,j,k,n;
-    for(i=0;i<Nx;i++)
-    {
-        for(j=0; j<Ny; j++)
-        {
-            for(k=0; k<Nz; k++)
-            {
-                n = pt(i,j,k,griddata);
-                phi[n] = atan2(y(j,griddata),x(i,griddata));
-                while(phi[n]>M_PI) phi[n] -= 2*M_PI;
-                while(phi[n]<-M_PI) phi[n] += 2*M_PI;
-            }
-        }
-    }
-    cout << "Printing B and phi...\n";
-    print_B_phi(phi,griddata);
-}

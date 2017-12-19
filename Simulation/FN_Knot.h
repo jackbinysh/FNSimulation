@@ -151,9 +151,6 @@ void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double
 
 /*************************Functions for B and Phi calcs*****************************/
 
-void phi_calc_surface(vector<double>&phi, std::vector<triangle>& knotsurface, const Griddata &griddata);
-
-void phi_calc_manual( vector<double>&phi,const Griddata& griddata);
 
 //FitzHugh Nagumo functions
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v,const Griddata& griddata);
