@@ -28,8 +28,8 @@ struct Plans
     fftw_complex* uhattemp;
     double* utemp;
 
-    double complex * L;
-    double complex * Lhalf;
+    double complex* L;
+    double complex* Lhalf;
 
     // the plans
     fftw_plan utemp_to_uhattemp;

@@ -140,10 +140,10 @@ int main (void)
                 time (&rawtime);
                 timeinfo = localtime (&rawtime);
                 cout << "current time \t" << asctime(timeinfo) << "\n";
-                uv_update_external(u,v,plans,griddata);
-                crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
-                find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
-                print_knot(CurrentTime, knotcurves, griddata);
+                //uv_update_external(u,v,plans,griddata);
+                //crossgrad_calc(u,v,ucvx,ucvy,ucvz,ucvmag,griddata); //find Grad u cross Grad v
+                //find_knot_properties(ucvx,ucvy,ucvz,ucvmag,u,knotcurves,CurrentTime,minimizerstate ,griddata);      //find knot curve and twist and writhe
+                //print_knot(CurrentTime, knotcurves, griddata);
 
             }
 
@@ -224,8 +224,8 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
     int Nreal = Nx*Ny*Nz;
 
     // the matrices L and Lhalf
-    double complex *L = new double complex[Ncomplex*4];
-    double complex *Lhalf = new double complex[Ncomplex*4];
+    double _Complex *L = new double _Complex[Ncomplex*4];
+    double _Complex *Lhalf = new double _Complex[Ncomplex*4];
     for(int n=0;n<Ncomplex*4;n++)
     {
         L[n]=Lhalf[n]=0;
@@ -281,24 +281,24 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 double epsilonfour = epsilon*epsilon*epsilon*epsilon;
 
                 // the eigenvalues of the system
-                double complex root = csqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
-                double complex omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
-                double complex omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
+                double _Complex root = csqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
+                double _Complex omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
+                double _Complex omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
 
                 // the matrices of eigenvectors, T and T-1.
-                double complex V[2][2];
-                double complex T[2][2];
-                double complex Tinv[2][2];
-                double complex eDdt[2][2];
-                double complex eDdthalf[2][2];
+                double _Complex V[2][2];
+                double _Complex T[2][2];
+                double _Complex Tinv[2][2];
+                double _Complex eDdt[2][2];
+                double _Complex eDdthalf[2][2];
                 // the eigenvectors, unnormalised
                 V[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
                 V[1][0] = 1;
                 V[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
                 V[1][1] = 1;
 
-                double complex norm1 = csqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
-                double complex norm2 = csqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
+                double _Complex norm1 = csqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
+                double _Complex norm2 = csqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
                 // now normalised
                 T[0][0] = V[0][0]/norm1;
                 T[1][0] = V[1][0]/norm1;
@@ -307,14 +307,14 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 T[1][1] = V[1][1]/norm2;
 
                 // now the inverse
-                complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
+                _Complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
                 Tinv[0][0] = T[1][1]/detT;
                 Tinv[1][0] = -T[1][0]/detT;
                 Tinv[0][1] = -T[0][1]/detT;
                 Tinv[1][1] = T[0][0]/detT;
 
                 // their exponentiations
-                complex double ans = cexp(omega1*dtime);
+                _Complex double ans = cexp(omega1*dtime);
                 eDdt[0][0] = cexp(omega1*dtime);
                 eDdt[1][0] = 0;
                 eDdt[0][1] = 0;
@@ -325,7 +325,7 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 eDdthalf[0][1] = 0;
                 eDdthalf[1][1] = cexp(omega2*0.5*dtime);
 
-                double complex temp[2][2];
+                double _Complex temp[2][2];
                 for(int i=0;i<2;i++)
                 {
                     for(int j=0;j<2;j++)
@@ -355,10 +355,10 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                         }
                     }
                 }
-                double complex L00 = L[4*n+0+0];
-                double complex L01 = L[4*n+0+1];
-                double complex L10 = L[4*n+2*1+0];
-                double complex L11 = L[4*n+2*1+1];
+                double _Complex L00 = L[4*n+0+0];
+                double _Complex L01 = L[4*n+0+1];
+                double _Complex L10 = L[4*n+2*1+0];
+                double _Complex L11 = L[4*n+2*1+1];
                 // Do L1/2
                 for(int i=0;i<2;i++)
                 {
@@ -1246,8 +1246,8 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     fftw_complex* vhatnext = plans.vhatnext;
     fftw_complex* uhattemp =  plans.uhattemp;
     double * utemp = plans.utemp;
-    double complex* L = plans.L;
-    double complex* Lhalf = plans.Lhalf;
+    double _Complex* L = plans.L;
+    double _Complex* Lhalf = plans.Lhalf;
     // plans
     fftw_plan utemp_to_uhattemp = plans.utemp_to_uhattemp;
     fftw_plan uhattemp_to_utemp = plans.uhattemp_to_utemp;
@@ -1275,10 +1275,10 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (L,uhatnext,vhatnext,uhat,vhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex L10 = L[4*n+2*1+0];
-        double complex L11 = L[4*n+2*1+1];
+        double _Complex L00 = L[4*n+0+0];
+        double _Complex L01 = L[4*n+0+1];
+        double _Complex L10 = L[4*n+2*1+0];
+        double _Complex L11 = L[4*n+2*1+1];
         uhatnext[n] = L00*uhat[n] + L01*vhat[n];
         vhatnext[n] = L10*uhat[n] + L11*vhat[n];
     }
@@ -1309,13 +1309,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex L10 = L[4*n+2*1+0];
-        double complex L11 = L[4*n+2*1+1];
+        double _Complex L00 = L[4*n+0+0];
+        double _Complex L01 = L[4*n+0+1];
+        double _Complex L10 = L[4*n+2*1+0];
+        double _Complex L11 = L[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onesixth*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onesixth*dtime*(L10*Nu + L11*Nv);
@@ -1326,13 +1326,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        double _Complex L00 = Lhalf[4*n+0+0];
+        double _Complex L01 = Lhalf[4*n+0+1];
+        double _Complex L10 = Lhalf[4*n+2*1+0];
+        double _Complex L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhattemp[n] = L00*(uhat[n] + 0.5*dtime*Nu)+L01*(vhat[n] + 0.5*dtime*Nv);
     }
@@ -1362,13 +1362,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        double _Complex L00 = Lhalf[4*n+0+0];
+        double _Complex L01 = Lhalf[4*n+0+1];
+        double _Complex L10 = Lhalf[4*n+2*1+0];
+        double _Complex L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0?epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0?epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
@@ -1379,12 +1379,12 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        double _Complex L00 = Lhalf[4*n+0+0];
+        double _Complex L01 = Lhalf[4*n+0+1];
+        double _Complex L10 = Lhalf[4*n+2*1+0];
+        double _Complex L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
+        double _Complex Nu = uhattemp[n];
 
         uhattemp[n] = L00*uhat[n] +L01*vhat[n] + 0.5*dtime*Nu;
     }
@@ -1413,13 +1413,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        double _Complex L00 = Lhalf[4*n+0+0];
+        double _Complex L01 = Lhalf[4*n+0+1];
+        double _Complex L10 = Lhalf[4*n+2*1+0];
+        double _Complex L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
@@ -1430,13 +1430,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,L,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex Lhalf00 = Lhalf[4*n+0+0];
-        double complex Lhalf01 = Lhalf[4*n+0+1];
+        double _Complex L00 = L[4*n+0+0];
+        double _Complex L01 = L[4*n+0+1];
+        double _Complex Lhalf00 = Lhalf[4*n+0+0];
+        double _Complex Lhalf01 = Lhalf[4*n+0+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhattemp[n] = L00*uhat[n] +L01*vhat[n] + dtime*(Lhalf00*Nu+ Lhalf01*Nv);
     }
@@ -1465,8 +1465,8 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        double _Complex Nu = uhattemp[n];
+        double _Complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onesixth*dtime*Nu;
         vhatnext[n] += onesixth*dtime*Nv;
