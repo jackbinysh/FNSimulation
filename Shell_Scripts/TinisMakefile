@@ -1,6 +1,6 @@
 CXX=icpc
 CXXFLAGS=-O3 -qopenmp 
-LDLIBS= -lgsl -lgslcblas 
+LDLIBS= -lgsl -lgslcblas -lfftw3_omp -lfftw3 -lm 
 LDFLAGS = -O3 -qopenmp
 OBJS= TriCubicInterpolator.o FN_Knot.o ReadingWriting.o Initialisation.o
 DEPS=FN_Knot.h FN_Constants.h TriCubicInterpolator.h ReadingWriting.h Initialisation.h
@@ -12,8 +12,7 @@ SHELL:=/bin/bash
 all: FNCode clean
 
 FNCode:$(OBJS)
-	module load intel impi GSL;/
-	$(CXX) $(OBJS) $(LDLIBS) $(LDFLAGS);/
+	$(CXX) $(OBJS) $(LDLIBS) $(LDFLAGS)
 
 .PHONY: clean
 
