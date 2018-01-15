@@ -78,9 +78,9 @@ const double initialthetarotation = 0;
 const double initialxdisplacement = 0;
 const double initialydisplacement = 0;
 const double initialzdisplacement = 0;
-const double xscalefactortweak = 0;
-const double yscalefactortweak = 0;
-const double zscalefactortweak = 0;
+const double xscalefactortweak = 1;
+const double yscalefactortweak = 1;
+const double zscalefactortweak = 1;
 
 // OPTION - what system params do you want . Don't touch these usually
 //System size parameters
