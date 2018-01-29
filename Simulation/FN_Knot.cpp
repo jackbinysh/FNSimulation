@@ -217,6 +217,12 @@ void scalefunction(double *scale, double *midpoint, double maxxin, double minxin
         for(int i = 0;i<3;i++) scale[i] = scale[imin];
     }
 #endif
+
+
+    // apply manual scale factor tweaks
+    scale[0] *= xscalefactortweak;
+    scale[1] *= yscalefactortweak;
+    scale[2] *= zscalefactortweak;
 }
 
 void uv_initialise(vector<double>&phi, vector<double>&u, vector<double>&v, const Griddata& griddata)
