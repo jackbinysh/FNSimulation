@@ -281,7 +281,7 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 double epsilonfour = epsilon*epsilon*epsilon*epsilon;
 
                 // the eigenvalues of the system
-                std::complex<double> root = sqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
+                std::complex<double> root = sqrt( std::complex<double>(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour,0)  );
                 std::complex<double> omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
                 std::complex<double> omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
 
@@ -297,8 +297,8 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 V[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
                 V[1][1] = 1;
 
-                std::complex<double> norm1 = sqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
-                std::complex<double> norm2 = sqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
+                std::complex<double> norm1 = sqrt(std::complex<double>(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0])));
+                std::complex<double> norm2 = sqrt(std::complex<double>(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1])));
                 // now normalised
                 T[0][0] = V[0][0]/norm1;
                 T[1][0] = V[1][0]/norm1;
