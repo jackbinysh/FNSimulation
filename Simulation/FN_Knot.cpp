@@ -224,8 +224,8 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
     int Nreal = Nx*Ny*Nz;
 
     // the matrices L and Lhalf
-    double complex *L = new double complex[Ncomplex*4];
-    double complex *Lhalf = new double complex[Ncomplex*4];
+    std::complex<double> *L = new std::complex<double>[Ncomplex*4];
+    std::complex<double> *Lhalf = new std::complex<double>[Ncomplex*4];
     for(int n=0;n<Ncomplex*4;n++)
     {
         L[n]=Lhalf[n]=0;
@@ -235,22 +235,22 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
     fftw_init_threads();
     fftw_plan_with_nthreads(omp_get_max_threads());
     // the FT's of u and v
-    fftw_complex* uhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
-    fftw_complex* vhat = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
-    fftw_complex* uhatnext = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
-    fftw_complex* vhatnext = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    std::complex<double>* uhat = reinterpret_cast< std::complex<double>*>( fftw_malloc(sizeof(fftw_complex) * Ncomplex));
+    std::complex<double>* vhat = reinterpret_cast<std::complex<double>*>( fftw_malloc(sizeof(fftw_complex) * Ncomplex));
+    std::complex<double>* uhatnext = reinterpret_cast<std::complex<double>*>( fftw_malloc(sizeof(fftw_complex) * Ncomplex));
+    std::complex<double>* vhatnext = reinterpret_cast<std::complex<double>*>( fftw_malloc(sizeof(fftw_complex) * Ncomplex));
     // the intermediate "RK4" arrays
-    fftw_complex* uhattemp = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Ncomplex);
+    std::complex<double>* uhattemp = reinterpret_cast<std::complex<double>*>( fftw_malloc(sizeof(fftw_complex) * Ncomplex));
     double* utemp = (double*) fftw_malloc(sizeof(double) * Nreal);
     // the temp buffer in real space and FT space
-    fftw_plan utemp_to_uhattemp= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, utemp, uhattemp, FFTW_ESTIMATE);
-    fftw_plan uhattemp_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, utemp, FFTW_ESTIMATE);
+    fftw_plan utemp_to_uhattemp= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz,utemp, reinterpret_cast<fftw_complex*>( uhattemp), FFTW_ESTIMATE);
+    fftw_plan uhattemp_to_utemp= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, reinterpret_cast<fftw_complex*> (uhattemp), utemp, FFTW_ESTIMATE);
     // these  are used for the std::vectors the rest of the codebase is written in
-    fftw_plan uhattemp_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(u[0])) , FFTW_ESTIMATE);
+    fftw_plan uhattemp_to_uext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, reinterpret_cast<fftw_complex*> (uhattemp), reinterpret_cast<double*>(&(u[0])) , FFTW_ESTIMATE);
     // YES THE NAMING HERE IS DELIBERATE- just use uhattemp as a buffer
-    fftw_plan uhattemp_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, uhattemp, reinterpret_cast<double*>(&(v[0])) , FFTW_ESTIMATE);
-    fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(u[0])), uhat , FFTW_ESTIMATE);
-    fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(v[0])), vhat , FFTW_ESTIMATE);
+    fftw_plan uhattemp_to_vext= fftw_plan_dft_c2r_3d( Nx,  Ny,  Nz, reinterpret_cast<fftw_complex*> (uhattemp), reinterpret_cast<double*>(&(v[0])) , FFTW_ESTIMATE);
+    fftw_plan uext_to_uhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(u[0])), reinterpret_cast<fftw_complex*> (uhat) , FFTW_ESTIMATE);
+    fftw_plan vext_to_vhat= fftw_plan_dft_r2c_3d( Nx,  Ny,  Nz, reinterpret_cast<double*>(&(v[0])), reinterpret_cast<fftw_complex*> (vhat) , FFTW_ESTIMATE);
 
     // Now, the L matrices required for the RK4 update are time independent - we can precompute the exponentials - there are two matrices, L and Lhalf for each k:
 
@@ -281,24 +281,24 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 double epsilonfour = epsilon*epsilon*epsilon*epsilon;
 
                 // the eigenvalues of the system
-                double complex root = csqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
-                double complex omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
-                double complex omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
+                std::complex<double> root = sqrt(1-2*ksq*epsilon-4*epsilonsq+kfour*epsilonsq+2*gam*epsilonsq-2*ksq*gam*epsiloncub+ gam*gam*epsilonfour);
+                std::complex<double> omega1 = (1-ksq*epsilon - gam*epsilonsq - root)/(2*epsilon) ;
+                std::complex<double> omega2 = (1-ksq*epsilon - gam*epsilonsq + root)/(2*epsilon) ;
 
                 // the matrices of eigenvectors, T and T-1.
-                double complex V[2][2];
-                double complex T[2][2];
-                double complex Tinv[2][2];
-                double complex eDdt[2][2];
-                double complex eDdthalf[2][2];
+                std::complex<double> V[2][2];
+                std::complex<double> T[2][2];
+                std::complex<double> Tinv[2][2];
+                std::complex<double> eDdt[2][2];
+                std::complex<double> eDdthalf[2][2];
                 // the eigenvectors, unnormalised
                 V[0][0] = -(-1+ksq*epsilon - gam*epsilonsq + root)/(2*epsilonsq) ;
                 V[1][0] = 1;
                 V[0][1] = -(-1+ksq*epsilon - gam*epsilonsq - root)/(2*epsilonsq) ;
                 V[1][1] = 1;
 
-                double complex norm1 = csqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
-                double complex norm2 = csqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
+                std::complex<double> norm1 = sqrt(V[0][0]*conj(V[0][0])+V[1][0]*conj(V[1][0]));
+                std::complex<double> norm2 = sqrt(V[0][1]*conj(V[0][1])+V[1][1]*conj(V[1][1]));
                 // now normalised
                 T[0][0] = V[0][0]/norm1;
                 T[1][0] = V[1][0]/norm1;
@@ -307,25 +307,25 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                 T[1][1] = V[1][1]/norm2;
 
                 // now the inverse
-                complex double detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
+                std::complex<double> detT = T[0][0]*T[1][1] - T[1][0]*T[0][1];
                 Tinv[0][0] = T[1][1]/detT;
                 Tinv[1][0] = -T[1][0]/detT;
                 Tinv[0][1] = -T[0][1]/detT;
                 Tinv[1][1] = T[0][0]/detT;
 
                 // their exponentiations
-                complex double ans = cexp(omega1*dtime);
-                eDdt[0][0] = cexp(omega1*dtime);
+                std::complex<double> ans = exp(omega1*dtime);
+                eDdt[0][0] = exp(omega1*dtime);
                 eDdt[1][0] = 0;
                 eDdt[0][1] = 0;
-                eDdt[1][1] = cexp(omega2*dtime);
+                eDdt[1][1] = exp(omega2*dtime);
 
-                eDdthalf[0][0] = cexp(omega1*0.5*dtime);
+                eDdthalf[0][0] = exp(omega1*0.5*dtime);
                 eDdthalf[1][0] = 0;
                 eDdthalf[0][1] = 0;
-                eDdthalf[1][1] = cexp(omega2*0.5*dtime);
+                eDdthalf[1][1] = exp(omega2*0.5*dtime);
 
-                double complex temp[2][2];
+                std::complex<double> temp[2][2];
                 for(int i=0;i<2;i++)
                 {
                     for(int j=0;j<2;j++)
@@ -355,10 +355,10 @@ void Initialise(vector<double>&u, vector<double>&v, Plans &plans, const Griddata
                         }
                     }
                 }
-                double complex L00 = L[4*n+0+0];
-                double complex L01 = L[4*n+0+1];
-                double complex L10 = L[4*n+2*1+0];
-                double complex L11 = L[4*n+2*1+1];
+                std::complex<double> L00 = L[4*n+0+0];
+                std::complex<double> L01 = L[4*n+0+1];
+                std::complex<double> L10 = L[4*n+2*1+0];
+                std::complex<double> L11 = L[4*n+2*1+1];
                 // Do L1/2
                 for(int i=0;i<2;i++)
                 {
@@ -1240,14 +1240,14 @@ void uv_update(const Plans &plans,const Griddata& griddata)
     const int Nz = griddata.Nz;
     const double h = griddata.h;
     // data
-    fftw_complex* uhat = plans.uhat;
-    fftw_complex* vhat = plans.vhat;
-    fftw_complex* uhatnext = plans.uhatnext;
-    fftw_complex* vhatnext = plans.vhatnext;
-    fftw_complex* uhattemp =  plans.uhattemp;
+    std::complex<double>* uhat = plans.uhat;
+    std::complex<double>* vhat = plans.vhat;
+    std::complex<double>* uhatnext = plans.uhatnext;
+    std::complex<double>* vhatnext = plans.vhatnext;
+    std::complex<double>* uhattemp =  plans.uhattemp;
     double * utemp = plans.utemp;
-    double complex* L = plans.L;
-    double complex* Lhalf = plans.Lhalf;
+    std::complex<double>* L = plans.L;
+    std::complex<double>* Lhalf = plans.Lhalf;
     // plans
     fftw_plan utemp_to_uhattemp = plans.utemp_to_uhattemp;
     fftw_plan uhattemp_to_utemp = plans.uhattemp_to_utemp;
@@ -1275,10 +1275,10 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (L,uhatnext,vhatnext,uhat,vhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex L10 = L[4*n+2*1+0];
-        double complex L11 = L[4*n+2*1+1];
+        std::complex<double> L00 = L[4*n+0+0];
+        std::complex<double> L01 = L[4*n+0+1];
+        std::complex<double> L10 = L[4*n+2*1+0];
+        std::complex<double> L11 = L[4*n+2*1+1];
         uhatnext[n] = L00*uhat[n] + L01*vhat[n];
         vhatnext[n] = L10*uhat[n] + L11*vhat[n];
     }
@@ -1309,13 +1309,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex L10 = L[4*n+2*1+0];
-        double complex L11 = L[4*n+2*1+1];
+        std::complex<double> L00 = L[4*n+0+0];
+        std::complex<double> L01 = L[4*n+0+1];
+        std::complex<double> L10 = L[4*n+2*1+0];
+        std::complex<double> L11 = L[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onesixth*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onesixth*dtime*(L10*Nu + L11*Nv);
@@ -1326,13 +1326,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        std::complex<double> L00 = Lhalf[4*n+0+0];
+        std::complex<double> L01 = Lhalf[4*n+0+1];
+        std::complex<double> L10 = Lhalf[4*n+2*1+0];
+        std::complex<double> L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhattemp[n] = L00*(uhat[n] + 0.5*dtime*Nu)+L01*(vhat[n] + 0.5*dtime*Nv);
     }
@@ -1362,13 +1362,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        std::complex<double> L00 = Lhalf[4*n+0+0];
+        std::complex<double> L01 = Lhalf[4*n+0+1];
+        std::complex<double> L10 = Lhalf[4*n+2*1+0];
+        std::complex<double> L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0?epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0?epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
@@ -1379,12 +1379,12 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        std::complex<double> L00 = Lhalf[4*n+0+0];
+        std::complex<double> L01 = Lhalf[4*n+0+1];
+        std::complex<double> L10 = Lhalf[4*n+2*1+0];
+        std::complex<double> L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
+        std::complex<double> Nu = uhattemp[n];
 
         uhattemp[n] = L00*uhat[n] +L01*vhat[n] + 0.5*dtime*Nu;
     }
@@ -1413,13 +1413,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex L00 = Lhalf[4*n+0+0];
-        double complex L01 = Lhalf[4*n+0+1];
-        double complex L10 = Lhalf[4*n+2*1+0];
-        double complex L11 = Lhalf[4*n+2*1+1];
+        std::complex<double> L00 = Lhalf[4*n+0+0];
+        std::complex<double> L01 = Lhalf[4*n+0+1];
+        std::complex<double> L10 = Lhalf[4*n+2*1+0];
+        std::complex<double> L11 = Lhalf[4*n+2*1+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onethird*dtime*(L00*Nu + L01*Nv);
         vhatnext[n] += onethird*dtime*(L10*Nu + L11*Nv);
@@ -1430,13 +1430,13 @@ void uv_update(const Plans &plans,const Griddata& griddata)
 #pragma omp parallel for default(none) shared (utemp,uhattemp,Lhalf,L,vhat,uhat)
     for(int n=0;n<NComplex;n++)
     {
-        double complex L00 = L[4*n+0+0];
-        double complex L01 = L[4*n+0+1];
-        double complex Lhalf00 = Lhalf[4*n+0+0];
-        double complex Lhalf01 = Lhalf[4*n+0+1];
+        std::complex<double> L00 = L[4*n+0+0];
+        std::complex<double> L01 = L[4*n+0+1];
+        std::complex<double> Lhalf00 = Lhalf[4*n+0+0];
+        std::complex<double> Lhalf01 = Lhalf[4*n+0+1];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhattemp[n] = L00*uhat[n] +L01*vhat[n] + dtime*(Lhalf00*Nu+ Lhalf01*Nv);
     }
@@ -1465,8 +1465,8 @@ void uv_update(const Plans &plans,const Griddata& griddata)
         // scale the transform
         uhattemp[n] = hcubed*uhattemp[n];
 
-        double complex Nu = uhattemp[n];
-        double complex Nv = n==0? epsilon*beta*Nrealhcubed:0;
+        std::complex<double> Nu = uhattemp[n];
+        std::complex<double> Nv = n==0? epsilon*beta*Nrealhcubed:0;
 
         uhatnext[n] += onesixth*dtime*Nu;
         vhatnext[n] += onesixth*dtime*Nv;

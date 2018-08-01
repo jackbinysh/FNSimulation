@@ -567,8 +567,8 @@ void uhatvhat_initialise(const Plans &plans, const Griddata& griddata)
     // now compute the FT's
     fftw_execute(plans.uext_to_uhat);
     fftw_execute(plans.vext_to_vhat);
-    fftw_complex* uhat = plans.uhat;
-    fftw_complex* vhat = plans.vhat;
+    std::complex<double>* uhat = plans.uhat;
+    std::complex<double>* vhat = plans.vhat;
     int NComplex = Nx*Ny*(Nz/2 +1);
     double hcubed = h*h*h;
     for(int n=0;n<NComplex;n++)

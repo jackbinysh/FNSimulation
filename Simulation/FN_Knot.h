@@ -1,5 +1,6 @@
 #include "FN_Constants.h"
 #include "TriCubicInterpolator.h"
+#include <complex>
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
@@ -11,7 +12,6 @@
 #include <time.h>
 #include <gsl/gsl_multimin.h>
 #include <gsl/gsl_vector.h>
-#include <complex.h>
 #include <fftw3.h>
 using namespace std;
 
@@ -21,15 +21,15 @@ struct Plans
 {
 
     // the data
-    fftw_complex* uhat;
-    fftw_complex* vhat;
-    fftw_complex* uhatnext;
-    fftw_complex* vhatnext;
-    fftw_complex* uhattemp;
+    std::complex<double>* uhat;
+    std::complex<double>* vhat;
+    std::complex<double>* uhatnext;
+    std::complex<double>* vhatnext;
+    std::complex<double>* uhattemp;
     double* utemp;
 
-    double complex * L;
-    double complex * Lhalf;
+    std::complex<double> * L;
+    std::complex<double> * Lhalf;
 
     // the plans
     fftw_plan utemp_to_uhattemp;
