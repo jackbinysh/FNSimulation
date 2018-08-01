@@ -1,7 +1,7 @@
 CXX=g++
-CXXFLAGS=-O3 -fopenmp   
+CXXFLAGS= -no-pie -fno-pie -O3 -fopenmp 
 LDLIBS=  -lgsl -lgslcblas -lfftw3_omp -lfftw3 -lm  
-LDFLAGS = -O3 -fopenmp
+LDFLAGS = -no-pie -fno-pie -O3 -fopenmp 
 OBJS= TriCubicInterpolator.o FN_Knot.o ReadingWriting.o Initialisation.o
 DEPS=FN_Knot.h FN_Constants.h ReadingWriting.h Initialisation.h TriCubicInterpolator.h
 
@@ -20,3 +20,7 @@ clean:
 
 # a handy list of commands I was using for different architectures
 #icpc -O3 -qopenmp FN_Knot.cpp TriCubicInterpolator.cpp -lgsl -lgslcblas -lm	
+
+# as to why the -no-pie flags, see this link:
+# https://stackoverflow.com/questions/6093547/what-do-r-x86-64-32s-and-r-x86-64-64-relocation-mean
+# apparently FFTW doesnt play well with recent versions of ubuntu and "position-independent executables"
