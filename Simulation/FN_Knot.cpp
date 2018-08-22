@@ -509,7 +509,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
             }
         }
 
-        if(ucvmax<0.45) knotexists = false;
+        if(ucvmax<0.7) knotexists = false;
 
         if(knotexists)
         {
@@ -765,10 +765,10 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(3*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
-                    filter = 1/sqrt(1+pow((i/cutoff),4));
+                    filter = 1/sqrt(1+pow((i/cutoff),8));
                     data[i] *= filter;
                 };
                 // transform back
@@ -857,7 +857,7 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 // at the moment its just a hard filter, we can choose others though.
                 // compute a rough length to set scale
                 double filter;
-                const double cutoff = 2*M_PI*(totlength/(1*lambda));
+                const double cutoff = 2*M_PI*(totlength/(6*lambda));
                 for (i = 0; i < NP; ++i)
                 {
                     filter = 1/sqrt(1+pow((i/cutoff),8));
@@ -1011,6 +1011,8 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                     }
                 }
             }
+
+            print_marked(marked,griddata);
 
             // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
             // but for storage and display, we should put it all in the box
@@ -1596,7 +1598,7 @@ void rotatedisplace(double& xcoord, double& ycoord, double& zcoord, const double
 }
 int circularmod(int i, int N)    // mod i by N in a cirucler fashion, ie wrapping around both in the +ve and -ve directions
 {
-    if(i<0) return N - ((-i)%N);
+    if(i<0) return (  N - ((-i)%N)  )%N;
     else return i%N;
 }
 // inlined functions for incrementing things respecting boundaries
