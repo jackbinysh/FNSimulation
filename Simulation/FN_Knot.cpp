@@ -1012,8 +1012,6 @@ void find_knot_properties( vector<double>&ucvx, vector<double>&ucvy, vector<doub
                 }
             }
 
-            print_marked(marked,griddata);
-
             // the ghost grid has been useful for painlessly computing all the above quantities, without worrying about the periodic bc's
             // but for storage and display, we should put it all in the box
 
